@@ -25,5 +25,9 @@ in
       domain = "lambda.hayl.in";
       source = sources.sheepda;
     };
+    _88x31 = {
+      domain = "88x31.hayl.in";
+      source = sources._88x31;
+    };
   };
 }

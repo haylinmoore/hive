@@ -1,5 +1,18 @@
 {
   "pins": {
+    "_88x31": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "haylinmoore",
+        "repo": "88x31"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "385145e276f044bf94a3efe0d04d384f4ebadbf9",
+      "url": "https://github.com/haylinmoore/88x31/archive/385145e276f044bf94a3efe0d04d384f4ebadbf9.tar.gz",
+      "hash": "0hdrc55r0y2g1hfnkl19z16jf04vc29rar29qnb1c1nqydwz1nh3"
+    },
     "dollpublish": {
       "type": "Git",
       "repository": {
