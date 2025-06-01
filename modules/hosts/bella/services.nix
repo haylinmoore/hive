@@ -1,4 +1,9 @@
 { config, lib, pkgs, ... }:
+
+let
+  sources = import ../../../npins;
+in
+
 {
   services.mysql = {
     enable = true;
@@ -12,6 +17,13 @@
     domain = "estrogen.coffee";
     domainAliases = {
       "share.hayl.in" = "haylin";
+    };
+  };
+
+  staticSites = {
+    lambda = {
+      domain = "lambda.hayl.in";
+      source = sources.sheepda;
     };
   };
 }

@@ -18,6 +18,19 @@
       "name": "nixpkgs-unstable",
       "url": "https://releases.nixos.org/nixpkgs/nixpkgs-25.11pre807978.8ca7ec685bbe/nixexprs.tar.xz",
       "hash": "028bbd25mvga4wwar83ypgm36fax64maifvjdx4d9z8jaanv0arf"
+    },
+    "sheepda": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "haylinmoore",
+        "repo": "sheepda"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46",
+      "url": "https://github.com/haylinmoore/sheepda/archive/efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46.tar.gz",
+      "hash": "0cywcqw7si8m6anwb5xcgy724ipih83hk109s1n7g73fw9scyzl3"
     }
   },
   "version": 5
