@@ -32,6 +32,8 @@ in
   bella = {
     deployment.targetHost = "bella.infra.hayl.in";
 
+    networking.firewall.allowedTCPPorts = [ 80 443 ];
+
     imports = [
       ./modules/hosts/bella/hardware-configuration.nix
       ./modules/hosts/bella/networking.nix
