@@ -1,0 +1,60 @@
+name: npins update
+
+on:
+  workflow_dispatch:
+    inputs:
+      dependency:
+        description: 'Dependency to update'
+        required: true
+
+jobs:
+  update-dependency:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Clone repository
+        run: |
+          git clone git@github.com:haylinmoore/infra.git
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Get current revision
+        id: get_revision
+        run: |
+          cd infra
+          current_revision=$(jq -r '.pins["${{ github.event.inputs.dependency }}"].revision' npins/sources.json | cut -c1-8)
+          echo "Current revision: $current_revision"
+          echo "::set-output name=current_revision::$current_revision"
+
+      - name: Update Dependency with npins
+        run: |
+          cd infra
+          nix-shell -p npins --run "npins update ${{ github.event.inputs.dependency }}"
+
+      - name: Get new revision
+        id: get_new_revision
+        run: |
+          cd infra
+          new_revision=$(jq -r '.pins["${{ github.event.inputs.dependency }}"].revision' npins/sources.json | cut -c1-8)
+          echo "New revision: $new_revision"
+          echo "::set-output name=new_revision::$new_revision"
+
+      - name: Commit changes
+        run: |
+          cd infra
+          if [ "${{ steps.get_revision.outputs.current_revision }}" != "${{ steps.get_new_revision.outputs.new_revision }}" ]; then
+            git config --local user.name "Botlin"
+            git config --local user.email "infra@haylinmoore.com"
+            git add .
+            git commit -m "npins(${{ github.event.inputs.dependency }}): bump from ${{ steps.get_revision.outputs.current_revision }} to ${{ steps.get_new_revision.outputs.new_revision }}"
+            git push origin HEAD:${{ github.ref }}
+          else
+            echo "No changes to commit"
+          fi
