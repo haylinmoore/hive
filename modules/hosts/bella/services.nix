@@ -30,4 +30,10 @@ in
       source = sources._88x31;
     };
   };
+
+  www = {
+    enable = true;
+    domain = "hayl.in";
+    port = 15641;
+  };
 }

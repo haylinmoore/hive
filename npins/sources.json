@@ -44,6 +44,19 @@
       "revision": "efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46",
       "url": "https://github.com/haylinmoore/sheepda/archive/efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46.tar.gz",
       "hash": "0cywcqw7si8m6anwb5xcgy724ipih83hk109s1n7g73fw9scyzl3"
+    },
+    "www": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "haylinmoore",
+        "repo": "www"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "21b9a08de807337d3866cd4d0ff0791f41970870",
+      "url": "https://github.com/haylinmoore/www/archive/21b9a08de807337d3866cd4d0ff0791f41970870.tar.gz",
+      "hash": "0n3kfjy7awgk0xpdzyx5m5pa5x1rh8cdpdgr918hd4nrn8csbxlk"
     }
   },
   "version": 5
