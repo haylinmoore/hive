@@ -21,6 +21,10 @@ in
         max_timeout = 30;
         idle_timeout = 120;
       };
+      http = {
+        listen_addr = ":15642";
+        public_url = "https://soft.hayl.in";
+      };
       initial_admin_keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHavg+rhFmR2p9wuWiO4VxKaIXpq1gOm17jCoZ9jMxvL me@haylinmoore.com" ];
     };
   };
@@ -32,6 +36,13 @@ in
     domain = "estrogen.coffee";
     domainAliases = {
       "share.hayl.in" = "haylin";
+    };
+  };
+
+  proxySites = {
+    soft = {
+      domain = "soft.hayl.in";
+      proxyUri = "http://127.0.0.1:15642/";
     };
   };
 
