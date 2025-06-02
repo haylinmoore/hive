@@ -4,8 +4,8 @@ let
   mkStaticSite = name: cfg: {
     inherit name;
     value = {
-      forceSSL = true;
-      enableACME = true;
+      forceSSL = cfg.ssl;
+      enableACME = cfg.ssl;
       root = import cfg.source { inherit pkgs; };
     };
   };
@@ -23,6 +23,12 @@ in
         source = lib.mkOption {
           type = lib.types.path;
           description = "The source path/derivation for this static site.";
+        };
+
+        ssl = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Whether to enable SSL for this static site.";
         };
       };
     });
