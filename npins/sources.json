@@ -22,9 +22,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "ca7e602e976c6eb72468ef781bd69da4f5607327",
-      "url": "https://github.com/haylinmoore/dollpublish/archive/ca7e602e976c6eb72468ef781bd69da4f5607327.tar.gz",
-      "hash": "06ws9qpsafdcyixqihaizn5i0p1zdcpipwwsvp67y9anacb5lr18"
+      "revision": "4343fd52f5562ab09181e9652c0433826dfc36dc",
+      "url": "https://github.com/haylinmoore/dollpublish/archive/4343fd52f5562ab09181e9652c0433826dfc36dc.tar.gz",
+      "hash": "1skhlmcibwgdbykds3m5s084g4qrivl4k2sz0ywjpj7f86jyizyn"
     },
     "nixpkgs": {
       "type": "Channel",
