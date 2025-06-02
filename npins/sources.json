@@ -1,5 +1,17 @@
 {
   "pins": {
+    "_256": {
+      "type": "Git",
+      "repository": {
+        "type": "Git",
+        "url": "https://soft.hayl.in/256.git"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "71eaafd6997a6faf5411887c53d9fd5b1db44b19",
+      "url": null,
+      "hash": "0afg5jny4s3pnz3wikgn593qmrs4dcym48bavf9qc0y0c5mxndb1"
+    },
     "_88x31": {
       "type": "Git",
       "repository": {
