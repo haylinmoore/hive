@@ -36,6 +36,7 @@ in
     domain = "estrogen.coffee";
     domainAliases = {
       "share.hayl.in" = "haylin";
+      "qshare.hayl.in" = "qaylin";
     };
   };
 
