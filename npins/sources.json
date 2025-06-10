@@ -10,7 +10,8 @@
       "submodules": false,
       "revision": "71eaafd6997a6faf5411887c53d9fd5b1db44b19",
       "url": null,
-      "hash": "0afg5jny4s3pnz3wikgn593qmrs4dcym48bavf9qc0y0c5mxndb1"
+      "hash": "0afg5jny4s3pnz3wikgn593qmrs4dcym48bavf9qc0y0c5mxndb1",
+      "frozen": true
     },
     "_88x31": {
       "type": "Git",
@@ -23,7 +24,8 @@
       "submodules": false,
       "revision": "385145e276f044bf94a3efe0d04d384f4ebadbf9",
       "url": "https://github.com/haylinmoore/88x31/archive/385145e276f044bf94a3efe0d04d384f4ebadbf9.tar.gz",
-      "hash": "0hdrc55r0y2g1hfnkl19z16jf04vc29rar29qnb1c1nqydwz1nh3"
+      "hash": "0hdrc55r0y2g1hfnkl19z16jf04vc29rar29qnb1c1nqydwz1nh3",
+      "frozen": true
     },
     "dollpublish": {
       "type": "Git",
@@ -36,7 +38,8 @@
       "submodules": false,
       "revision": "4343fd52f5562ab09181e9652c0433826dfc36dc",
       "url": "https://github.com/haylinmoore/dollpublish/archive/4343fd52f5562ab09181e9652c0433826dfc36dc.tar.gz",
-      "hash": "1skhlmcibwgdbykds3m5s084g4qrivl4k2sz0ywjpj7f86jyizyn"
+      "hash": "1skhlmcibwgdbykds3m5s084g4qrivl4k2sz0ywjpj7f86jyizyn",
+      "frozen": true
     },
     "nixpkgs": {
       "type": "Channel",
@@ -55,7 +58,8 @@
       "submodules": false,
       "revision": "efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46",
       "url": "https://github.com/haylinmoore/sheepda/archive/efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46.tar.gz",
-      "hash": "0cywcqw7si8m6anwb5xcgy724ipih83hk109s1n7g73fw9scyzl3"
+      "hash": "0cywcqw7si8m6anwb5xcgy724ipih83hk109s1n7g73fw9scyzl3",
+      "frozen": true
     },
     "sops": {
       "type": "Git",
@@ -68,8 +72,7 @@
       "submodules": false,
       "revision": "8d215e1c981be3aa37e47aeabd4e61bb069548fd",
       "url": "https://github.com/Mic92/sops-nix/archive/8d215e1c981be3aa37e47aeabd4e61bb069548fd.tar.gz",
-      "hash": "1jkkjrzz9zmhfkc31v1lsslg8p62r7sjrj4z13c2ghhmdmgfa1ll",
-      "frozen": true
+      "hash": "1jkkjrzz9zmhfkc31v1lsslg8p62r7sjrj4z13c2ghhmdmgfa1ll"
     },
     "treefmt-nix": {
       "type": "Git",
@@ -82,8 +85,7 @@
       "submodules": false,
       "revision": "a05be418a1af1198ca0f63facb13c985db4cb3c5",
       "url": "https://github.com/numtide/treefmt-nix/archive/a05be418a1af1198ca0f63facb13c985db4cb3c5.tar.gz",
-      "hash": "1yadm9disc59an4a6c1zidq82530rd7i7idzzsirv6dlwirbqk3q",
-      "frozen": true
+      "hash": "1yadm9disc59an4a6c1zidq82530rd7i7idzzsirv6dlwirbqk3q"
     },
     "www": {
       "type": "Git",
@@ -96,7 +98,8 @@
       "submodules": false,
       "revision": "b1d4ca7bb7096df8a1465584d39f90e248db4193",
       "url": "https://github.com/haylinmoore/www/archive/b1d4ca7bb7096df8a1465584d39f90e248db4193.tar.gz",
-      "hash": "0pmbgmqlifigagy9d1dn5ddnklgcm8gx0czdsqsvy2afdhyg6dkb"
+      "hash": "0pmbgmqlifigagy9d1dn5ddnklgcm8gx0czdsqsvy2afdhyg6dkb",
+      "frozen": true
     }
   },
   "version": 5
