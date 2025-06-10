@@ -1,0 +1,14 @@
+keys:
+  - &admin_haylin age1f2us8736c0sq54uvks0xtcmgxxy92t0yfdkh8hd775uhtp6xu3vshvfg03
+  - &server_bella age1s95s5n2zuz24frnc0k6986aw5k224sc0g5wpkycdlhm3e9qsl3ysz8nnry
+creation_rules:
+  - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
+    key_groups:
+    - age:
+      - *admin_haylin
+      - *server_bella
+  - path_regex: secrets/bella/[^/]+\.(yaml|json|env|ini)$
+    key_groups:
+    - age:
+      - *admin_haylin
+      - *server_bella

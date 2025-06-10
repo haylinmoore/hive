@@ -1,6 +1,7 @@
 let
   sources = import ./npins;
   pkgs = import sources.nixpkgs {};
+  sops = sources.sops.outPath;
 in
 {
   meta = {
@@ -11,6 +12,7 @@ in
     imports = [
       ./modules/nixos # Pull in all nixos module
       ./modules/shared/users.nix
+      "${sops}/modules/sops"
     ];
 
     deployment.buildOnTarget = true;
@@ -31,6 +33,7 @@ in
 
   bella = {
     deployment.targetHost = "bella.infra.hayl.in";
+    sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
     networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
 
@@ -39,5 +42,14 @@ in
       ./modules/hosts/bella/networking.nix
       ./modules/hosts/bella/services.nix
     ];
+
+    sops.secrets."dollpublish" = {
+      sopsFile = ./secrets/bella/dollpublish.json;
+      key = "";
+      format = "json";
+      owner = "dollpublish";
+      path = "/home/dollpublish/users.json";
+      restartUnits = [ "dollpublish.service" ];
+    };
   };
 }

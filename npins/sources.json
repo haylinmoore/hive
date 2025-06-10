@@ -57,6 +57,20 @@
       "url": "https://github.com/haylinmoore/sheepda/archive/efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46.tar.gz",
       "hash": "0cywcqw7si8m6anwb5xcgy724ipih83hk109s1n7g73fw9scyzl3"
     },
+    "sops": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "Mic92",
+        "repo": "sops-nix"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "8d215e1c981be3aa37e47aeabd4e61bb069548fd",
+      "url": "https://github.com/Mic92/sops-nix/archive/8d215e1c981be3aa37e47aeabd4e61bb069548fd.tar.gz",
+      "hash": "1jkkjrzz9zmhfkc31v1lsslg8p62r7sjrj4z13c2ghhmdmgfa1ll",
+      "frozen": true
+    },
     "www": {
       "type": "Git",
       "repository": {
