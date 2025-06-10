@@ -71,6 +71,20 @@
       "hash": "1jkkjrzz9zmhfkc31v1lsslg8p62r7sjrj4z13c2ghhmdmgfa1ll",
       "frozen": true
     },
+    "treefmt-nix": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "numtide",
+        "repo": "treefmt-nix"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "a05be418a1af1198ca0f63facb13c985db4cb3c5",
+      "url": "https://github.com/numtide/treefmt-nix/archive/a05be418a1af1198ca0f63facb13c985db4cb3c5.tar.gz",
+      "hash": "1yadm9disc59an4a6c1zidq82530rd7i7idzzsirv6dlwirbqk3q",
+      "frozen": true
+    },
     "www": {
       "type": "Git",
       "repository": {

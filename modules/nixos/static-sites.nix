@@ -19,7 +19,7 @@ in
           type = lib.types.str;
           description = "The domain for this static site.";
         };
-        
+
         source = lib.mkOption {
           type = lib.types.path;
           description = "The source path/derivation for this static site.";
@@ -32,11 +32,11 @@ in
         };
       };
     });
-    default = {};
+    default = { };
     description = "Static sites to serve with nginx.";
   };
 
-  config = lib.mkIf (config.staticSites != {}) {
+  config = lib.mkIf (config.staticSites != { }) {
     services.nginx.enable = true;
     services.nginx.virtualHosts = lib.listToAttrs (
       lib.mapAttrsToList (name: cfg: mkStaticSite cfg.domain cfg) config.staticSites

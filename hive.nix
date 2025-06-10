@@ -1,6 +1,6 @@
 let
   sources = import ./npins;
-  pkgs = import sources.nixpkgs {};
+  pkgs = import sources.nixpkgs { };
   sops = sources.sops.outPath;
 in
 {
@@ -18,12 +18,15 @@ in
     deployment.buildOnTarget = true;
 
     environment.systemPackages = with pkgs; [
-      vim wget curl tree
+      vim
+      wget
+      curl
+      tree
     ];
 
-    networking.nameservers = [ "9.9.9.10" "149.112.112.10" "2620:fe::10" "2620:fe::fe:10"];
+    networking.nameservers = [ "9.9.9.10" "149.112.112.10" "2620:fe::10" "2620:fe::fe:10" ];
     networking.dhcpcd.enable = false;
-    
+
     security.acme.acceptTerms = true;
     security.acme.defaults.email = "acme@haylinmoore.com";
 

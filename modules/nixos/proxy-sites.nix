@@ -42,11 +42,11 @@ in
         };
       };
     });
-    default = {};
+    default = { };
     description = "Proxy sites to serve with nginx.";
   };
 
-  config = lib.mkIf (config.proxySites != {}) {
+  config = lib.mkIf (config.proxySites != { }) {
     services.nginx.enable = true;
     services.nginx.virtualHosts = lib.listToAttrs (
       lib.mapAttrsToList (name: cfg: mkProxySite cfg.domain cfg) config.proxySites

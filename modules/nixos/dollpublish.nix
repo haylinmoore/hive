@@ -39,7 +39,7 @@ in
 
     domainAliases = lib.mkOption {
       type = lib.types.attrsOf lib.types.str;
-      default = {};
+      default = { };
       description = "Mapping of domain aliases to usernames.";
     };
   };
@@ -86,18 +86,20 @@ in
           '';
         };
       };
-    } // (lib.mapAttrs (domain: username: {
-      forceSSL = true;
-      enableACME = true;
-      locations."/" = {
-        proxyPass = "http://127.0.0.1:${toString config.dollpublish.port}/${username}/";
-        extraConfig = ''
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto https;
-        '';
-      };
-    }) config.dollpublish.domainAliases);
+    } // (lib.mapAttrs
+      (domain: username: {
+        forceSSL = true;
+        enableACME = true;
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:${toString config.dollpublish.port}/${username}/";
+          extraConfig = ''
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto https;
+          '';
+        };
+      })
+      config.dollpublish.domainAliases);
   };
 }
