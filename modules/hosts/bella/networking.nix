@@ -19,5 +19,6 @@
       address = "2602:fbf5:1::1";
       interface = "ens18";
     };
+    dhcpcd.enable = false;
   };
 }

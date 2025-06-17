@@ -52,4 +52,13 @@ in
       ./modules/hosts/maya/networking.nix
     ];
   };
+
+  zoe = {
+    deployment.targetHost = "zoe.infra.hayl.in";
+
+    imports = [
+      ./modules/hosts/zoe/hardware-configuration.nix
+      ./modules/hosts/zoe/networking.nix
+    ];
+  };
 }
