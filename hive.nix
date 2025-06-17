@@ -61,7 +61,7 @@ in
   maya = {
     deployment.targetHost = "maya.infra.hayl.in";
 
-    networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
+    networking.firewall.allowedTCPPorts = [ 80 443 ];
 
     imports = [
       ./modules/shared/pve.nix
