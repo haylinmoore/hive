@@ -68,6 +68,12 @@ in
     imports = [
       ./modules/hosts/zoe/hardware-configuration.nix
       ./modules/hosts/zoe/networking.nix
+      ./modules/hosts/zoe/services.nix
     ];
+
+    sops.secrets."duckdns" = {
+      sopsFile = ./secrets/zoe/tokens.yaml;
+      key = "duckdns";
+    };
   };
 }

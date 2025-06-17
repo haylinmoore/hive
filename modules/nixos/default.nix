@@ -4,5 +4,6 @@
     ./static-sites.nix
     ./proxy-sites.nix
     ./www.nix
+    ./duckdns.nix
   ];
 }
