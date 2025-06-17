@@ -15,6 +15,8 @@ in
       "${sops}/modules/sops"
     ];
 
+    sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+
     deployment.buildOnTarget = true;
 
     environment.systemPackages = with pkgs; [
@@ -36,7 +38,6 @@ in
 
   bella = {
     deployment.targetHost = "bella.infra.hayl.in";
-    sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
     networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
 
@@ -59,7 +60,6 @@ in
   maya = {
     deployment.targetHost = "maya.infra.hayl.in";
     deployment.targetUser = "haylin";
-    sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
 
     networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
 
