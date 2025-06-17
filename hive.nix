@@ -24,6 +24,7 @@ in
   bella = {
     deployment.targetHost = "bella.infra.hayl.in";
 
+    networking.firewall.enable = true;
     networking.firewall.allowedTCPPorts = [
       80
       443
@@ -50,6 +51,7 @@ in
   maya = {
     deployment.targetHost = "maya.infra.hayl.in";
 
+    networking.firewall.enable = true;
     networking.firewall.allowedTCPPorts = [
       80
       443
@@ -70,6 +72,8 @@ in
       ./modules/hosts/zoe/networking.nix
       ./modules/hosts/zoe/services.nix
     ];
+
+    networking.firewall.enable = false;
 
     sops.secrets."duckdns" = {
       sopsFile = ./secrets/zoe/tokens.yaml;

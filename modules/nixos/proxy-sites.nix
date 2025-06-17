@@ -14,6 +14,7 @@ let
       locations = {
         "/" = {
           proxyPass = "${cfg.proxyUri}";
+          proxyWebsockets = true;
           extraConfig = ''
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
@@ -55,6 +56,7 @@ in
 
   config = lib.mkIf (config.proxySites != { }) {
     services.nginx.enable = true;
+    #services.nginx.recommendedProxySettings = true;
     services.nginx.virtualHosts = lib.listToAttrs (
       lib.mapAttrsToList (name: cfg: mkProxySite cfg.domain cfg) config.proxySites
     );

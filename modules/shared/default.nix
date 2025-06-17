@@ -59,5 +59,4 @@ in
   security.acme.defaults.email = "acme@haylinmoore.com";
 
   services.openssh.enable = true;
-  networking.firewall.enable = true;
 }
