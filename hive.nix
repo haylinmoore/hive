@@ -42,6 +42,7 @@ in
     networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
 
     imports = [
+      ./modules/shared/pve.nix
       ./modules/hosts/bella/hardware-configuration.nix
       ./modules/hosts/bella/networking.nix
       ./modules/hosts/bella/services.nix
@@ -64,6 +65,7 @@ in
     networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
 
     imports = [
+      ./modules/shared/pve.nix
       ./modules/hosts/maya/hardware-configuration.nix
       ./modules/hosts/maya/networking.nix
     ];
