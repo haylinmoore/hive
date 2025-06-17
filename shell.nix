@@ -6,7 +6,7 @@ let
   treefmt = treefmt-nix.mkWrapper pkgs {
     projectRootFile = ".git/config";
     programs = {
-      nixpkgs-fmt.enable = true;
+      nixfmt-rfc-style.enable = true;
       shellcheck.enable = true;
       jsonfmt.enable = true;
       yamlfmt.enable = true;

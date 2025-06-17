@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   sources = import ../../npins;
 in
@@ -6,7 +11,10 @@ in
 
   nix = {
     settings = {
-      trusted-users = [ "root" "haylin" ];
+      trusted-users = [
+        "root"
+        "haylin"
+      ];
       experimental-features = "nix-command flakes";
 
       substituters = [
@@ -40,7 +48,12 @@ in
     tree
   ];
 
-  networking.nameservers = [ "9.9.9.10" "149.112.112.10" "2620:fe::10" "2620:fe::fe:10" ];
+  networking.nameservers = [
+    "9.9.9.10"
+    "149.112.112.10"
+    "2620:fe::10"
+    "2620:fe::fe:10"
+  ];
 
   security.acme.acceptTerms = true;
   security.acme.defaults.email = "acme@haylinmoore.com";

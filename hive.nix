@@ -8,21 +8,27 @@ in
     nixpkgs = pkgs;
   };
 
-  defaults = { pkgs, ... }: {
-    imports = [
-      ./modules/nixos # Pull in all nixos module
-      ./modules/shared/users.nix
-      ./modules/shared/default.nix
-      "${sops}/modules/sops"
-    ];
+  defaults =
+    { pkgs, ... }:
+    {
+      imports = [
+        ./modules/nixos # Pull in all nixos module
+        ./modules/shared/users.nix
+        ./modules/shared/default.nix
+        "${sops}/modules/sops"
+      ];
 
-    deployment.buildOnTarget = true;
-  };
+      deployment.buildOnTarget = true;
+    };
 
   bella = {
     deployment.targetHost = "bella.infra.hayl.in";
 
-    networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
+    networking.firewall.allowedTCPPorts = [
+      80
+      443
+      2222
+    ];
 
     imports = [
       ./modules/shared/pve.nix
@@ -44,7 +50,10 @@ in
   maya = {
     deployment.targetHost = "maya.infra.hayl.in";
 
-    networking.firewall.allowedTCPPorts = [ 80 443 ];
+    networking.firewall.allowedTCPPorts = [
+      80
+      443
+    ];
 
     imports = [
       ./modules/shared/pve.nix

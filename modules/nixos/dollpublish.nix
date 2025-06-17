@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   sources = import ../../npins;
@@ -72,22 +77,23 @@ in
     environment.etc."dollpublish".source = config.dollpublish.dataDir;
 
     services.nginx.enable = true;
-    services.nginx.virtualHosts = {
-      "${config.dollpublish.domain}" = {
-        forceSSL = true;
-        enableACME = true;
-        locations."/" = {
-          proxyPass = "http://127.0.0.1:${toString config.dollpublish.port}/";
-          extraConfig = ''
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto https;
-          '';
+    services.nginx.virtualHosts =
+      {
+        "${config.dollpublish.domain}" = {
+          forceSSL = true;
+          enableACME = true;
+          locations."/" = {
+            proxyPass = "http://127.0.0.1:${toString config.dollpublish.port}/";
+            extraConfig = ''
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
+            '';
+          };
         };
-      };
-    } // (lib.mapAttrs
-      (domain: username: {
+      }
+      // (lib.mapAttrs (domain: username: {
         forceSSL = true;
         enableACME = true;
         locations."/" = {
@@ -99,7 +105,6 @@ in
             proxy_set_header X-Forwarded-Proto https;
           '';
         };
-      })
-      config.dollpublish.domainAliases);
+      }) config.dollpublish.domainAliases);
   };
 }

@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   mkStaticSite = name: cfg: {
@@ -13,25 +18,27 @@ in
 
 {
   options.staticSites = lib.mkOption {
-    type = lib.types.attrsOf (lib.types.submodule {
-      options = {
-        domain = lib.mkOption {
-          type = lib.types.str;
-          description = "The domain for this static site.";
-        };
+    type = lib.types.attrsOf (
+      lib.types.submodule {
+        options = {
+          domain = lib.mkOption {
+            type = lib.types.str;
+            description = "The domain for this static site.";
+          };
 
-        source = lib.mkOption {
-          type = lib.types.path;
-          description = "The source path/derivation for this static site.";
-        };
+          source = lib.mkOption {
+            type = lib.types.path;
+            description = "The source path/derivation for this static site.";
+          };
 
-        ssl = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Whether to enable SSL for this static site.";
+          ssl = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Whether to enable SSL for this static site.";
+          };
         };
-      };
-    });
+      }
+    );
     default = { };
     description = "Static sites to serve with nginx.";
   };

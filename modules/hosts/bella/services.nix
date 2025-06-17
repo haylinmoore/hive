@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   sources = import ../../../npins;
@@ -25,7 +30,9 @@ in
         listen_addr = "127.0.0.1:15642";
         public_url = "https://soft.hayl.in";
       };
-      initial_admin_keys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHavg+rhFmR2p9wuWiO4VxKaIXpq1gOm17jCoZ9jMxvL me@haylinmoore.com" ];
+      initial_admin_keys = [
+        "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHavg+rhFmR2p9wuWiO4VxKaIXpq1gOm17jCoZ9jMxvL me@haylinmoore.com"
+      ];
     };
   };
 

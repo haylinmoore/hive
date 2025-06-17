@@ -1,4 +1,9 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   mkProxySite = name: cfg: {
@@ -23,25 +28,27 @@ in
 
 {
   options.proxySites = lib.mkOption {
-    type = lib.types.attrsOf (lib.types.submodule {
-      options = {
-        domain = lib.mkOption {
-          type = lib.types.str;
-          description = "The domain for this proxy site.";
-        };
+    type = lib.types.attrsOf (
+      lib.types.submodule {
+        options = {
+          domain = lib.mkOption {
+            type = lib.types.str;
+            description = "The domain for this proxy site.";
+          };
 
-        proxyUri = lib.mkOption {
-          type = lib.types.str;
-          description = "The connection Uri for this proxy site.";
-        };
+          proxyUri = lib.mkOption {
+            type = lib.types.str;
+            description = "The connection Uri for this proxy site.";
+          };
 
-        ssl = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Whether to enable SSL for this proxy site.";
+          ssl = lib.mkOption {
+            type = lib.types.bool;
+            default = true;
+            description = "Whether to enable SSL for this proxy site.";
+          };
         };
-      };
-    });
+      }
+    );
     default = { };
     description = "Proxy sites to serve with nginx.";
   };
