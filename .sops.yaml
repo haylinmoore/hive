@@ -2,6 +2,7 @@ keys:
   - &admin_haylin age1reswczf8cqgrzt7mw5ncx087zqdt5e3jrjrgcs265rnkevj9hsyqcvpzsl
   - &server_bella age1s95s5n2zuz24frnc0k6986aw5k224sc0g5wpkycdlhm3e9qsl3ysz8nnry
   - &server_maya age1cst58rc2w20fc8r770dtg3e5vtjkd4mgeyt5c4hey4n0lwfgxqdqchtvd7
+  - &server_zoe age1q0auwwj6z0lqk3h2ncjfhtmyc7yl3az7rmwtj859nt7jz0q9avvsffsfgr
 creation_rules:
   - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
     key_groups:
@@ -14,3 +15,8 @@ creation_rules:
       - age:
           - *admin_haylin
           - *server_bella
+  - path_regex: secrets/zoe/[^/]+\.(yaml|json|env|ini)$
+    key_groups:
+      - age:
+          - *admin_haylin
+          - *server_zoe
