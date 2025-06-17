@@ -60,7 +60,6 @@ in
 
   maya = {
     deployment.targetHost = "maya.infra.hayl.in";
-    deployment.targetUser = "haylin";
 
     networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
 
