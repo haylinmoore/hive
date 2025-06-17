@@ -55,4 +55,17 @@ in
       restartUnits = [ "dollpublish.service" ];
     };
   };
+
+  maya = {
+    deployment.targetHost = "maya.infra.hayl.in";
+    deployment.targetUser = "haylin";
+    sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+
+    networking.firewall.allowedTCPPorts = [ 80 443 2222 ];
+
+    imports = [
+      ./modules/hosts/maya/hardware-configuration.nix
+      ./modules/hosts/maya/networking.nix
+    ];
+  };
 }
