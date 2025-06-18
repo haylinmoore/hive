@@ -20,6 +20,7 @@
     extraComponents = [
       "esphome"
       "met"
+      "group"
       "radio_browser"
       "google_translate"
       "homeassistant_hardware"
