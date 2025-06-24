@@ -110,6 +110,7 @@
                 action = "light.turn_on";
                 data = {
                   brightness_pct = 100;
+                  color_temp_kelvin = 3800;
                 };
                 target = {
                   area_id = "bedroom";
