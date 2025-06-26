@@ -27,6 +27,9 @@
       "zha"
       "homekit"
     ];
+    customComponents = [
+      (pkgs.callPackage ../../packages/luxer-one.nix { })
+    ];
     extraPackages =
       python3Packages: with python3Packages; [
         # Mentioned in crashes
