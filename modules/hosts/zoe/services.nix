@@ -7,12 +7,13 @@
 
 {
 
-  services.duckdns = {
+  services.duckdns-ds = {
     enable = true;
     tokenFile = "/run/secrets/duckdns";
     domains = [
       "uwu-estate"
     ];
+    ipv6Suffix = "243";
   };
 
   services.home-assistant = {

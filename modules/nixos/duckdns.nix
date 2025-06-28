@@ -12,7 +12,7 @@ let
     error_messages=""
 
     # Get primary IPv6 address for egress using Quad9's IPv6 DNS server
-    PRIMARY_IPV6=$(ip -6 route get 2620:fe::fe | awk '{for(i=1;i<=NF;i++) if ($i=="src") print $(i+1)}')
+    PRIMARY_IPV6=$(ip a s enp4s0 | awk '/::${cfg.ipv6Suffix}/ && !/inet6 f/ { split($2, a, "/"); print a[1] }')
 
     # Try IPv4 update
     DRESPONSE_IPV4=$(curl -sS --max-time 60 --no-progress-meter -k -4 -K- <<< "url = \"https://www.duckdns.org/update?verbose=true&domains=$DUCKDNS_DOMAINS&token=$DUCKDNS_TOKEN&ip=\"")
@@ -106,6 +106,13 @@ in
       '';
     };
 
+    ipv6Suffix = lib.mkOption {
+      default = "243"; # Default suffix
+      type = lib.types.str;
+      description = ''
+        The suffix of the IPv6 address to be used for updates.
+      '';
+    };
   };
 
   config = lib.mkIf cfg.enable {
