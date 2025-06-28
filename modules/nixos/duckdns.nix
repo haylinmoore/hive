@@ -137,7 +137,7 @@ in
       description = "DuckDNS Dynamic DNS Client";
       after = [ "network.target" ];
       wantedBy = [ "multi-user.target" ];
-      startAt = "*:0/5";
+      startAt = "*:3/5";
       path = [
         pkgs.gnused
         pkgs.systemd
