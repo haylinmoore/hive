@@ -10,6 +10,9 @@ let
 in
 
 {
+  imports = [
+    ./music.nix
+  ];
   services.mysql = {
     enable = true;
     package = pkgs.mariadb;
@@ -47,11 +50,9 @@ in
     };
   };
 
-  proxySites = {
-    soft = {
-      domain = "soft.hayl.in";
-      proxyUri = "http://127.0.0.1:15642/";
-    };
+  proxySites.soft = {
+    domain = "soft.hayl.in";
+    proxyUri = "http://127.0.0.1:15642/";
   };
 
   staticSites = {
@@ -87,5 +88,4 @@ in
       ];
     };
   };
-
 }

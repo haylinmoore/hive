@@ -46,6 +46,14 @@ in
       path = "/home/dollpublish/users.json";
       restartUnits = [ "dollpublish.service" ];
     };
+
+    sops.secrets."slskd" = {
+      sopsFile = ./secrets/bella/slskd.env;
+      key = "";
+      format = "dotenv";
+      owner = "slskd";
+      restartUnits = [ "slskd.service" ];
+    };
   };
 
   maya = {

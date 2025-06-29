@@ -31,6 +31,11 @@
     fsType = "ext4";
   };
 
+  fileSystems."/music" = {
+    device = "/dev/disk/by-label/MUSIC";
+    fsType = "ext4";
+  };
+
   fileSystems."/boot" = {
     device = "/dev/disk/by-label/NIXBOOT";
     fsType = "vfat";
