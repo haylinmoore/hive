@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>music.hayl.in</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+        
+        .container {
+            text-align: center;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 600px;
+            width: 90%;
+        }
+        
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, #fff, #e0e0e0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+        
+        .services {
+            display: grid;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        
+        .service {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            text-decoration: none;
+            color: white;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .service:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.25);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .service-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .service-desc {
+            opacity: 0.8;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2rem; }
+            .container { padding: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 music.hayl.in</h1>
+        
+        <div class="services">
+            <a href="/web" class="service">
+                <div class="service-title">📺 jellyfin</div>
+            </a>
+            
+            <a href="/feishin" class="service">
+                <div class="service-title">🎧 feishin</div>
+            </a>
+            
+            <a href="/slskd" class="service">
+                <div class="service-title">🔄 soulseek</div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
