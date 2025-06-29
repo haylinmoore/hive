@@ -5,12 +5,8 @@
     ./hardware-configuration.nix
     ./networking.nix
     ./services.nix
+    ./secrets.nix
   ];
 
   networking.firewall.enable = false;
-
-  sops.secrets."duckdns" = {
-    sopsFile = ../../../secrets/zoe/tokens.yaml;
-    key = "duckdns";
-  };
 }

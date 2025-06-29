@@ -13,22 +13,6 @@
     ./hardware-configuration.nix
     ./networking.nix
     ./services.nix
+    ./secrets.nix
   ];
-
-  sops.secrets."dollpublish" = {
-    sopsFile = ../../../secrets/bella/dollpublish.json;
-    key = "";
-    format = "json";
-    owner = "dollpublish";
-    path = "/home/dollpublish/users.json";
-    restartUnits = [ "dollpublish.service" ];
-  };
-
-  sops.secrets."slskd" = {
-    sopsFile = ../../../secrets/bella/slskd.env;
-    key = "";
-    format = "dotenv";
-    owner = "slskd";
-    restartUnits = [ "slskd.service" ];
-  };
 }

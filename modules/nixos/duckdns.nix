@@ -131,6 +131,12 @@ in
       }
     ];
 
+    users.users.duckdns = {
+      isSystemUser = true;
+      group = "duckdns";
+    };
+    users.groups.duckdns = { };
+
     environment.systemPackages = [ duckdns-ds ];
 
     systemd.services.duckdns-ds = {
@@ -148,10 +154,11 @@ in
       ];
       serviceConfig = {
         Type = "simple";
+        User = "duckdns";
+        Group = "duckdns";
         LoadCredential = [
           "DUCKDNS_TOKEN_FILE:${cfg.tokenFile}"
         ] ++ lib.optionals (cfg.domainsFile != null) [ "DUCKDNS_DOMAINS_FILE:${cfg.domainsFile}" ];
-        DynamicUser = true;
       };
       script = ''
         export DUCKDNS_TOKEN=$(systemd-creds cat DUCKDNS_TOKEN_FILE)
