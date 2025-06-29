@@ -13,6 +13,13 @@ let
   };
 in
 {
+  users.users.alice = {
+    isNormalUser = true;
+    createHome = true;
+    group = "media";
+    openssh.authorizedKeys.keys = [ ];
+  };
+
   users.groups.media = { };
 
   services.jellyfin = {
@@ -34,8 +41,11 @@ in
     };
     settings = {
       web.url_base = "/slskd";
-      shares.directories = [ "/music" ];
-      directories.downloads = "/music/unsorted";
+      shares.directories = [
+        "/music/haylin"
+        "/music/alice"
+      ];
+      directories.downloads = "/music/haylin/unsorted";
     };
   };
 
