@@ -30,7 +30,7 @@ jobs:
       - name: Update Dependency with npins
         run: |
           cd infra
-          nix-shell -p npins --run "npins update ${{ github.event.inputs.dependency }}"
+          nix-shell -p npins --run "npins update --frozen ${{ github.event.inputs.dependency }}"
       - name: Get new revision
         id: get_new_revision
         run: |
