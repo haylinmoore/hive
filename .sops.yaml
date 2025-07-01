@@ -10,6 +10,7 @@ creation_rules:
           - *admin_haylin
           - *server_bella
           - *server_maya
+          - *server_zoe
   - path_regex: secrets/bella/[^/]+\.(yaml|json|env|ini)$
     key_groups:
       - age:
