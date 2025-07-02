@@ -17,7 +17,9 @@ in
     isNormalUser = true;
     createHome = true;
     group = "media";
-    openssh.authorizedKeys.keys = [ ];
+    openssh.authorizedKeys.keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOdK5ssxU1XL5iOOJjQ27Plo4nFmS6df9GhkOYg1GJaT"
+    ];
   };
 
   users.groups.media = { };
