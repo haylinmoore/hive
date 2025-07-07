@@ -5,7 +5,7 @@
   ...
 }:
 
-{
+rec {
   www = {
     enable = true;
     domain = "hayl.in";
@@ -14,7 +14,7 @@
 
   proxySites.ygg-haylin = {
     domain = "ygg.hayl.in";
-    proxyUri = "http://localhost:15641/";
+    proxyUri = "http://localhost:${toString www.port}/";
     ssl = false;
   };
 }
