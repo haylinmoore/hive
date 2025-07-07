@@ -23,12 +23,12 @@ in
   users.users.alice = {
     isNormalUser = true;
     createHome = true;
-    group = "media";
+    extraGroups = [ "media" ];
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOdK5ssxU1XL5iOOJjQ27Plo4nFmS6df9GhkOYg1GJaT"
     ];
   };
-  users.users.haylin.group = "media";
+  users.users.haylin.extraGroups = [ "media" ];
 
   users.groups.media = { };
 
