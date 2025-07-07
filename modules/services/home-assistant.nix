@@ -6,16 +6,6 @@
 }:
 
 {
-
-  services.duckdns-ds = {
-    enable = true;
-    tokenFile = "/run/secrets/duckdns";
-    domains = [
-      "uwu-estate"
-    ];
-    ipv6Suffix = "243";
-  };
-
   services.home-assistant = {
     enable = true;
     extraComponents = [
@@ -29,7 +19,7 @@
       "homekit"
     ];
     customComponents = [
-      (pkgs.callPackage ../../packages/luxer-one.nix { })
+      (pkgs.callPackage ../packages/luxer-one.nix { })
     ];
     extraPackages =
       python3Packages: with python3Packages; [
@@ -131,10 +121,8 @@
     "f ${config.services.home-assistant.configDir}/automations.yaml 0755 hass hass"
   ];
 
-  proxySites = {
-    ha = {
-      domain = "ha.uwu.estate";
-      proxyUri = "http://[::1]:8123/";
-    };
+  proxySites.ha = {
+    domain = "ha.uwu.estate";
+    proxyUri = "http://[::1]:8123/";
   };
 }
