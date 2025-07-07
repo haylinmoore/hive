@@ -30,5 +30,6 @@
   proxySites.soft = {
     domain = "soft.hayl.in";
     proxyUri = "http://127.0.0.1:15642/";
+    useACMEHost = "hayl.in";
   };
 }

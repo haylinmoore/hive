@@ -10,7 +10,8 @@ let
     inherit name;
     value = {
       forceSSL = cfg.ssl;
-      enableACME = cfg.ssl;
+      enableACME = cfg.ssl && cfg.useACMEHost == null;
+      useACMEHost = cfg.useACMEHost;
       locations = {
         "/" = {
           proxyPass = "${cfg.proxyUri}";
@@ -46,6 +47,12 @@ in
             type = lib.types.bool;
             default = true;
             description = "Whether to enable SSL for this proxy site.";
+          };
+
+          useACMEHost = lib.mkOption {
+            type = lib.types.nullOr lib.types.str;
+            default = null;
+            description = "Use an existing ACME certificate from the specified host instead of generating a new one.";
           };
         };
       }

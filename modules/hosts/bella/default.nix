@@ -32,7 +32,19 @@ in
     ../../services/lambda.nix
     ../../services/88x31.nix
     ../../services/256.nix
+    ../../certs/hayl-in.nix
+    ../../certs/estrogen-coffee.nix
   ];
 
   virtualisation.podman.enable = true;
+
+  sops.secrets."dns" = {
+    sopsFile = ../../../secrets/dns.env;
+    format = "dotenv";
+    owner = "acme";
+    restartUnits = [
+      "acme-hayl.in.service"
+      "acme-estrogen.coffee.service"
+    ];
+  };
 }

@@ -12,6 +12,7 @@
     ./hardware-configuration.nix
     ./networking.nix
     ../../services/home-assistant.nix
+    ../../certs/uwu-estate.nix
   ];
 
   networking.firewall.enable = false;
@@ -30,5 +31,12 @@
     key = "duckdns";
     owner = config.systemd.services.duckdns-ds.serviceConfig.User;
     restartUnits = [ "duckdns-ds.service" ];
+  };
+
+  sops.secrets."dns" = {
+    sopsFile = ../../../secrets/dns.env;
+    format = "dotenv";
+    owner = "acme";
+    restartUnits = [ "acme-uwu.estate.service" ];
   };
 }

@@ -124,5 +124,6 @@
   proxySites.ha = {
     domain = "ha.uwu.estate";
     proxyUri = "http://[::1]:8123/";
+    useACMEHost = "uwu.estate";
   };
 }

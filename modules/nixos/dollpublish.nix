@@ -43,9 +43,29 @@ in
     };
 
     domainAliases = lib.mkOption {
-      type = lib.types.attrsOf lib.types.str;
+      type = lib.types.attrsOf (
+        lib.types.submodule {
+          options = {
+            username = lib.mkOption {
+              type = lib.types.str;
+              description = "The username for this domain alias.";
+            };
+            useACMEHost = lib.mkOption {
+              type = lib.types.nullOr lib.types.str;
+              default = null;
+              description = "Use an existing ACME certificate from the specified host instead of generating a new one.";
+            };
+          };
+        }
+      );
       default = { };
-      description = "Mapping of domain aliases to usernames.";
+      description = "Mapping of domain aliases to username and ACME configuration.";
+    };
+
+    useACMEHost = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Use an existing ACME certificate from the specified host instead of generating a new one.";
     };
   };
 
@@ -81,7 +101,8 @@ in
       {
         "${config.dollpublish.domain}" = {
           forceSSL = true;
-          enableACME = true;
+          enableACME = config.dollpublish.useACMEHost == null;
+          useACMEHost = config.dollpublish.useACMEHost;
           locations."/" = {
             proxyPass = "http://127.0.0.1:${toString config.dollpublish.port}/";
             extraConfig = ''
@@ -93,11 +114,12 @@ in
           };
         };
       }
-      // (lib.mapAttrs (domain: username: {
+      // (lib.mapAttrs (domain: cfg: {
         forceSSL = true;
-        enableACME = true;
+        enableACME = cfg.useACMEHost == null;
+        useACMEHost = cfg.useACMEHost;
         locations."/" = {
-          proxyPass = "http://127.0.0.1:${toString config.dollpublish.port}/${username}/";
+          proxyPass = "http://127.0.0.1:${toString config.dollpublish.port}/${cfg.username}/";
           extraConfig = ''
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;

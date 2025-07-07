@@ -35,6 +35,12 @@ in
       default = "hayl.in";
       description = "The domain for the www service.";
     };
+
+    useACMEHost = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Use an existing ACME certificate from the specified host instead of generating a new one.";
+    };
   };
 
   config = lib.mkIf config.www.enable {
@@ -59,7 +65,8 @@ in
     services.nginx.virtualHosts = {
       "${config.www.domain}" = {
         forceSSL = true;
-        enableACME = true;
+        enableACME = config.www.useACMEHost == null;
+        useACMEHost = config.www.useACMEHost;
         locations."/" = {
           proxyPass = "http://127.0.0.1:${toString config.www.port}/";
           extraConfig = ''

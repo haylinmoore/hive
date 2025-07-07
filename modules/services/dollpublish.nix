@@ -11,9 +11,16 @@
     dataDir = "/home/dollpublish";
     port = 15640;
     domain = "estrogen.coffee";
+    useACMEHost = "estrogen.coffee";
     domainAliases = {
-      "share.hayl.in" = "haylin";
-      "qshare.hayl.in" = "qaylin";
+      "share.hayl.in" = {
+        username = "haylin";
+        useACMEHost = "hayl.in";
+      };
+      "qshare.hayl.in" = {
+        username = "qaylin";
+        useACMEHost = "hayl.in";
+      };
     };
   };
 
