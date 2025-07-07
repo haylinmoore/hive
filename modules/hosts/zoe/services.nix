@@ -36,6 +36,7 @@
         # Mentioned in crashes
         aiohomekit
         python-otbr-api
+        pyatv
       ];
     config = {
       default_config = { };
