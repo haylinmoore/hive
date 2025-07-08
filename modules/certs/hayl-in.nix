@@ -9,7 +9,7 @@
   security.acme.certs."hayl.in" = {
     domain = "hayl.in";
     extraDomainNames = [ "*.hayl.in" ];
-    dnsProvider = "desec";
+    dnsProvider = "bunny";
     dnsPropagationCheck = true;
     credentialsFile = "/run/secrets/dns";
   };

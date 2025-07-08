@@ -9,7 +9,7 @@
   security.acme.certs."estrogen.coffee" = {
     domain = "estrogen.coffee";
     extraDomainNames = [ "*.estrogen.coffee" ];
-    dnsProvider = "desec";
+    dnsProvider = "bunny";
     dnsPropagationCheck = true;
     credentialsFile = "/run/secrets/dns";
   };
