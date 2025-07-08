@@ -7,17 +7,17 @@ creation_rules:
   - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
     key_groups:
       - age:
-          - *admin_haylin
-          - *server_bella
-          - *server_maya
-          - *server_zoe
+          - *admin_haylin 
+          - *server_bella 
+          - *server_maya 
+          - *server_zoe 
   - path_regex: secrets/bella/[^/]+\.(yaml|json|env|ini)$
     key_groups:
       - age:
-          - *admin_haylin
-          - *server_bella
+          - *admin_haylin 
+          - *server_bella 
   - path_regex: secrets/zoe/[^/]+\.(yaml|json|env|ini)$
     key_groups:
       - age:
-          - *admin_haylin
-          - *server_zoe
+          - *admin_haylin 
+          - *server_zoe 

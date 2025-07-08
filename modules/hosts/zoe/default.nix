@@ -13,30 +13,25 @@
     ./networking.nix
     ../../services/home-assistant.nix
     ../../certs/uwu-estate.nix
+    ../../nixos/dynamic-dns.nix
   ];
 
   networking.firewall.enable = false;
-
-  services.duckdns-ds = {
-    enable = true;
-    tokenFile = "/run/secrets/duckdns";
-    domains = [
-      "uwu-estate"
-    ];
-    ipv6Suffix = "243";
-  };
-
-  sops.secrets."duckdns" = {
-    sopsFile = ../../../secrets/zoe/tokens.yaml;
-    key = "duckdns";
-    owner = config.systemd.services.duckdns-ds.serviceConfig.User;
-    restartUnits = [ "duckdns-ds.service" ];
-  };
 
   sops.secrets."dns" = {
     sopsFile = ../../../secrets/dns.env;
     format = "dotenv";
     owner = "acme";
     restartUnits = [ "acme-uwu.estate.service" ];
+  };
+
+  services.dynamic-dns.zoe-infra-hayl-in = {
+    provider = "bunny";
+    zone = "hayl.in";
+    record = "zoe.infra.";
+    credentialsFile = "/run/secrets/dns";
+    interval = "*:0/5";
+    ipv6Suffix = "243";
+    interface = "enp4s0";
   };
 }
