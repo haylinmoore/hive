@@ -53,14 +53,14 @@ let
 
         # Update A record
         if [ -n "$IPV4" ]; then
-          echo "Updating A record for ${cfg.record} to $IPV4"
-          ${dli_pkg}/bin/dli --provider ${cfg.provider} --zone ${cfg.zone} set A ${cfg.record} "$IPV4"
+          echo "Updating A record for ${cfg.record} to $IPV4 with TTL ${toString cfg.ttl}"
+          ${dli_pkg}/bin/dli --provider ${cfg.provider} --zone ${cfg.zone} set A ${cfg.record} "$IPV4" --ttl ${toString cfg.ttl}
         fi
 
         # Update AAAA record if IPv6 is available
         if [ -n "$IPV6" ]; then
-          echo "Updating AAAA record for ${cfg.record} to $IPV6"
-          ${dli_pkg}/bin/dli --provider ${cfg.provider} --zone ${cfg.zone} set AAAA ${cfg.record} "$IPV6"
+          echo "Updating AAAA record for ${cfg.record} to $IPV6 with TTL ${toString cfg.ttl}"
+          ${dli_pkg}/bin/dli --provider ${cfg.provider} --zone ${cfg.zone} set AAAA ${cfg.record} "$IPV6" --ttl ${toString cfg.ttl}
         fi
       '';
     };
@@ -122,6 +122,12 @@ in
             type = lib.types.str;
             default = "enp4s0";
             description = "Network interface to check for IPv6 address when using ipv6Suffix";
+          };
+
+          ttl = lib.mkOption {
+            type = lib.types.int;
+            default = 1;
+            description = "TTL (Time To Live) in seconds for DNS records";
           };
         };
       }

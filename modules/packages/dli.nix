@@ -11,11 +11,11 @@ buildGoModule rec {
   src = fetchFromGitHub {
     owner = "haylinmoore";
     repo = "dli";
-    rev = "68224b3381727625b01f2d3523122014b7cc355d";
-    sha256 = "sha256-fduZMLuANnRj5gtYXL/g6ryRXaBAzGj3N6ABpM7FlhM=";
+    rev = "ae42c028f82d432b68ae27b42b6f47af94d1a008";
+    sha256 = "sha256-FTNKWpyK5saAzVEMCFq5FeTKWyVKf2MoGxVp2clg0cQ=";
   };
 
-  vendorHash = "sha256-7bJXyMUJNRNo1jDPDDEgj0uh647eyrF14Qe8DWfHyLs=";
+  vendorHash = "sha256-cuwJ3MlNFnfzgA929Csjq7hkdWyLKCHoc+VeZCkQSDQ=";
 
   ldflags = [
     "-s"

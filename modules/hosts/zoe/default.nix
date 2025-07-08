@@ -28,7 +28,7 @@
   services.dynamic-dns.zoe-infra-hayl-in = {
     provider = "bunny";
     zone = "hayl.in";
-    record = "zoe.infra.";
+    record = "zoe.infra";
     credentialsFile = "/run/secrets/dns";
     interval = "*:0/5";
     ipv6Suffix = "243";
