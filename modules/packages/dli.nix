@@ -11,23 +11,16 @@ buildGoModule rec {
   src = fetchFromGitHub {
     owner = "haylinmoore";
     repo = "dli";
-    rev = "ae42c028f82d432b68ae27b42b6f47af94d1a008";
-    sha256 = "sha256-FTNKWpyK5saAzVEMCFq5FeTKWyVKf2MoGxVp2clg0cQ=";
+    rev = "609a58f5f149188ce2c1c0f28beec88494c8722a";
+    hash = "sha256-NDGYL7ZPIZIipqLYy0r9V9vSAtvVgcDpGai0UvELYyo=";
   };
 
-  vendorHash = "sha256-cuwJ3MlNFnfzgA929Csjq7hkdWyLKCHoc+VeZCkQSDQ=";
-
-  ldflags = [
-    "-s"
-    "-w"
-  ];
-
-  doCheck = false; # DNS-related tests may require network access
+  vendorHash = "sha256-FFUjjLyLSBTrGTyEKMfd3/j8P32zMt5HrO29g72MtK4=";
 
   meta = {
     description = "Dynamic DNS CLI tool with support for multiple providers";
     homepage = "https://github.com/haylinmoore/dli";
-    license = lib.licenses.mit; # Adjust if different
+    license = lib.licenses.mit;
     maintainers = [ ];
     mainProgram = "dli";
   };
