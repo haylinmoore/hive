@@ -43,14 +43,14 @@ rec {
     };
   };
 
-  systemd.timers.navidrome-scan = {
-    description = "Run navidrome scan every 5 minutes";
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "*:0/5";
-      Persistent = true;
-    };
-  };
+  #systemd.timers.navidrome-scan = {
+  #  description = "Run navidrome scan every 5 minutes";
+  #  wantedBy = [ "timers.target" ];
+  #  timerConfig = {
+  #    OnCalendar = "*:0/5";
+  #    Persistent = true;
+  #  };
+  #};
 
   security.sudo.extraRules = [
     {
