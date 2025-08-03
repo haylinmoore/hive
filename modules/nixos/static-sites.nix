@@ -13,6 +13,12 @@ let
       enableACME = cfg.ssl && cfg.useACMEHost == null;
       useACMEHost = cfg.useACMEHost;
       root = import cfg.source { inherit pkgs; };
+      http2 = true;
+      http3 = true;
+      quic = true;
+      extraConfig = ''
+        add_header Alt-Svc 'h3=":443"; ma=86400';
+      '';
     };
   };
 in

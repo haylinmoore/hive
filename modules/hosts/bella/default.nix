@@ -19,6 +19,11 @@ in
     2222
   ];
 
+  networking.firewall.allowedUDPPorts = [
+    80
+    443
+  ];
+
   imports = [
     ../../shared/pve.nix
     ./hardware-configuration.nix

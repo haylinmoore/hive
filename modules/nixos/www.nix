@@ -41,6 +41,12 @@ in
       default = null;
       description = "Use an existing ACME certificate from the specified host instead of generating a new one.";
     };
+
+    nginx = lib.mkOption {
+      type = lib.types.attrs;
+      default = { };
+      description = "Additional nginx configuration to merge with the default virtual host config.";
+    };
   };
 
   config = lib.mkIf config.www.enable {
@@ -63,20 +69,29 @@ in
 
     services.nginx.enable = true;
     services.nginx.virtualHosts = {
-      "${config.www.domain}" = {
-        forceSSL = true;
-        enableACME = config.www.useACMEHost == null;
-        useACMEHost = config.www.useACMEHost;
-        locations."/" = {
-          proxyPass = "http://127.0.0.1:${toString config.www.port}/";
+      "${config.www.domain}" = lib.mkMerge [
+        {
+          forceSSL = true;
+          enableACME = config.www.useACMEHost == null;
+          useACMEHost = config.www.useACMEHost;
+          http2 = true;
+          http3 = true;
+          quic = true;
           extraConfig = ''
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto https;
+            add_header Alt-Svc 'h3=":443"; ma=86400';
           '';
-        };
-      };
+          locations."/" = {
+            proxyPass = "http://127.0.0.1:${toString config.www.port}/";
+            extraConfig = ''
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto https;
+            '';
+          };
+        }
+        config.www.nginx
+      ];
     };
   };
 }

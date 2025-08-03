@@ -58,5 +58,6 @@ in
   security.acme.acceptTerms = true;
   security.acme.defaults.email = "acme@haylinmoore.com";
 
+  services.nginx.package = pkgs.nginxQuic;
   services.openssh.enable = true;
 }

@@ -12,6 +12,12 @@ let
       forceSSL = cfg.ssl;
       enableACME = cfg.ssl && cfg.useACMEHost == null;
       useACMEHost = cfg.useACMEHost;
+      http2 = true;
+      http3 = true;
+      quic = true;
+      extraConfig = ''
+        add_header Alt-Svc 'h3=":443"; ma=86400';
+      '';
       locations = {
         "/" = {
           proxyPass = "${cfg.proxyUri}";
