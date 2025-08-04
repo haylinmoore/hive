@@ -18,6 +18,11 @@
 
   networking.firewall.enable = false;
 
+  # Add meshcore-cli for system-wide use
+  environment.systemPackages = with pkgs; [
+    (callPackage ../../packages/meshcore-cli.nix { })
+  ];
+
   sops.secrets."dns" = {
     sopsFile = ../../../secrets/dns.env;
     format = "dotenv";

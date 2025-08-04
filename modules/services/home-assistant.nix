@@ -6,6 +6,9 @@
 }:
 
 {
+  # Add the home-assistant user to dialout group for serial port access
+  users.users.hass.extraGroups = [ "dialout" ];
+
   services.home-assistant = {
     enable = true;
     extraComponents = [
@@ -20,6 +23,7 @@
     ];
     customComponents = [
       (pkgs.callPackage ../packages/luxer-one.nix { })
+      (pkgs.callPackage ../packages/meshcore-ha.nix { })
     ];
     extraPackages =
       python3Packages: with python3Packages; [
