@@ -80,6 +80,29 @@
             font-size: 0.9rem;
         }
         
+        .clear-button {
+            margin-top: 2rem;
+            padding: 0.75rem 1.5rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .clear-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .clear-button:active {
+            transform: translateY(0);
+        }
+        
         @media (max-width: 768px) {
             h1 { font-size: 2rem; }
             .container { padding: 1.5rem; }
@@ -107,6 +130,56 @@
                 <div class="service-title">🔄 soulseek</div>
             </a>
         </div>
+        
+        <button class="clear-button" onclick="clearAllStorage()">
+            🗑️ Clear Cookies & Storage
+        </button>
     </div>
+    
+    <script>
+        function clearAllStorage() {
+            if (confirm('This will clear all cookies, local storage, and session storage for this site. Continue?')) {
+                // Clear all cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+                });
+                
+                // Clear localStorage
+                if (window.localStorage) {
+                    window.localStorage.clear();
+                }
+                
+                // Clear sessionStorage
+                if (window.sessionStorage) {
+                    window.sessionStorage.clear();
+                }
+                
+                // Clear IndexedDB
+                if (window.indexedDB) {
+                    indexedDB.databases().then(databases => {
+                        databases.forEach(db => {
+                            indexedDB.deleteDatabase(db.name);
+                        });
+                    }).catch(e => console.error('Error clearing IndexedDB:', e));
+                }
+                
+                // Clear cache storage
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => {
+                            caches.delete(name);
+                        });
+                    }).catch(e => console.error('Error clearing cache storage:', e));
+                }
+                
+                alert('All cookies and storage have been cleared. You may need to refresh the page.');
+                
+                // Optionally reload the page
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            }
+        }
+    </script>
 </body>
 </html>
