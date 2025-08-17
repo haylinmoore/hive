@@ -26,4 +26,6 @@ in
   maya = import ./modules/hosts/maya;
 
   zoe = import ./modules/hosts/zoe;
+
+  athena = import ./modules/hosts/athena;
 }

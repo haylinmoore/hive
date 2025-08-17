@@ -41,6 +41,19 @@
       "hash": "1skhlmcibwgdbykds3m5s084g4qrivl4k2sz0ywjpj7f86jyizyn",
       "frozen": true
     },
+    "impermanence": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "impermanence"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "4b3e914cdf97a5b536a889e939fb2fd2b043a170",
+      "url": "https://github.com/nix-community/impermanence/archive/4b3e914cdf97a5b536a889e939fb2fd2b043a170.tar.gz",
+      "hash": "04l16szln2x0ajq2x799krb53ykvc6vm44x86ppy1jg9fr82161c"
+    },
     "nixpkgs": {
       "type": "Channel",
       "name": "nixpkgs-unstable",
