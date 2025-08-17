@@ -21,4 +21,4 @@ jobs:
         uses: DeterminateSystems/nix-installer-action@main
       - name: Run Colmena
         run: |
-          nix-shell -p colmena --run "colmena apply --parallel 0 --build-on-target"
+          nix-shell -p colmena --run "colmena apply --parallel 0 --build-on-target --on=bella,maya,zoe"
