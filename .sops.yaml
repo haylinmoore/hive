@@ -3,6 +3,7 @@ keys:
   - &server_bella age1s95s5n2zuz24frnc0k6986aw5k224sc0g5wpkycdlhm3e9qsl3ysz8nnry
   - &server_maya age1cst58rc2w20fc8r770dtg3e5vtjkd4mgeyt5c4hey4n0lwfgxqdqchtvd7
   - &server_zoe age1q0auwwj6z0lqk3h2ncjfhtmyc7yl3az7rmwtj859nt7jz0q9avvsffsfgr
+  - &server_athena age10c25ar2q5ryqc6nzfe80tey033lalh3dejy5899g7qktsxz0ldeqa83tag
 creation_rules:
   - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
     key_groups:
@@ -11,6 +12,7 @@ creation_rules:
           - *server_bella 
           - *server_maya 
           - *server_zoe 
+          - *server_athena 
   - path_regex: secrets/bella/[^/]+\.(yaml|json|env|ini)$
     key_groups:
       - age:
@@ -21,3 +23,8 @@ creation_rules:
       - age:
           - *admin_haylin 
           - *server_zoe 
+  - path_regex: secrets/athena/[^/]+\.(yaml|json|env|ini)$
+    key_groups:
+      - age:
+          - *admin_haylin 
+          - *server_athena 
