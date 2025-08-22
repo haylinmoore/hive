@@ -17,8 +17,9 @@ jobs:
           ssh-keyscan -H bella.infra.hayl.in >> ~/.ssh/known_hosts
           ssh-keyscan -H maya.infra.hayl.in >> ~/.ssh/known_hosts
           ssh-keyscan -H zoe.infra.hayl.in >> ~/.ssh/known_hosts
+          ssh-keyscan -H athena.infra.hayl.in >> ~/.ssh/known_hosts
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
       - name: Run Colmena
         run: |
-          nix-shell -p colmena --run "colmena apply --parallel 0 --build-on-target --on=bella,maya,zoe"
+          nix-shell -p colmena --run "colmena apply --parallel 0 --build-on-target --on=bella,maya,zoe,athena"
