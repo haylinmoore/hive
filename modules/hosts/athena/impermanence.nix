@@ -21,6 +21,7 @@ in
       "/var/lib/nixos"
       "/var/lib/systemd/coredump"
       "/etc/NetworkManager/system-connections"
+      "/var/lib/acme"
     ];
     files = [
       "/etc/machine-id"

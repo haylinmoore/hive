@@ -13,6 +13,8 @@
     ./networking.nix
     ./impermanence.nix
     ./bgp.nix
+    ../../certs/hayl-in.nix
+    ../../services/www.nix
   ];
 
   security.tpm2.enable = false;
@@ -33,6 +35,15 @@
     mtr
     bird3
   ];
+
+  sops.secrets."dns" = {
+    sopsFile = ../../../secrets/dns.env;
+    format = "dotenv";
+    owner = "acme";
+    restartUnits = [
+      "acme-hayl.in.service"
+    ];
+  };
 
   system.stateVersion = "25.11";
 }
