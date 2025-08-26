@@ -5,10 +5,12 @@
   ...
 }:
 
-{
+rec {
+  environment.persistence."/persistent".directories = [ dollpublish.dataDir ];
+
   dollpublish = {
     enable = true;
-    dataDir = "/home/dollpublish";
+    dataDir = "/var/lib/dollpublish";
     port = 15640;
     domain = "estrogen.coffee";
     useACMEHost = "estrogen.coffee";
@@ -25,11 +27,11 @@
   };
 
   sops.secrets."dollpublish" = {
-    sopsFile = ../../secrets/bella/dollpublish.json;
+    sopsFile = ../../secrets/dollpublish.json;
     key = "";
     format = "json";
     owner = config.systemd.services.dollpublish.serviceConfig.User;
-    path = "/home/dollpublish/users.json";
+    path = "${dollpublish.dataDir}/users.json";
     restartUnits = [ "dollpublish.service" ];
   };
 }

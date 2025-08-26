@@ -29,7 +29,6 @@ in
     ./hardware-configuration.nix
     ./networking.nix
     ./music
-    ../../services/dollpublish.nix
     ../../services/yggdrasil.nix
     ../../certs/hayl-in.nix
     ../../certs/estrogen-coffee.nix
