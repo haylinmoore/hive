@@ -14,5 +14,7 @@
     credentialsFile = "/run/secrets/dns";
   };
 
-  users.users.nginx.extraGroups = [ "acme" ];
+  users.users = lib.mkIf config.services.nginx.enable {
+    nginx.extraGroups = [ "acme" ];
+  };
 }
