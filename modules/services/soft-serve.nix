@@ -6,6 +6,8 @@
 }:
 
 {
+  environment.persistence."/persistent".directories = [ "/var/lib/private/soft-serve" ];
+
   services.soft-serve = {
     enable = true;
     settings = {

@@ -43,6 +43,10 @@
         address = "2602:fbf5:3::";
         prefixLength = 128;
       }
+      {
+        address = "2602:fbf5::";
+        prefixLength = 128;
+      }
     ];
   };
 

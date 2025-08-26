@@ -13,9 +13,18 @@
     ./networking.nix
     ./impermanence.nix
     ./bgp.nix
-    ../../certs/hayl-in.nix
     ../../services/www.nix
+    ../../services/soft-serve.nix
+    ../../services/lambda.nix
+    ../../services/88x31.nix
+    ../../services/256.nix
+
+    ../../certs/hayl-in.nix
+    ../../certs/estrogen-coffee.nix
   ];
+
+  users.mutableUsers = false;
+  users.users.root.hashedPasswordFile = "/persistent/root.password";
 
   security.tpm2.enable = false;
 
