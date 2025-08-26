@@ -18,5 +18,6 @@
     fi
   '';
 
-  networking.firewall.allowedTCPPorts = [ 179 ];
+  networking.firewall.allowedTCPPorts = [ 179 ];  # BGP
+  networking.firewall.allowedUDPPorts = [ 3784 3785 ]; # BFD
 }

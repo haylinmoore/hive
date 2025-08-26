@@ -30,7 +30,17 @@
 
   security.tpm2.enable = false;
 
-  networking.firewall.enable = false;
+  networking.firewall.enable = true;
+  networking.firewall.allowedTCPPorts = [
+    80
+    443
+    2222
+  ];
+
+  networking.firewall.allowedUDPPorts = [
+    80
+    443
+  ];
 
   services.openssh = {
     enable = true;
