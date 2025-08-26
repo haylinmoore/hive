@@ -11,12 +11,14 @@ let
 in
 rec {
   sops.secrets."navidrome" = {
-    sopsFile = ../../../../secrets/bella/navidrome.env;
+    sopsFile = ../../../../secrets/navidrome.env;
     key = "";
     format = "dotenv";
     owner = config.systemd.services.navidrome.serviceConfig.User;
     restartUnits = [ "navidrome.service" ];
   };
+
+  environment.persistence."/persistent".directories = [ "/var/lib/navidrome" ];
 
   services.navidrome = {
     enable = true;
@@ -27,7 +29,7 @@ rec {
       Port = 4533;
       Address = "127.0.0.1";
       BaseUrl = "/navi";
-      MusicFolder = "/music";
+      MusicFolder = "/bulk/music";
     };
   };
 

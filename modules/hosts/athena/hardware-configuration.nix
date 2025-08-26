@@ -77,6 +77,15 @@
     fsType = "vfat";
   };
 
+  fileSystems."/bulk" = {
+    device = "/dev/disk/by-label/data";
+    fsType = "btrfs";
+    options = [
+      "compress=zstd"
+      "noatime"
+    ];
+  };
+
   swapDevices = [ ];
 
   security.tpm2.enable = false;

@@ -28,7 +28,6 @@ in
     ../../shared/pve.nix
     ./hardware-configuration.nix
     ./networking.nix
-    ./music
     ../../services/yggdrasil.nix
     ../../certs/hayl-in.nix
     ../../certs/estrogen-coffee.nix

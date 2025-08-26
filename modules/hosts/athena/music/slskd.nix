@@ -20,10 +20,6 @@
     openFirewall = true;
     domain = "music.hayl.in";
     environmentFile = "/run/secrets/slskd";
-    nginx = {
-      forceSSL = true;
-      enableACME = true;
-    };
     settings = {
       web.url_base = "/slskd";
       shares.directories = [

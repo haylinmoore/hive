@@ -13,6 +13,7 @@
     ./networking.nix
     ./impermanence.nix
     ./bgp.nix
+    ./music
 
     ../../services/www.nix
     ../../services/soft-serve.nix
@@ -27,6 +28,9 @@
 
   users.mutableUsers = false;
   users.users.root.hashedPasswordFile = "/persistent/root.password";
+  users.users.root.openssh.authorizedKeys.keys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJcNOU+KapauS9OoI1aWNkeHohIp9DNg6fAqwJwtA0hR root@media"
+  ];
 
   security.tpm2.enable = false;
 

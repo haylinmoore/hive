@@ -22,4 +22,3 @@ jobs:
       - name: Run Colmena
         run: |
           nix-shell -p colmena --run "colmena apply --parallel 0 --build-on-target --on=bella,zoe,athena"
-

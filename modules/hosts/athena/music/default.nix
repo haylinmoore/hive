@@ -15,19 +15,19 @@ in
 {
   imports = [
     ./navidrome.nix
-    ./jellyfin.nix
-    ./slskd.nix
+    # ./jellyfin.nix
+    # ./slskd.nix
     ./feishin.nix
   ];
 
-  users.users.alice = {
-    isNormalUser = true;
-    createHome = true;
-    extraGroups = [ "media" ];
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOdK5ssxU1XL5iOOJjQ27Plo4nFmS6df9GhkOYg1GJaT"
-    ];
-  };
+  #users.users.alice = {
+  #  isNormalUser = true;
+  #  createHome = true;
+  #  extraGroups = [ "media" ];
+  #  openssh.authorizedKeys.keys = [
+  #    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOdK5ssxU1XL5iOOJjQ27Plo4nFmS6df9GhkOYg1GJaT"
+  #  ];
+  #};
   users.users.haylin.extraGroups = [ "media" ];
 
   users.groups.media = { };
@@ -36,7 +36,7 @@ in
     enable = true;
     virtualHosts."music.hayl.in" = {
       forceSSL = true;
-      enableACME = true;
+      useACMEHost = "hayl.in";
       locations."/".root = musicLandingPage;
     };
   };
