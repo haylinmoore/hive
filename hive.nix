@@ -23,8 +23,6 @@ in
 
   bella = import ./modules/hosts/bella;
 
-  maya = import ./modules/hosts/maya;
-
   zoe = import ./modules/hosts/zoe;
 
   athena = import ./modules/hosts/athena;
