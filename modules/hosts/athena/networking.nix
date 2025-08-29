@@ -33,6 +33,10 @@
         address = "127.0.0.1";
         prefixLength = 8;
       }
+      {
+        address = "23.144.156.0";
+        prefixLength = 32;
+      }
     ];
     ipv6.addresses = [
       {
