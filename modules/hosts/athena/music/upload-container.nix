@@ -169,7 +169,8 @@ in
 
   systemd.services.music-container-route = {
     after = [ "container@music-upload.service" ];
-    wants = [ "container@music-upload.service" ];
+    bindsTo = [ "container@music-upload.service" ]; # Restart when container restarts
+    wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
