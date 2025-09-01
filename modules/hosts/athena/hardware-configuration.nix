@@ -90,6 +90,17 @@
 
   security.tpm2.enable = false;
   boot.initrd.systemd.tpm2.enable = false;
+
+  # Prevent systemd from waiting for TPM device
+  systemd.services."systemd-tpm2-setup" = {
+    enable = false;
+  };
+  systemd.services."systemd-tpm2-setup-early" = {
+    enable = false;
+  };
+  systemd.units."dev-tpmrm0.device" = {
+    enable = false;
+  };
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 }
