@@ -16,8 +16,7 @@ in
 {
   imports = [
     ./navidrome.nix
-    # ./jellyfin.nix
-    # ./slskd.nix
+    ./slskd.nix
     ./feishin.nix
     ./upload-container.nix
   ];

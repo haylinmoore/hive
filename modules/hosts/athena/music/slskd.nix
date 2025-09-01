@@ -7,7 +7,7 @@
 
 {
   sops.secrets."slskd" = {
-    sopsFile = ../../../../secrets/bella/slskd.env;
+    sopsFile = ../../../../secrets/slskd.env;
     key = "";
     format = "dotenv";
     owner = config.systemd.services.slskd.serviceConfig.User;
@@ -17,16 +17,20 @@
   services.slskd = {
     enable = true;
     user = "slskd";
+    group = "media";
     openFirewall = true;
     domain = "music.hayl.in";
     environmentFile = "/run/secrets/slskd";
+    nginx = {
+      useACMEHost = "hayl.in";
+      forceSSL = true;
+    };
     settings = {
       web.url_base = "/slskd";
       shares.directories = [
-        "/music/haylin"
-        "/music/alice"
+        "/bulk/music"
       ];
-      directories.downloads = "/music/haylin/unsorted";
+      directories.downloads = "/bulk/music/haylin/unsorted";
     };
   };
 }
