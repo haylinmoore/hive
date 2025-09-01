@@ -100,19 +100,16 @@ in
   };
 
   config = mkIf (interfacesWithEthtool != { }) {
-    systemd.services = mapAttrs' (
-      name: opts:
-      nameValuePair "network-interface-${name}-ethtool" {
-        description = "Configure ethtool settings for ${name}";
-        after = [ "sys-subsystem-net-devices-${name}.device" ];
-        before = [ "network.target" ];
-        wantedBy = [ "sys-subsystem-net-devices-${name}.device" ];
-        serviceConfig = {
-          Type = "oneshot";
-          RemainAfterExit = true;
-        };
-        script = generateEthtoolCommands name opts;
-      }
-    ) interfacesWithEthtool;
+    system.activationScripts.ethtool = lib.stringAfter [ "specialfs" ] ''
+      # Configure ethtool settings for network interfaces
+      ${lib.concatMapStrings (name: ''
+        if [ -e /sys/class/net/${name} ]; then
+          echo "Configuring ethtool settings for ${name}..."
+          ${generateEthtoolCommands name interfacesWithEthtool.${name}}
+        else
+          echo "Interface ${name} not found, skipping ethtool configuration"
+        fi
+      '') (lib.attrNames interfacesWithEthtool)}
+    '';
   };
 }
