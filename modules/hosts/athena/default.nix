@@ -21,6 +21,7 @@
     ../../services/88x31.nix
     ../../services/256.nix
     ../../services/dollpublish.nix
+    ../../services/umaring.nix
 
     ../../certs/hayl-in.nix
     ../../certs/estrogen-coffee.nix
