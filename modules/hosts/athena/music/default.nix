@@ -11,6 +11,7 @@ let
     text = builtins.readFile ./index.html;
     destination = "/index.html";
   };
+  usersConfig = import ./users-config.nix;
 in
 {
   imports = [
@@ -18,6 +19,7 @@ in
     # ./jellyfin.nix
     # ./slskd.nix
     ./feishin.nix
+    ./upload-container.nix
   ];
 
   #users.users.alice = {
@@ -30,7 +32,9 @@ in
   #};
   users.users.haylin.extraGroups = [ "media" ];
 
-  users.groups.media = { };
+  users.groups.media = {
+    gid = usersConfig.groups.media.gid;
+  };
 
   services.nginx = {
     enable = true;
