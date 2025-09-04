@@ -5,7 +5,7 @@
   ...
 }:
 
-{
+rec {
   deployment.targetHost = "zoe.infra.hayl.in";
 
   imports = [
@@ -46,5 +46,26 @@
         pattern = "^2.*243$";
       };
     };
+  };
+
+  services.headscale = {
+    enable = true;
+    port = 16483;
+    settings = {
+      dns.magic_dns = false;
+      dns.nameservers.global = [
+        "9.9.9.9"
+        "149.112.112.112"
+      ];
+      server_url = "https://headscale.uwu.estate";
+      logtail.enabled = false;
+    };
+  };
+  services.tailscale.enable = true;
+
+  proxySites.headscale = {
+    domain = "headscale.uwu.estate";
+    proxyUri = "http://localhost:${toString services.headscale.port}/";
+    useACMEHost = "uwu.estate";
   };
 }

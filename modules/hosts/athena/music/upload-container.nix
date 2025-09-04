@@ -35,14 +35,13 @@ in
   }) (lib.filterAttrs (name: userCfg: !(userCfg.fromHost or false)) usersConfig.users);
 
   # Ensure the music directories exist with proper permissions
-  systemd.tmpfiles.rules =
-    [
-      "d /bulk/music 0755 root media -"
-      "d /persistent/containers/music-upload/ssh 0755 root root -"
-    ]
-    ++ lib.mapAttrsToList (
-      name: userCfg: "d /bulk/music/${name} 0755 ${name} media -"
-    ) usersConfig.users;
+  systemd.tmpfiles.rules = [
+    "d /bulk/music 0755 root media -"
+    "d /persistent/containers/music-upload/ssh 0755 root root -"
+  ]
+  ++ lib.mapAttrsToList (
+    name: userCfg: "d /bulk/music/${name} 0755 ${name} media -"
+  ) usersConfig.users;
 
   # Container for music uploads
   containers.music-upload = {

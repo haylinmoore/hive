@@ -14,7 +14,7 @@
 
   system.activationScripts.bird-reload = lib.stringAfter [ "etc" ] ''
     if ${pkgs.systemd}/bin/systemctl is-active --quiet bird; then
-      ${pkgs.bird3}/bin/birdc configure || true
+      ${pkgs.bird3}/bin/birdc configure
     fi
   '';
 
