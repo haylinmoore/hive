@@ -20,6 +20,7 @@
       "homeassistant_hardware"
       "zha"
       "homekit"
+      "aranet"
     ];
     customComponents = [
       (pkgs.callPackage ../packages/luxer-one.nix { })
