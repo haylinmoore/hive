@@ -11,6 +11,7 @@ rec {
   imports = [
     ./hardware-configuration.nix
     ./networking.nix
+    ./dnsmasq.nix
     ../../services/home-assistant.nix
     ../../certs/uwu-estate.nix
     ../../nixos/dli-ddns.nix

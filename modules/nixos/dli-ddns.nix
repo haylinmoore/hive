@@ -89,6 +89,7 @@ let
         if [ -n "$IPV4" ]; then
           echo "Updating ${recordType} record for ${cfg.record} to $IPV4 with TTL ${toString cfg.ttl}"
           dli --provider ${cfg.provider} --zone ${cfg.zone} set ${recordType} ${cfg.record} "$IPV4" --ttl ${toString cfg.ttl}
+          dli --provider ${cfg.provider} --zone ${cfg.zone} set ${recordType} v4.${cfg.record} "$IPV4" --ttl ${toString cfg.ttl}
         fi
       ''
     else
@@ -96,6 +97,7 @@ let
         if [ -n "$IPV6" ]; then
           echo "Updating ${recordType} record for ${cfg.record} to $IPV6 with TTL ${toString cfg.ttl}"
           dli --provider ${cfg.provider} --zone ${cfg.zone} set ${recordType} ${cfg.record} "$IPV6" --ttl ${toString cfg.ttl}
+          dli --provider ${cfg.provider} --zone ${cfg.zone} set ${recordType} v6.${cfg.record} "$IPV6" --ttl ${toString cfg.ttl}
         fi
       '';
 
