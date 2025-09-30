@@ -23,7 +23,7 @@
       "aranet"
     ];
     customComponents = [
-      (pkgs.callPackage ../packages/luxer-one.nix { })
+      pkgs.home-assistant-custom-components.luxer_one
       (pkgs.callPackage ../packages/meshcore-ha.nix { })
     ];
     extraPackages =
