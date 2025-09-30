@@ -2,12 +2,12 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
 
 let
-  sources = import ../../npins;
-  www_pkg = import sources.www { inherit pkgs; };
+  www_pkg = import mono.sources.www { inherit pkgs; };
 in
 
 {
@@ -59,7 +59,7 @@ in
         WorkingDirectory = "${www_pkg}/";
         Environment = [
           "REF=refs/heads/main"
-          "COMMIT=${builtins.substring 0 8 sources.www.revision}"
+          "COMMIT=${builtins.substring 0 8 mono.sources.www.revision}"
           "BIND=${config.www.bindAddr}:${toString config.www.port}"
         ];
         ExecStart = "${www_pkg}/bin/www";

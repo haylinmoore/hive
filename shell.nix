@@ -1,7 +1,7 @@
 let
-  sources = import ./npins;
-  pkgs = import sources.nixpkgs { };
-  treefmt-nix = import sources.treefmt-nix;
+  mono = import ./default.nix;
+  pkgs = mono.pkgs;
+  treefmt-nix = import mono.sources.treefmt-nix;
 
   treefmt = treefmt-nix.mkWrapper pkgs {
     projectRootFile = ".git/config";

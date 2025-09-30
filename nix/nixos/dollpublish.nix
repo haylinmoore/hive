@@ -2,12 +2,12 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
 
 let
-  sources = import ../../npins;
-  dollpublish_pkg = import sources.dollpublish { inherit pkgs; };
+  dollpublish_pkg = import mono.sources.dollpublish { inherit pkgs; };
 in
 
 {

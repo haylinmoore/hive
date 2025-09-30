@@ -5,21 +5,19 @@ in
 {
   meta = {
     nixpkgs = mono.pkgs;
+    specialArgs = { inherit mono; };
   };
 
-  defaults =
-    { pkgs, ... }:
-    {
-      imports = [
-        ./nix/mono-module.nix # Pull in mono as module arg
-        ./nix/nixos # Pull in all nixos module
-        ./nix/shared/users.nix
-        ./nix/shared/default.nix
-        "${sops}/modules/sops"
-      ];
+  defaults = {
+    imports = [
+      ./nix/nixos # Pull in all nixos module
+      ./nix/shared/users.nix
+      ./nix/shared/default.nix
+      "${sops}/modules/sops"
+    ];
 
-      deployment.buildOnTarget = true;
-    };
+    deployment.buildOnTarget = true;
+  };
 
   zoe = import ./nix/hosts/zoe;
 

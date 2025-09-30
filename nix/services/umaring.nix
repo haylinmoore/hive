@@ -2,12 +2,12 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
 
 let
-  sources = import ../../npins;
-  umaring = import sources.umaring { inherit pkgs; };
+  umaring = import mono.sources.umaring { inherit pkgs; };
 in
 {
   systemd.services.umaring = {

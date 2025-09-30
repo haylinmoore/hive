@@ -2,17 +2,14 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
-
-let
-  sources = import ../../npins;
-in
 
 {
   staticSites.lambda = {
     domain = "lambda.hayl.in";
-    source = sources.sheepda;
+    source = mono.sources.sheepda;
     useACMEHost = "hayl.in";
   };
 }

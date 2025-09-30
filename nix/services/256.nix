@@ -2,17 +2,14 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
-
-let
-  sources = import ../../npins;
-in
 
 {
   staticSites._256 = {
     domain = "256.121.167.207.in-addr.arpa";
-    source = sources._256;
+    source = mono.sources._256;
     ssl = false;
   };
 }

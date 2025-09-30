@@ -2,12 +2,12 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
 
 let
-  sources = import ../../../npins;
-  impermanence = sources.impermanence.outPath;
+  impermanence = mono.sources.impermanence.outPath;
 in
 {
   imports = [

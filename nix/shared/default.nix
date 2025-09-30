@@ -2,11 +2,9 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
-let
-  sources = import ../../npins;
-in
 {
 
   nix = {
@@ -27,7 +25,7 @@ in
 
     registry.nixpkgs.to = {
       type = "path";
-      path = sources.nixpkgs;
+      path = mono.sources.nixpkgs;
     };
 
     nixPath = [ "nixpkgs=flake:nixpkgs" ];
