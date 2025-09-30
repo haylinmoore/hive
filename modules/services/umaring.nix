@@ -5,9 +5,8 @@
   hive,
   ...
 }:
-
 let
-  umaring = import hive.sources.umaring { inherit pkgs; };
+  port = "3432";
 in
 {
   systemd.services.umaring = {
@@ -16,12 +15,12 @@ in
     after = [ "network.target" ];
 
     environment = {
-      BIND = "127.0.0.1:3432";
+      BIND = "127.0.0.1:${port}";
     };
 
     serviceConfig = {
       Type = "simple";
-      ExecStart = "${umaring}/bin/umaring";
+      ExecStart = "${hive.web.umaring}/bin/umaring";
       Restart = "always";
       RestartSec = 5;
 
@@ -55,7 +54,7 @@ in
       forceSSL = true;
       enableACME = true;
       locations."/" = {
-        proxyPass = "http://127.0.0.1:3432";
+        proxyPass = "http://127.0.0.1:${port}";
         proxyWebsockets = true;
         extraConfig = ''
           proxy_set_header Host $host;
