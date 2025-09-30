@@ -1,16 +1,11 @@
-{
-  lib,
-  fetchFromGitHub,
-  buildHomeAssistantComponent,
-  pkgs,
-}:
+{ pkgs, lib, ... }:
 
-buildHomeAssistantComponent rec {
+pkgs.buildHomeAssistantComponent rec {
   owner = "awolden";
   domain = "meshcore";
   version = "2.0.9";
 
-  src = fetchFromGitHub {
+  src = pkgs.fetchFromGitHub {
     owner = "awolden";
     repo = "meshcore-ha";
     rev = "657b83ea0383252666dc4cea3243b44a1c2eb669";

@@ -10,16 +10,16 @@ in
 
   defaults = {
     imports = [
-      ./nix/nixos # Pull in all nixos module
-      ./nix/shared/users.nix
-      ./nix/shared/default.nix
+      ./modules/nixos # Pull in all nixos module
+      ./modules/shared/users.nix
+      ./modules/shared/default.nix
       "${sops}/modules/sops"
     ];
 
     deployment.buildOnTarget = true;
   };
 
-  zoe = import ./nix/hosts/zoe;
+  zoe = import ./modules/hosts/zoe;
 
-  athena = import ./nix/hosts/athena;
+  athena = import ./modules/hosts/athena;
 }
