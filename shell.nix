@@ -1,7 +1,7 @@
 let
-  mono = import ./default.nix;
-  pkgs = mono.pkgs;
-  treefmt-nix = import mono.sources.treefmt-nix;
+  hive = import ./default.nix;
+  pkgs = hive.pkgs;
+  treefmt-nix = import hive.sources.treefmt-nix;
 
   treefmt = treefmt-nix.mkWrapper pkgs {
     projectRootFile = ".git/config";

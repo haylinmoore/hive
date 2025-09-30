@@ -2,14 +2,14 @@
   config,
   lib,
   pkgs,
-  mono,
+  hive,
   ...
 }:
 
 {
   staticSites.lambda = {
     domain = "lambda.hayl.in";
-    source = mono.sources.sheepda;
+    source = hive.sources.sheepda;
     useACMEHost = "hayl.in";
   };
 }

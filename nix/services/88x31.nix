@@ -2,14 +2,14 @@
   config,
   lib,
   pkgs,
-  mono,
+  hive,
   ...
 }:
 
 {
   staticSites._88x31 = {
     domain = "88x31.hayl.in";
-    source = mono.web."88x31";
+    source = hive.web."88x31";
     useACMEHost = "hayl.in";
   };
 }

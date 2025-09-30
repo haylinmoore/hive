@@ -2,12 +2,12 @@
   config,
   lib,
   pkgs,
-  mono,
+  hive,
   ...
 }:
 
 let
-  dollpublish_pkg = import mono.sources.dollpublish { inherit pkgs; };
+  dollpublish_pkg = import hive.sources.dollpublish { inherit pkgs; };
 in
 
 {

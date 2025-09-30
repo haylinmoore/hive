@@ -4,11 +4,11 @@ let
   lib = pkgs.lib;
   readTree = import ./nix/readTree.nix { };
 
-  readMono =
-    monoArgs:
+  readHive =
+    hiveArgs:
     readTree {
       path = ./.;
-      args = monoArgs;
+      args = hiveArgs;
       # Filter out directories we don't want readTree to process
       filter =
         parts: args:
@@ -27,9 +27,9 @@ let
 in
 readTree.fix (
   self:
-  (readMono {
+  (readHive {
     inherit pkgs lib;
-    mono = self;
+    hive = self;
     inherit sources;
   })
   // {

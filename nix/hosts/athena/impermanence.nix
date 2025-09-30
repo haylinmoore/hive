@@ -2,12 +2,12 @@
   config,
   lib,
   pkgs,
-  mono,
+  hive,
   ...
 }:
 
 let
-  impermanence = mono.sources.impermanence.outPath;
+  impermanence = hive.sources.impermanence.outPath;
 in
 {
   imports = [

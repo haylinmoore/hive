@@ -2,12 +2,12 @@
   config,
   lib,
   pkgs,
-  mono,
+  hive,
   ...
 }:
 
 let
-  umaring = import mono.sources.umaring { inherit pkgs; };
+  umaring = import hive.sources.umaring { inherit pkgs; };
 in
 {
   systemd.services.umaring = {

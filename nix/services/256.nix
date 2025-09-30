@@ -2,14 +2,14 @@
   config,
   lib,
   pkgs,
-  mono,
+  hive,
   ...
 }:
 
 {
   staticSites._256 = {
     domain = "256.121.167.207.in-addr.arpa";
-    source = mono.sources._256;
+    source = hive.sources._256;
     ssl = false;
   };
 }

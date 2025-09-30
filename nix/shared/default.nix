@@ -2,7 +2,7 @@
   config,
   lib,
   pkgs,
-  mono,
+  hive,
   ...
 }:
 {
@@ -25,7 +25,7 @@
 
     registry.nixpkgs.to = {
       type = "path";
-      path = mono.sources.nixpkgs;
+      path = hive.sources.nixpkgs;
     };
 
     nixPath = [ "nixpkgs=flake:nixpkgs" ];

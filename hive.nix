@@ -1,11 +1,11 @@
 let
-  mono = import ./default.nix;
-  sops = mono.sources.sops.outPath;
+  hive = import ./default.nix;
+  sops = hive.sources.sops.outPath;
 in
 {
   meta = {
-    nixpkgs = mono.pkgs;
-    specialArgs = { inherit mono; };
+    nixpkgs = hive.pkgs;
+    specialArgs = { inherit hive; };
   };
 
   defaults = {
