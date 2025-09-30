@@ -220,7 +220,13 @@ let
         }
       ) nixFiles;
 
-      nodeValue = if dir ? "default.nix" then self else { };
+      nodeValue =
+        if dir ? "default.nix" then
+          self
+        else if dir ? "package.nix" then
+          args.pkgs.callPackage (joinChild "package.nix") args
+        else
+          { };
 
       allChildren = listToAttrs (if dir ? "default.nix" then children else nixChildren ++ children);
 

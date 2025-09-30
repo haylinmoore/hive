@@ -36,12 +36,12 @@
     tree
     wemux
     fzf
-    claude-code
     cursor-cli
     mongosh
     nixfmt-rfc-style
     npins
     pre-commit
+    hive.tools.claude
   ];
 
   programs.home-manager.enable = true;
