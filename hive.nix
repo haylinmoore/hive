@@ -21,8 +21,6 @@ in
       deployment.buildOnTarget = true;
     };
 
-  bella = import ./modules/hosts/bella;
-
   zoe = import ./modules/hosts/zoe;
 
   athena = import ./modules/hosts/athena;
