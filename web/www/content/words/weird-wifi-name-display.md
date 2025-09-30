@@ -32,7 +32,7 @@ Next comes the iPhone and Apple TV. At first I had no idea what they were rendin
 
 Speaking of Apple devices, there will not be any photos of MacOS though not from a lack of trying. 
 I could not get either of my Macbook to acknowledge that this WiFi network existed.
-Neither the Wifi dropdown nor the airport commandline utility would show it.
+Neither the Wifi dropdown nor the airport command-line utility would show it.
 
 Windows 10 Pro 10.0.19041
 ![](/assets/img/iosWifiBug/windows10.png)
@@ -43,7 +43,7 @@ It was pointed out by [@theFerdi265](https://twitter.com/theFerdi265) that this 
 Chromebook running ChromeOS 83.0.4103.97
 ![](/assets/img/iosWifiBug/chromeos.jpg)
 
-ChromeOS is just freaking out not knowing how to render any of the charaters besides the singular a.
+ChromeOS is just freaking out not knowing how to render any of the characters besides the singular a.
 
 Kindle Paperwhite running Firmware 5.10.2
 ![](/assets/img/iosWifiBug/kindlepaperwhite.jpg)

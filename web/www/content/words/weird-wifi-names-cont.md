@@ -67,4 +67,4 @@ I originally was not expecting the kindle to work at all, nor the chromebook aft
 
 Thank you to everyone who provided valuable feedback on the previous post. I have more research I plan ond doing with this in the future.
 
-Lastly if anyone would like to run this test themselves and send me the comparison results to be added my email is `me (at) hamptonmoore (This key > not shifted) com`.
+Lastly if anyone would like to run this test themselves and send me the comparison results to be added my email is `me (at) haylinmoore (This key > not shifted) com`.
