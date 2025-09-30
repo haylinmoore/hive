@@ -12,16 +12,16 @@ in
     { pkgs, ... }:
     {
       imports = [
-        ./modules/nixos # Pull in all nixos module
-        ./modules/shared/users.nix
-        ./modules/shared/default.nix
+        ./nix/nixos # Pull in all nixos module
+        ./nix/shared/users.nix
+        ./nix/shared/default.nix
         "${sops}/modules/sops"
       ];
 
       deployment.buildOnTarget = true;
     };
 
-  zoe = import ./modules/hosts/zoe;
+  zoe = import ./nix/hosts/zoe;
 
-  athena = import ./modules/hosts/athena;
+  athena = import ./nix/hosts/athena;
 }
