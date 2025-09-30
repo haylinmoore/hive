@@ -40,6 +40,19 @@
       "url": "https://github.com/nix-community/impermanence/archive/4b3e914cdf97a5b536a889e939fb2fd2b043a170.tar.gz",
       "hash": "04l16szln2x0ajq2x799krb53ykvc6vm44x86ppy1jg9fr82161c"
     },
+    "naersk": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "naersk"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "0e72363d0938b0208d6c646d10649164c43f4d64",
+      "url": "https://github.com/nix-community/naersk/archive/0e72363d0938b0208d6c646d10649164c43f4d64.tar.gz",
+      "hash": "1isav7yifl520ifhvswkkicnp2ylhxwnpwdvm4xz2yqrb4258mxs"
+    },
     "nixpkgs": {
       "type": "Channel",
       "name": "nixpkgs-unstable",
