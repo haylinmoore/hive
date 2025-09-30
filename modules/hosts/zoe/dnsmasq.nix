@@ -7,9 +7,11 @@
 {
   services.dnsmasq = {
     enable = true;
+    resolveLocalQueries = false;
     settings = {
-      # Listen on all interfaces
+      # Listen on all interfaces except loopback
       bind-dynamic = true;
+      except-interface = "lo";
 
       # Don't read /etc/resolv.conf for upstream servers
       no-resolv = true;

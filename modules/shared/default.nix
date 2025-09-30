@@ -46,6 +46,8 @@ in
     wget
     curl
     tree
+    dig
+    htop
   ];
 
   networking.nameservers = [
