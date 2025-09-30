@@ -1,17 +1,17 @@
 let
-  sources = import ./npins;
-  pkgs = import sources.nixpkgs { };
-  sops = sources.sops.outPath;
+  mono = import ./default.nix;
+  sops = mono.sources.sops.outPath;
 in
 {
   meta = {
-    nixpkgs = pkgs;
+    nixpkgs = mono.pkgs;
   };
 
   defaults =
     { pkgs, ... }:
     {
       imports = [
+        ./nix/mono-module.nix # Pull in mono as module arg
         ./nix/nixos # Pull in all nixos module
         ./nix/shared/users.nix
         ./nix/shared/default.nix

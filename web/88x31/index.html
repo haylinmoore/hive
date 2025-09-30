@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>88x31 Animator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.32.0/mode/javascript/javascript.min.js"></script>
+    <script src="./libs/gif.js"></script>
+    <script src="./libs/apng.js"></script>
+    <script src="./88x31.js"></script>
+
+    <style>
+        body {
+            font-size: 1em;
+            line-height: 1.5;
+            margin: 0;
+            padding: 0;
+        }
+
+        #editor, .CodeMirror {
+            height: calc(100vh - 124px);
+            width: 100vw;
+            float: left;
+        }
+
+        #canvas {
+            display: none;
+        }
+
+        #topbar {
+            height: 124px;
+            width: 100vw;
+            float: left;
+        }
+
+        #topbar div {
+            margin-right: 20px;
+        }
+
+        #topbar * {
+            float: left;
+        }
+
+        #tools {
+            margin: 10px;
+        }
+
+        #run {
+            width: 100px;
+        }
+
+        #badge {
+            image-rendering: optimizeSpeed;             /* Older versions of FF          */
+            image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+            image-rendering: -webkit-optimize-contrast; /* Safari                        */
+            image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+            image-rendering: pixelated;                 /* Awesome future-browsers       */
+            -ms-interpolation-mode: nearest-neighbor;  
+            float: right;
+            position: absolute;
+            top: 0px;
+            right: 0px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="88" height="31"></canvas>
+
+    <div id="topbar">
+        <div id="tools">
+            <div>
+                <input type="file" id="file" name="file" accept=".png,.gif,.jpg,.jpeg,.bmp,.webp">
+                <br>
+                <span id="bloburl">Blob uploader, choose file</span>
+                <br>
+                <br>
+                <label for="examples">Examples:</label>
+                <select name="examples" id="examples">
+                    <option disabled selected value> -- select an example -- </option>
+                    <option value="basic_text">Basic Text</option>
+                    <option value="kerning_text">Kerning Text</option>
+                    <option value="map_colors">Map Colors</option>
+                    <option value="magikoopa">Magikoopa</option>
+                    <option value="umass">UMass</option>
+                    <option value="transrights_flashing">Trans Rights Flashing</option>
+                </select>
+            </div>
+            <div>
+                <button id="run">Run Code</button>
+            </div>
+
+        </div>
+        <img id="badge" alt="test" width="352" height="124" style="display: none;">
+    </div>
+
+    <div id="editor"></div>
+    <script type="text/plain" id="initial-code">async function main(canvas){
+    const ee31 = new EightyEightByThirtyOne(canvas, 1, 1000);
+    const ctx = ee31.ctx;
+    
+    const backdrop = await Sprite.create(ctx, "./assets/backdrop_mario.png", 88, 31, 1, 1);
+    
+    ee31.attachLayerFunction('background', (ee31, frame) => {
+        backdrop.render(0);
+    });
+
+    return ee31.renderGif();
+}</script>
+
+    <script>
+        let editor;
+        document.addEventListener('DOMContentLoaded', function() {
+            var initialCode = document.getElementById("initial-code").textContent;
+            editor = CodeMirror(document.getElementById("editor"), {
+                value: initialCode,
+                mode: "javascript",
+                lineNumbers: true,
+                theme: "dracula"
+            });
+        });
+
+        const run = document.getElementById('run');
+
+        run.addEventListener("click", async () => {
+            console.log("Running");
+
+            //try {
+                eval(editor.getValue());
+                const canvas = document.getElementById('canvas');
+
+                const url = await main(canvas);
+                document.getElementById('badge').src = url;
+                document.getElementById('badge').style.display = 'block';
+            //} catch (e) {
+             //   alert(e.message);
+            //}
+        });
+
+        const file = document.getElementById('file');
+        const dataurl = document.getElementById('bloburl');
+        // When the user selects a file, make it a blob and set it as the text of the label
+        file.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            const blob = URL.createObjectURL(file);
+            dataurl.textContent = blob;
+        });
+
+        const examples = document.getElementById('examples');
+        examples.addEventListener('change', (event) => {
+            fetch(`./examples/${event.target.value}.js`)
+                .then(response => response.text())
+                .then(text => {
+                    editor.setValue(text);
+                });
+        });
+
+    </script>
+</body>
+</html>

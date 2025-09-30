@@ -2,17 +2,14 @@
   config,
   lib,
   pkgs,
+  mono,
   ...
 }:
-
-let
-  sources = import ../../npins;
-in
 
 {
   staticSites._88x31 = {
     domain = "88x31.hayl.in";
-    source = sources._88x31;
+    source = mono.web."88x31";
     useACMEHost = "hayl.in";
   };
 }
