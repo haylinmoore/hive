@@ -6,10 +6,6 @@
   ...
 }:
 
-let
-  www_pkg = import hive.sources.www { inherit pkgs; };
-in
-
 {
   options.www = {
     enable = lib.mkOption {
@@ -56,13 +52,11 @@ in
       serviceConfig = {
         User = "nobody";
         Group = "nobody";
-        WorkingDirectory = "${www_pkg}/";
+        WorkingDirectory = "${hive.web.www}/";
         Environment = [
-          "REF=refs/heads/main"
-          "COMMIT=${builtins.substring 0 8 hive.sources.www.revision}"
           "BIND=${config.www.bindAddr}:${toString config.www.port}"
         ];
-        ExecStart = "${www_pkg}/bin/www";
+        ExecStart = "${hive.web.www}/bin/www";
         Restart = "always";
       };
     };

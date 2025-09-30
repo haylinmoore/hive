@@ -2,7 +2,7 @@ let
   sources = import ./npins;
   pkgs = import sources.nixpkgs { };
   lib = pkgs.lib;
-  readTree = import ./nix/readTree.nix { };
+  readTree = import ./tools/readTree.nix { };
 
   readHive =
     hiveArgs:
@@ -14,7 +14,6 @@ let
         parts: args:
         if
           (builtins.elem (builtins.head parts) [
-            "nix"
             "secrets"
             "npins"
             ".git"

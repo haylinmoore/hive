@@ -86,20 +86,6 @@
       "url": "https://github.com/umacabal/umaring/archive/081a7eae05d70779f085a715bf3f1733fe9bc56c.tar.gz",
       "hash": "1ibvnywifjmwrxsnybyx04xnsab5mxbs44mh4z6ahms3lwrv8cy9",
       "frozen": true
-    },
-    "www": {
-      "type": "Git",
-      "repository": {
-        "type": "GitHub",
-        "owner": "haylinmoore",
-        "repo": "www"
-      },
-      "branch": "main",
-      "submodules": false,
-      "revision": "28c1668d7550d006a42457feb444a63d2fba29f8",
-      "url": "https://github.com/haylinmoore/www/archive/28c1668d7550d006a42457feb444a63d2fba29f8.tar.gz",
-      "hash": "120ax7wjfkzglgppwgmdr6v0ibmk4sik6klqrjqvkzyapjc620wk",
-      "frozen": true
     }
   },
   "version": 5
