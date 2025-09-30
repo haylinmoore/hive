@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cover the US by Naming Cities - Haylin Moore</title>
+
+<link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<style>
+html, body {
+height: 100%;
+margin: 0;
+}
+.leaflet-container {
+aspect-ratio: 3 / 2;
+width: 100%;
+max-width: 1000px;
+}
+
+        .container {
+            position: relative;
+            width: 95%;
+            height: 100%;
+            max-width: 1000px;
+            margin: auto;
+        }
+
+        .error
+        {
+          animation: shake 0.2s ease-in-out 0s 2;
+          box-shadow: 0 0 0.5em red;
+        }
+
+        @keyframes shake {
+            0% { margin-left: 0rem; }
+            25% { margin-left: 0.5rem; }
+            75% { margin-left: -0.5rem; }
+            100% { margin-left: 0rem; }
+        }
+
+        input {
+            padding: 0.5rem;
+            font-size: 1.5rem;
+            border: 1px solid #ccc;
+            border-radius: 0.5rem;
+        }
+        button {
+            padding: 0.5rem;
+            font-size: 1.5rem;
+            border: 1px solid #ccc;
+            border-radius: 0.5rem;
+            background-color: #ccc;
+            cursor: pointer;
+        }
+        .inputContainer {
+            display: grid;
+            grid-template-columns: auto;
+            grid-gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        @media (min-width: 600px) {
+            .inputContainer {
+                grid-template-columns: auto auto;
+            }
+        }
+
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .lds-dual-ring {
+            display: inline-block;
+            width: 80px;
+            height: 80px;
+          }
+          .lds-dual-ring:after {
+            content: " ";
+            display: block;
+            width: 64px;
+            height: 64px;
+            margin: 8px;
+            border-radius: 50%;
+            border: 6px solid black;
+            border-color:black transparent black transparent;
+            animation: lds-dual-ring 1.2s linear infinite;
+          }
+          @keyframes lds-dual-ring {
+            0% {
+              transform: rotate(0deg);
+            }
+            100% {
+              transform: rotate(360deg);
+            }
+          }
+          
+</style>
+
+
+</head>
+<body>
+<div id="loading">
+    <div class="lds-dual-ring"></div>
+</div>
+<div class="container">
+    <h1>Cover the US by Naming Cities by <a href="https://hayl.in" target="_blank">Haylin Moore</a></h1>
+    <p>
+        Each city named will cover a
+        <!--Radio buttons to select radius-->
+        <input type="radio" id="200" name="radius" value="200">
+        <label for="200">200 mile</label>
+        <input type="radio" id="100" name="radius" value="100">
+        <label for="100">100 mile</label>
+        <input type="radio" id="50" name="radius" value="50">
+        <label for="50">50 mile</label>
+        radius around the city.
+        <br>
+        <!-- All cities or top 1k cities-->
+        Select from 
+        <input type="radio" id="1k" name="set" value="1k">
+        <label for="1k">top 1k cities</label>
+        <input type="radio" id="all" name="set" value="all">
+        <label for="all">all cities</label>
+
+    </p>
+    <div class="inputContainer">
+        <input type="text" id="city" placeholder="City Name">
+        <button id="submit">Submit</button>
+    </div>
+    <div id="map"></div>
+</div>
+<script>
+    const elmSubmit = document.getElementById("submit");
+    const elmCity = document.getElementById("city");
+    const elmRadius = document.getElementsByName("radius");
+    const elmSet = document.getElementsByName("set");
+    const MILE_TO_METER = 1609.34;
+    var CITIES = {}
+    let guesses = [];
+    let allCities = [];
+    let lastCities = [];
+
+    elmRadius.forEach(r => {
+        r.addEventListener("change", () => {
+            let radius = getRadius();
+            localStorage.setItem("radius", radius);
+            radius = radius * MILE_TO_METER;
+            for (let i = 0; i < allCities.length; i++) {
+                const circle = allCities[i];
+                circle.setRadius(radius);
+            }
+        });
+    });
+
+    elmSet.forEach(r => {
+        r.addEventListener("change", () => {
+            const set = getSet();
+            localStorage.setItem("set", set);
+            loadSet(set);
+        });
+    });
+
+    const getSet = () => {
+        for (let i = 0; i < elmSet.length; i++) {
+            const r = elmSet[i];
+            if (r.checked) return r.value;
+        }
+        return "1k";
+    }
+
+    const getRadius = () => {
+        for (let i = 0; i < elmRadius.length; i++) {
+            const r = elmRadius[i];
+            if (r.checked) return parseInt(r.value);
+        }
+        return 200;
+    }
+
+    const normalize = (str) => {
+        return str.replaceAll('"', "").replaceAll("'", "");
+    }
+
+    function loadSet(name) {
+        document.getElementById("loading").style.display = "flex";
+        fetch(`./us_cities_${name}.json`).then(response => response.json()).then(cities => {
+            CITIES = cities;
+            // Redo all circles based on new set and guesses
+            const radius = getRadius() * MILE_TO_METER;
+            lastCities = [];
+            // Remove all circles
+            allCities.forEach((city)=>{
+                city.remove();
+            });
+
+            allCities = [];
+
+            for (let i = 0; i < guesses.length; i++) {
+                const name = normalize(guesses[i]).toLowerCase();
+                if (!CITIES.hasOwnProperty(name)) continue;
+                const cities = CITIES[name];
+                for (let i = 0; i < cities.length; i++) {
+                    const nm = cities[i];
+                    const lat = parseFloat(nm.lat);
+                    const lng = parseFloat(nm.lng);
+                    const circle = L.circle([lat, lng], {
+                        color: '#00ff000a',
+                        fillColor: 'green',
+                        fillOpanm: 0.3,
+                        radius: radius
+                    }).addTo(map).bindPopup(normalize(nm.nm) + ", " + nm.sc);
+                    allCities.push(circle);
+                }
+            }
+
+            console.log("Loaded cities")
+            document.getElementById("loading").style.display = "none";
+        });
+    }
+
+    const checkName = () => {
+        const name = normalize(elmCity.value).toLowerCase();
+        guesses.push(name);
+        if (!CITIES.hasOwnProperty(name)) {
+            elmCity.classList.remove("error");
+            elmCity.classList.add("error");
+            return;
+        }
+        const cities = CITIES[name];
+        const radius = getRadius() * MILE_TO_METER;
+        console.log(`Found ${cities.length} cities, radius: ${radius}`)
+        for (let i = 0; i < lastCities.length; i++) {
+            const circle = lastCities[i];
+            circle.setStyle({fillOpanm: 0.3, fillColor: 'green', color: '#00ff000a'});
+        }
+        lastCities = [];
+        for (let i = 0; i < cities.length; i++) {
+            const nm = cities[i];
+            const lat = parseFloat(nm.lat);
+            const lng = parseFloat(nm.lng);
+            const circle = L.circle([lat, lng], {
+                color: 'blue',
+                fillColor: 'blue',
+                fillOpanm: 0.4,
+                radius: radius
+            }).addTo(map).bindPopup(normalize(nm.nm) + ", " + nm.sc);
+            lastCities.push(circle);
+            allCities.push(circle);
+        }
+        elmCity.classList.remove("error");
+        elmCity.value = "";
+    }
+
+var map = L.map('map').setView([39.833333, -98.583333], 4);
+
+var tiles = L.tileLayer("http://a.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '© Carto'
+    }).addTo(map);
+
+
+    elmSubmit.addEventListener("click", checkName);
+
+    elmCity.addEventListener("keyup", function(event) {
+        if (event.key === "Enter") {
+            checkName();
+        }
+    });
+
+    function loadLocalStorage() {
+        const radius = localStorage.getItem("radius") || "200";
+        for (let i = 0; i < elmRadius.length; i++) {
+            const r = elmRadius[i];
+            if (r.value == radius) {
+                r.checked = true;
+                break;
+            }
+        }
+        const set = localStorage.getItem("set") || "1k";
+        for (let i = 0; i < elmSet.length; i++) {
+            const r = elmSet[i];
+            if (r.value == set) {
+                r.checked = true;
+                break;
+            }
+        }
+        loadSet(set);
+    }
+
+    loadLocalStorage();
+</script>
+
+
+
+</body>
+</html>
