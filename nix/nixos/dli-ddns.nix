@@ -6,8 +6,6 @@
 }:
 
 let
-  dli_pkg = pkgs.callPackage ../packages/dli.nix { };
-
   # Generate IP address fetching logic based on mode
   genIPAddressScript =
     recordType: recordCfg:
@@ -122,7 +120,7 @@ let
         pkgs.gnused
         pkgs.iproute2
         pkgs.gawk
-        dli_pkg
+        pkgs.dli
       ];
 
       script = ''
@@ -247,6 +245,6 @@ in
 
     systemd.timers = lib.listToAttrs (lib.mapAttrsToList mkDynamicDNSTimer config.services.dli-ddns);
 
-    environment.systemPackages = [ dli_pkg ];
+    environment.systemPackages = [ pkgs.dli ];
   };
 }
