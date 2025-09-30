@@ -14,6 +14,19 @@
       "hash": "1skhlmcibwgdbykds3m5s084g4qrivl4k2sz0ywjpj7f86jyizyn",
       "frozen": true
     },
+    "home-manager": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "home-manager"
+      },
+      "branch": "master",
+      "submodules": false,
+      "revision": "5a21f4819ee1be645f46d6b255d49f4271ef6723",
+      "url": "https://github.com/nix-community/home-manager/archive/5a21f4819ee1be645f46d6b255d49f4271ef6723.tar.gz",
+      "hash": "1k9rnxmjv9k6wam3iqn3wi4fk8si1g6ml3gff9k041na8cykhp8v"
+    },
     "impermanence": {
       "type": "Git",
       "repository": {
