@@ -1,6 +1,4 @@
-{
-  pkgs ? import <nixpkgs> { },
-}:
+{ pkgs, ... }:
 
 pkgs.stdenv.mkDerivation rec {
   pname = "88x31";
