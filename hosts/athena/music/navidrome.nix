@@ -11,7 +11,7 @@ let
 in
 rec {
   sops.secrets."navidrome" = {
-    sopsFile = ../../../../secrets/navidrome.env;
+    sopsFile = ../../../secrets/navidrome.env;
     key = "";
     format = "dotenv";
     owner = config.systemd.services.navidrome.serviceConfig.User;

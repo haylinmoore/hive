@@ -4,7 +4,7 @@
   system = "x86_64-linux";
   configuration = {
     imports = [
-      ../modules/hosts/sasha
+      ./nixos.nix
       "${hive.sources.home-manager}/nixos"
     ];
 

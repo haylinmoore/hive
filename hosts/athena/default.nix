@@ -15,16 +15,16 @@
     ./bgp.nix
     ./music
 
-    ../../services/www.nix
-    ../../services/soft-serve.nix
-    ../../services/lambda.nix
-    ../../services/88x31.nix
-    ../../services/256.nix
-    ../../services/dollpublish.nix
-    ../../services/umaring.nix
+    ../../nixos/services/www.nix
+    ../../nixos/services/soft-serve.nix
+    ../../nixos/services/lambda.nix
+    ../../nixos/services/88x31.nix
+    ../../nixos/services/256.nix
+    ../../nixos/services/dollpublish.nix
+    ../../nixos/services/umaring.nix
 
-    ../../certs/hayl-in.nix
-    ../../certs/estrogen-coffee.nix
+    ../../nixos/certs/hayl-in.nix
+    ../../nixos/certs/estrogen-coffee.nix
   ];
 
   users.mutableUsers = false;
@@ -63,7 +63,7 @@
   ];
 
   sops.secrets."dns" = {
-    sopsFile = ../../../secrets/dns.env;
+    sopsFile = ../../secrets/dns.env;
     format = "dotenv";
     owner = "acme";
     restartUnits = [

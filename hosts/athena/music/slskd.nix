@@ -7,7 +7,7 @@
 
 {
   sops.secrets."slskd" = {
-    sopsFile = ../../../../secrets/slskd.env;
+    sopsFile = ../../../secrets/slskd.env;
     key = "";
     format = "dotenv";
     owner = config.systemd.services.slskd.serviceConfig.User;

@@ -13,9 +13,9 @@ rec {
     ./hardware-configuration.nix
     ./networking.nix
     ./dnsmasq.nix
-    ../../services/home-assistant.nix
-    ../../certs/uwu-estate.nix
-    ../../nixos/dli-ddns.nix
+    ../../nixos/services/home-assistant.nix
+    ../../nixos/certs/uwu-estate.nix
+    ../../nixos/modules/dli-ddns.nix
   ];
 
   networking.firewall.enable = false;
@@ -26,7 +26,7 @@ rec {
   ];
 
   sops.secrets."dns" = {
-    sopsFile = ../../../secrets/dns.env;
+    sopsFile = ../../secrets/dns.env;
     format = "dotenv";
     owner = "acme";
     restartUnits = [ "acme-uwu.estate.service" ];

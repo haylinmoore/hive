@@ -13,7 +13,7 @@
     ./unbound.nix
     ./fonts.nix
     ./services.nix
-    ../../shared/nix.nix
+    ../../nixos/shared/nix.nix
   ];
 
   nixpkgs.config.allowUnfree = true;
@@ -126,7 +126,7 @@
     useGlobalPkgs = true;
     useUserPackages = true;
     extraSpecialArgs = { inherit hive; };
-    users.haylin = import ../../../home/profiles/sasha;
+    users.haylin = import ../../home/profiles/sasha;
   };
 
   # Environment variables

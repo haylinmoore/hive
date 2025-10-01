@@ -33,7 +33,7 @@ case "$cmd" in
   sasha)
     shift
     action=${1:-switch}
-    sudo nixos-rebuild "$action" --file default.nix --attr systems.sasha
+    sudo nixos-rebuild "$action" --file default.nix --attr hosts.sasha
     ;;
   *)
     echo "Usage: $0 {colmena|work|sasha}"
