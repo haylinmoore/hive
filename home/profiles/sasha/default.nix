@@ -61,7 +61,7 @@
     firefox
     discord
     spotify
-    slack
+    hive.random.slack
     obsidian
     signal-desktop
     gimp
