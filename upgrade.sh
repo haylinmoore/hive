@@ -22,9 +22,9 @@ case "$cmd" in
   colmena)
     shift
     if [[ $# -eq 0 ]]; then
-      nix-shell --run "colmena apply"
+      nix-shell --run "colmena apply --config colmena.nix"
     else
-      nix-shell --run "colmena $*"
+      nix-shell --run "colmena --config colmena.nix $*"
     fi
     ;;
   work)
