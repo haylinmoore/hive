@@ -1,10 +1,16 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  lib,
+  stdenv,
+  fetchurl,
+  ...
+}:
 
-pkgs.stdenv.mkDerivation {
+stdenv.mkDerivation {
   pname = "us-cities-all-json";
   version = "1.0";
 
-  src = pkgs.fetchurl {
+  src = fetchurl {
     url = "https://raw.githubusercontent.com/lutangar/cities.json/0025d6fc08a699555a27f9f614fd6c24f394242b/cities.json";
     sha256 = "sha256-zj1hAha8zjTvyw18ELCiJvoWS8yU1KCY+S4+f1SCJLk=";
   };
@@ -32,6 +38,6 @@ pkgs.stdenv.mkDerivation {
 
   meta = {
     description = "All US cities JSON data in required format";
-    platforms = pkgs.lib.platforms.all;
+    platforms = lib.platforms.all;
   };
 }

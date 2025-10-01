@@ -1,10 +1,15 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  stdenv,
+  fetchurl,
+  ...
+}:
 
-pkgs.stdenv.mkDerivation {
+stdenv.mkDerivation {
   pname = "us-cities-1k-json";
   version = "1.0";
 
-  src = pkgs.fetchurl {
+  src = fetchurl {
     url = "https://gist.githubusercontent.com/Miserlou/c5cd8364bf9b2420bb29/raw/2bf258763cdddd704f8ffd3ea9a3e81d25e2c6f6/cities.json";
     sha256 = "sha256-UjPCgtxOq0fXK+QKQfnAlVLXt7+hWNRAa0fDYBXYXCE=";
   };

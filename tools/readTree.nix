@@ -212,7 +212,12 @@ let
         let
           p = joinChild (c + ".nix");
           childParts = parts ++ [ c ];
-          imported = importFile args scopedArgs p childParts argsFilter;
+          # Use callPackage for all files except default.nix
+          imported =
+            if c == "default" then
+              importFile args scopedArgs p childParts argsFilter
+            else
+              args.pkgs.callPackage p args;
         in
         {
           name = c;

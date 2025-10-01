@@ -1,10 +1,16 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  lib,
+  stdenv,
+  callPackage,
+  ...
+}:
 
 let
-  jsonAll = pkgs.callPackage ./json_all.nix { };
-  json1k = pkgs.callPackage ./json_1k.nix { };
+  jsonAll = callPackage ./json_all.nix { };
+  json1k = callPackage ./json_1k.nix { };
 in
-pkgs.stdenv.mkDerivation {
+stdenv.mkDerivation {
   pname = "cities";
   version = "1.0";
 
@@ -38,6 +44,6 @@ pkgs.stdenv.mkDerivation {
 
   meta = {
     description = "Cities website with JSON data";
-    platforms = pkgs.lib.platforms.all;
+    platforms = lib.platforms.all;
   };
 }
