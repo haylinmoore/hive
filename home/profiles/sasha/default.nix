@@ -61,7 +61,7 @@
     firefox
     discord
     spotify
-    hive.random.slack
+    hive.pkgs.patch.slack
     obsidian
     signal-desktop
     gimp
@@ -87,7 +87,7 @@
     gdb
     unzip
     ncdu
-    hive.tools.claude
+    hive.pkgs.patch.claude-code
 
     # games
     prismlauncher
@@ -103,7 +103,7 @@
 
   programs.kitty = {
     enable = true;
-    package = hive.tools.kitty;
+    package = hive.pkgs.patch.kitty;
     settings = {
       font_family = "Berkeley Mono";
       bold_font = "Berkeley Mono Bold";

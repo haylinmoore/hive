@@ -25,7 +25,7 @@
     ];
     customComponents = [
       pkgs.home-assistant-custom-components.luxer_one
-      hive.python.ha.meshcore
+      hive.pkgs.python.ha.meshcore
     ];
     extraPackages =
       python3Packages: with python3Packages; [

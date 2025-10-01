@@ -31,9 +31,10 @@ in
 readTree.fix (
   self:
   (readHive {
-    inherit pkgs lib;
-    hive = self;
+    inherit lib;
     inherit sources;
+    pkgs = pkgs;
+    hive = self;
   })
   // {
     inherit sources;

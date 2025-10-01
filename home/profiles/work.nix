@@ -41,7 +41,7 @@
     nixfmt-rfc-style
     npins
     pre-commit
-    hive.tools.claude
+    hive.pkgs.patch.claude-code
   ];
 
   programs.home-manager.enable = true;

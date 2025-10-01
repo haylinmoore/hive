@@ -10,7 +10,7 @@
       roboto
       nerd-fonts.fira-code
       nerd-fonts.droid-sans-mono
-      hive.random.berkeley-mono
+      hive.pkgs.berkeley-mono
       julia-mono
     ];
     fontconfig.defaultFonts = {

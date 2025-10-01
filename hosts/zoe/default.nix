@@ -22,7 +22,7 @@ rec {
 
   # Add meshcore-cli for system-wide use
   environment.systemPackages = with pkgs; [
-    hive.python.meshcore-cli
+    hive.pkgs.python.meshcore-cli
   ];
 
   sops.secrets."dns" = {
