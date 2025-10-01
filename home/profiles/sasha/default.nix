@@ -8,7 +8,7 @@
   imports = [
     (hive.sources.catppuccin + "/modules/home-manager")
     ./wm.nix
-    ../../modules/nvim.nix
+    ../../modules/nvim
     ../../modules/git.nix
   ];
 

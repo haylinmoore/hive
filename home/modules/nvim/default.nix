@@ -5,6 +5,9 @@
   ...
 }:
 
+let
+  customPlugins = pkgs.callPackage ./plugins.nix { };
+in
 {
   programs.neovim = {
     enable = true;
@@ -53,7 +56,7 @@
           nvim-lspconfig
           nvim-notify
           nvim-spectre
-          nvim-treesitter
+          customPlugins.nvim-treesitter
           nvim-treesitter-context
           nvim-treesitter-textobjects
           nvim-ts-autotag
@@ -149,8 +152,31 @@
               },
             },
             -- disable mason.nvim, use programs.neovim.extraPackages
-            { "williamboman/mason-lspconfig.nvim", enabled = false },
-            { "williamboman/mason.nvim", enabled = false },
+            { "mason-org/mason-lspconfig.nvim", enabled = false },
+            { "mason-org/mason.nvim", enabled = false },
+            -- fix neo-tree errors with terminal buffers
+            {
+              "nvim-neo-tree/neo-tree.nvim",
+              opts = {
+                filesystem = {
+                  hijack_netrw_behavior = "disabled",
+                  follow_current_file = {
+                    enabled = false,
+                  },
+                },
+                event_handlers = {
+                  {
+                    event = "before_render",
+                    handler = function(state)
+                      local path = state.path
+                      if path and (path:match("^term:") or path:match("^terminal:")) then
+                        return false
+                      end
+                    end,
+                  },
+                },
+              },
+            },
             -- import/override with your plugins
             -- { import = "plugins" },
             -- treesitter handled by xdg.configFile."nvim/parser", put this line at the end of spec to clear ensure_installed
@@ -264,7 +290,7 @@
       parsers = pkgs.symlinkJoin {
         name = "treesitter-parsers";
         paths =
-          (pkgs.vimPlugins.nvim-treesitter.withPlugins (
+          (customPlugins.nvim-treesitter.withPlugins (
             plugins: with plugins; [
               c
               lua

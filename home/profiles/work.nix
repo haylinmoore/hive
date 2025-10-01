@@ -9,7 +9,7 @@
 {
   imports = [
     ../modules/git.nix
-    ../modules/nvim.nix
+    ../modules/nvim
     ../modules/work/zsh.nix
     ../modules/work/tmux.nix
   ];
