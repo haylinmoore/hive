@@ -36,6 +36,7 @@ readTree.fix (
     inherit sources;
   })
   // {
-    inherit sources pkgs;
+    inherit sources;
+    nixpkgs = pkgs;
   }
 )

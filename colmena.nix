@@ -4,7 +4,7 @@ let
 in
 {
   meta = {
-    nixpkgs = hive.pkgs;
+    nixpkgs = hive.nixpkgs;
     specialArgs = { inherit hive; };
   };
 

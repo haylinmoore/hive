@@ -1,6 +1,6 @@
 let
   hive = import ./default.nix;
-  pkgs = hive.pkgs;
+  pkgs = hive.nixpkgs;
 in
 pkgs.mkShell {
   buildInputs = with pkgs; [
