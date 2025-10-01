@@ -10,12 +10,15 @@
     enable = true;
     extraPackages = with pkgs; [
       # LazyVim
-      lua-language-server
       stylua
       # Telescope
       ripgrep
-      # Rust
-      rust-analyzer
+      # Go tools
+      go
+      gopls
+      gofumpt
+      goimports-reviser
+      golangci-lint
     ];
 
     plugins = with pkgs.vimPlugins; [
@@ -38,6 +41,7 @@
           friendly-snippets
           gitsigns-nvim
           indent-blankline-nvim
+          lazydev-nvim
           lualine-nvim
           neo-tree-nvim
           neoconf-nvim
@@ -98,9 +102,6 @@
             name = "mini.surround";
             path = mini-nvim;
           }
-          # Rust support
-          rustaceanvim
-          crates-nvim
         ];
         mkEntryFromDrv =
           drv:
@@ -114,9 +115,6 @@
         lazyPath = pkgs.linkFarm "lazy-plugins" (builtins.map mkEntryFromDrv plugins);
       in
       ''
-        -- Enable true color support
-        vim.opt.termguicolors = true
-
         require("lazy").setup({
           defaults = {
             lazy = true,
@@ -130,9 +128,6 @@
           },
           spec = {
             { "LazyVim/LazyVim", import = "lazyvim.plugins" },
-            -- Import LazyVim LSP extras for proper keybindings and hover
-            { import = "lazyvim.plugins.extras.lsp.none-ls" },
-            { import = "lazyvim.plugins.extras.lang.rust" },
             -- The following configs are needed for fixing lazyvim on nix
             -- force enable telescope-fzf-native.nvim
             { "nvim-telescope/telescope-fzf-native.nvim", enabled = true },
@@ -158,30 +153,6 @@
             { "williamboman/mason.nvim", enabled = false },
             -- import/override with your plugins
             -- { import = "plugins" },
-            -- Configure rust-analyzer with proper hover support
-            {
-              "neovim/nvim-lspconfig",
-              opts = {
-                servers = {
-                  rust_analyzer = {
-                    cmd = { "rust-analyzer" },
-                    settings = {
-                      ["rust-analyzer"] = {
-                        cargo = {
-                          allFeatures = true,
-                        },
-                        checkOnSave = {
-                          command = "clippy",
-                        },
-                        diagnostics = {
-                          enable = true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
             -- treesitter handled by xdg.configFile."nvim/parser", put this line at the end of spec to clear ensure_installed
             { 
               "nvim-treesitter/nvim-treesitter", 
@@ -195,21 +166,6 @@
             },
           },
         })
-
-        -- Configure native OSC52 clipboard for SSH
-        vim.g.clipboard = {
-          name = 'OSC 52',
-          copy = {
-            ['+'] = require('vim.ui.clipboard.osc52').copy('+'),
-            ['*'] = require('vim.ui.clipboard.osc52').copy('*'),
-          },
-          paste = {
-            ['+'] = require('vim.ui.clipboard.osc52').paste('+'),
-            ['*'] = require('vim.ui.clipboard.osc52').paste('*'),
-          },
-        }
-
-        vim.opt.clipboard = 'unnamedplus'
 
         -- Claude floating window functionality
         local function create_floating_window()
@@ -272,6 +228,33 @@
 
         -- Terminal mode keybind to exit terminal mode easily
         vim.keymap.set('t', '<C-\\><C-n>', '<C-\\><C-n>', { desc = 'Exit terminal mode' })
+
+        -- Rust analyzer configuration (uses project-local rust-analyzer from PATH)
+        local lspconfig = require('lspconfig')
+        lspconfig.rust_analyzer.setup({
+          cmd = { "rust-analyzer" }, -- Uses rust-analyzer from PATH (project shell.nix)
+          settings = {
+            ["rust-analyzer"] = {
+              cargo = {
+                allFeatures = true,
+              },
+            }
+          }
+        })
+
+        -- Go language server configuration
+        lspconfig.gopls.setup({
+          cmd = { "gopls" },
+          settings = {
+            gopls = {
+              analyses = {
+                unusedparams = true,
+              },
+              staticcheck = true,
+              gofumpt = true,
+            },
+          },
+        })
       '';
   };
 
@@ -285,6 +268,10 @@
             plugins: with plugins; [
               c
               lua
+              go
+              gomod
+              gosum
+              gowork
             ]
           )).dependencies;
       };

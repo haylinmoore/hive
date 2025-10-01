@@ -1,6 +1,10 @@
 let
   sources = import ./npins;
-  pkgs = import sources.nixpkgs { };
+  pkgs = import sources.nixpkgs {
+    config = {
+      allowUnfree = true;
+    };
+  };
   lib = pkgs.lib;
   readTree = import ./tools/readTree.nix { };
 

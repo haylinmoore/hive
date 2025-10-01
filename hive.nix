@@ -13,6 +13,7 @@ in
       ./modules/nixos # Pull in all nixos module
       ./modules/shared/users.nix
       ./modules/shared/default.nix
+      ./modules/shared/nix.nix
       "${sops}/modules/sops"
     ];
 
