@@ -30,6 +30,7 @@ rec {
       Address = "127.0.0.1";
       BaseUrl = "/navi";
       MusicFolder = "/bulk/music";
+      EnableSharing = true;
     };
   };
 
