@@ -281,6 +281,15 @@ in
             },
           },
         })
+
+        -- Disable italic comments for C
+        vim.api.nvim_create_autocmd("FileType", {
+          pattern = { "c", "cpp" },
+          callback = function()
+            vim.api.nvim_set_hl(0, "@comment.c", { italic = false })
+            vim.api.nvim_set_hl(0, "Comment", { italic = false })
+          end,
+        })
       '';
   };
 
