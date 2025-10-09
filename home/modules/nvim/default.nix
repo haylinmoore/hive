@@ -282,12 +282,15 @@ in
           },
         })
 
-        -- Disable italic comments for C
+        -- Disable italic comments for C while preserving color
         vim.api.nvim_create_autocmd("FileType", {
           pattern = { "c", "cpp" },
           callback = function()
-            vim.api.nvim_set_hl(0, "@comment.c", { italic = false })
-            vim.api.nvim_set_hl(0, "Comment", { italic = false })
+            -- Get the current highlight and only override italic
+            local comment_hl = vim.api.nvim_get_hl(0, { name = "Comment" })
+            comment_hl.italic = false
+            vim.api.nvim_set_hl(0, "@comment.c", comment_hl)
+            vim.api.nvim_set_hl(0, "Comment", comment_hl)
           end,
         })
       '';
