@@ -282,6 +282,10 @@ in
           },
         })
 
+        -- Disable relative line numbers, use absolute only
+        vim.opt.relativenumber = false
+        vim.opt.number = true
+
         -- Disable italic comments for C while preserving color
         vim.api.nvim_create_autocmd("FileType", {
           pattern = { "c", "cpp" },
