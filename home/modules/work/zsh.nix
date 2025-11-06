@@ -12,6 +12,7 @@
     shellAliases = {
       srcd = "cd ~/src/";
       cr = "~/src/check_run.py";
+      next-patch = "~/tools/next-patch";
       linta = "~/src/lint/all -a";
       lintac = "~/src/lint/all -ac";
       lintc = "~/src/lint/all -c";
