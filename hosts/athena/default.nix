@@ -2,11 +2,17 @@
   config,
   lib,
   pkgs,
+  hive,
   ...
 }:
-
 {
   deployment.targetHost = "athena.infra.hayl.in";
+
+  proxySites.ygg-haylin = {
+    domain = "ygg.hayl.in";
+    proxyUri = "http://localhost:15641/";
+    useACMEHost = "hayl.in";
+  };
 
   imports = [
     ./hardware-configuration.nix
@@ -15,7 +21,8 @@
     ./bgp.nix
     ./music
 
-    ../../nixos/services/www.nix
+    ../../service/module.nix
+
     ../../nixos/services/soft-serve.nix
     ../../nixos/services/lambda.nix
     ../../nixos/services/88x31.nix
@@ -25,6 +32,14 @@
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
+
+    (hive.service.wrapVirtualHost { useACMEHost = "hayl.in"; } (
+      hive.web.www.service {
+        domain = "hayl.in";
+        port = 15641;
+        bindAddr = "127.0.0.1";
+      }
+    ))
   ];
 
   users.mutableUsers = false;
