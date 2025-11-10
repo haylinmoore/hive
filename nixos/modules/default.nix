@@ -3,7 +3,6 @@
     ./dollpublish.nix
     ./static-sites.nix
     ./proxy-sites.nix
-    ./www.nix
     ./duckdns.nix
     ./ethtool.nix
   ];
