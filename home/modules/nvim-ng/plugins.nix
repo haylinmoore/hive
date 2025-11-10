@@ -4,6 +4,14 @@
     nerdtree
     vim-sleuth
     {
+      plugin = nvim-unception;
+      type = "lua";
+      config = ''
+        -- Disable nvim nesting, use parent nvim for git commits, etc.
+        vim.g.unception_block_while_host_edits = true
+      '';
+    }
+    {
       plugin = catppuccin-nvim;
       type = "lua";
       config = ''
