@@ -7,4 +7,3 @@ pkgs.vimUtils.buildVimPlugin {
     sha256 = "sha256:0lrkyf0hs0iy2kwdjacyqsvharjwygfp4lmlpr6a8hsf5cvgd5gm";
   };
 }
-
