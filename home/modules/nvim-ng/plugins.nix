@@ -6,25 +6,24 @@
     {
       plugin = catppuccin-nvim;
       type = "lua";
-      config =
-        ''
-          -- Enable termguicolors for true color support in tmux
-          vim.opt.termguicolors = true
-          vim.opt.background = 'dark'
+      config = ''
+        -- Enable termguicolors for true color support in tmux
+        vim.opt.termguicolors = true
+        vim.opt.background = 'dark'
 
-          -- Setup catppuccin
-          require("catppuccin").setup({
-            flavour = "mocha", -- latte, frappe, macchiato, mocha
-            transparent_background = false,
-            term_colors = true,
-            styles = {
-              comments = { },  -- Disable italic for comments only
-            },
-          })
+        -- Setup catppuccin
+        require("catppuccin").setup({
+          flavour = "mocha", -- latte, frappe, macchiato, mocha
+          transparent_background = false,
+          term_colors = true,
+          styles = {
+            comments = { },  -- Disable italic for comments only
+          },
+        })
 
-          -- Set colorscheme
-          vim.cmd.colorscheme("catppuccin")
-        '';
+        -- Set colorscheme
+        vim.cmd.colorscheme("catppuccin")
+      '';
     }
     {
       plugin = fzf-vim;
@@ -39,20 +38,19 @@
     {
       plugin = lualine-nvim;
       type = "lua";
-      config =
-        ''
-          require('lualine').setup {
-            options = { theme = 'catppuccin' },
-            sections = {
-              lualine_c = {
-                {
-                  'filename',
-                  path = 1
-                }
+      config = ''
+        require('lualine').setup {
+          options = { theme = 'catppuccin' },
+          sections = {
+            lualine_c = {
+              {
+                'filename',
+                path = 1
               }
             }
           }
-        '';
+        }
+      '';
     }
     {
       plugin = vim-oscyank;
@@ -142,4 +140,3 @@
     }
   ];
 }
-

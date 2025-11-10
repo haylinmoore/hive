@@ -8,7 +8,7 @@
   imports = [
     (hive.sources.catppuccin + "/modules/home-manager")
     ./wm.nix
-    ../../modules/nvim
+    ../../modules/nvim-ng/home.nix
     ../../modules/git.nix
   ];
 
@@ -113,6 +113,9 @@
     extraConfig = ''
       confirm_os_window_close 0
        background_opacity 0.9
+
+      # Fix Ctrl-/ to send the proper terminal code
+      map ctrl+slash send_text all \x1f
     '';
   };
 

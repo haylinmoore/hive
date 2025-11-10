@@ -1,5 +1,10 @@
 # Work-specific neovim configuration
-{ config, pkgs, hive, ... }:
+{
+  config,
+  pkgs,
+  hive,
+  ...
+}:
 {
   imports = [
     ./plugins.nix

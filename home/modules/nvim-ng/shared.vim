@@ -36,3 +36,6 @@ nnoremap <C-k> :tabnext<CR>
 " Better indenting - keep selection after indent
 vnoremap < <gv
 vnoremap > >gv
+
+" Tag navigation
+nnoremap <C-S-T> :tnext<CR>

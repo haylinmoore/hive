@@ -12,10 +12,11 @@
     extraPackages = [ pkgs.fzf ];
     vimAlias = true;
     vimdiffAlias = true;
+  };
 
-    # Add personal-specific plugins here if needed
-    # plugins = with pkgs.vimPlugins; [
-    #   # personal-specific plugins
-    # ];
+  programs.fzf = {
+    enable = true;
+    defaultCommand = "${pkgs.fd}/bin/fd --type f";
+    fileWidgetCommand = "${pkgs.fd}/bin/fd --type f";
   };
 }
