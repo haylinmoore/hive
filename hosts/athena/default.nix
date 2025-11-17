@@ -14,6 +14,20 @@
     useACMEHost = "hayl.in";
   };
 
+  services.derivations = [
+    (hive.web.www.service {
+      domain = "hayl.in";
+      port = 15641;
+      bindAddr = "127.0.0.1";
+    })
+  ];
+
+  proxySites.www = {
+    domain = "hayl.in";
+    proxyUri = "http://127.0.0.1:15641/";
+    useACMEHost = "hayl.in";
+  };
+
   imports = [
     ./hardware-configuration.nix
     ./networking.nix
@@ -32,14 +46,6 @@
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
-
-    (hive.service.wrapVirtualHost { useACMEHost = "hayl.in"; } (
-      hive.web.www.service {
-        domain = "hayl.in";
-        port = 15641;
-        bindAddr = "127.0.0.1";
-      }
-    ))
   ];
 
   users.mutableUsers = false;

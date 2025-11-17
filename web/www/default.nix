@@ -10,7 +10,7 @@ let
 
   service =
     package:
-    {
+    inputs@{
       domain ? "hayl.in",
       port ? 15641,
       bindAddr ? "127.0.0.1",
@@ -27,9 +27,10 @@ let
 
       environment.BIND = "${bindAddr}:${toString port}";
 
-      # Metadata for wrapVirtualHost
+      # Metadata with both convenience fields and full inputs
       meta = {
         inherit domain port bindAddr;
+        inherit inputs;
       };
     };
 
