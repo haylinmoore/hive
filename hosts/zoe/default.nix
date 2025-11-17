@@ -13,7 +13,7 @@ rec {
     ./hardware-configuration.nix
     ./networking.nix
     ./dnsmasq.nix
-    ../../nixos/services/home-assistant.nix
+    ./home-assistant.nix
     ../../nixos/certs/uwu-estate.nix
     ../../nixos/modules/dli-ddns.nix
   ];

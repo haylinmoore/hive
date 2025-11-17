@@ -38,12 +38,12 @@ in
 
     ../../service/module.nix
 
-    ../../nixos/services/soft-serve.nix
-    ../../nixos/services/lambda.nix
-    ../../nixos/services/88x31.nix
-    ../../nixos/services/256.nix
-    ../../nixos/services/dollpublish.nix
-    ../../nixos/services/umaring.nix
+    ./soft-serve.nix
+    ./lambda.nix
+    ./88x31.nix
+    ./256.nix
+    ./dollpublish.nix
+    ./umaring.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
