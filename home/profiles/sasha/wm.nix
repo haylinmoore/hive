@@ -72,6 +72,7 @@
       for_window [app_id="kitty" title="qalc"] floating enable, resize set 710 246, move position 354 196, sticky enable, border none
       input * xkb_options compose:ralt
       output * adaptive_sync on
+      output "ASUSTek COMPUTER INC ASUS PA279 0x0000C792" scale 2
     '';
   };
 
