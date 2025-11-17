@@ -5,31 +5,11 @@
   hive,
   ...
 }:
-let
-  wwwPort = 15641;
-in
 {
   deployment.targetHost = "athena.infra.hayl.in";
 
-  services.derivations.www = hive.web.www.service {
-    domain = "hayl.in";
-    port = wwwPort;
-    bindAddr = "127.0.0.1";
-  };
-
-  proxySites.www = {
-    domain = "hayl.in";
-    proxyUri = "http://127.0.0.1:${toString wwwPort}/";
-    useACMEHost = "hayl.in";
-  };
-
-  proxySites.ygg-haylin = {
-    domain = "ygg.hayl.in";
-    proxyUri = "http://127.0.0.1:${toString wwwPort}/";
-    useACMEHost = "hayl.in";
-  };
-
   imports = [
+    ./www.nix
     ./hardware-configuration.nix
     ./networking.nix
     ./impermanence.nix

@@ -12,8 +12,7 @@ let
     package:
     inputs@{
       domain ? "hayl.in",
-      port ? 15641,
-      bindAddr ? "127.0.0.1",
+      bindUri ? "127.0.0.1:15641",
     }:
     hive.service.lib.mkServiceDerivation {
       name = "www-${domain}";
@@ -25,11 +24,11 @@ let
       group = "nobody";
       workingDirectory = "${package}/";
 
-      environment.BIND = "${bindAddr}:${toString port}";
+      environment.BIND = bindUri;
 
       # Metadata with both convenience fields and full inputs
       meta = {
-        inherit domain port bindAddr;
+        inherit domain bindUri;
         inherit inputs;
       };
     };
