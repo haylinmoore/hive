@@ -39,3 +39,6 @@ vnoremap > >gv
 
 " Tag navigation
 nnoremap <C-S-T> :tnext<CR>
+
+" * stays on current word
+:nnoremap * *N
