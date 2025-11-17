@@ -46,18 +46,15 @@ in
 
 {
   options.services.derivations = mkOption {
-    type = types.listOf types.attrs;
-    default = [ ];
-    description = "List of service derivations";
+    type = types.attrsOf types.attrs;
+    default = { };
+    description = "Attrset of named service derivations";
   };
 
   config = {
     # Generate systemd services
-    systemd.services = listToAttrs (
-      map (svc: {
-        name = "derivations-${svc.name}";
-        value = toSystemdService svc;
-      }) config.services.derivations
-    );
+    systemd.services = mapAttrs' (
+      name: svc: nameValuePair "derivations-${name}" (toSystemdService svc)
+    ) config.services.derivations;
   };
 }
