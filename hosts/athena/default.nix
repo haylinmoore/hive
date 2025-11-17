@@ -38,7 +38,6 @@ in
 
     ../../service/module.nix
 
-    ./soft-serve.nix
     ./lambda.nix
     ./88x31.nix
     ./256.nix
