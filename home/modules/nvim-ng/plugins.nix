@@ -9,6 +9,7 @@
       config = ''
         -- Disable nvim nesting, use parent nvim for git commits, etc.
         vim.g.unception_block_while_host_edits = true
+        vim.g.unception_open_buffer_in_new_tab = true
       '';
     }
     {
