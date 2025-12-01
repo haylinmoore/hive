@@ -87,7 +87,7 @@
     gdb
     unzip
     ncdu
-    hive.pkgs.patch.claude-code
+    claude-code
 
     # games
     prismlauncher
