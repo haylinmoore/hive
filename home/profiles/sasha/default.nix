@@ -61,7 +61,7 @@
     firefox
     discord
     spotify
-    hive.pkgs.patch.slack
+    slack
     obsidian
     signal-desktop
     gimp

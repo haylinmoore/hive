@@ -27,4 +27,17 @@ in
         "sha256-wsjOkNxuBLMYprjaZQyUZHiqWl8UG7cZ1njkyKZpRYg=";
     }
   )
+
+  # Regular overlay for slack wayland wrapper (avoids rebuild)
+  (final: prev: {
+    slack = final.symlinkJoin {
+      name = "slack-wayland";
+      paths = [ prev.slack ];
+      buildInputs = [ final.makeWrapper ];
+      postBuild = ''
+        wrapProgram $out/bin/slack \
+          --add-flags "--ozone-platform=wayland"
+      '';
+    };
+  })
 ]
