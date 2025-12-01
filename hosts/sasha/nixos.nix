@@ -16,7 +16,8 @@
     ../../nixos/shared/nix.nix
   ];
 
-  nixpkgs.config.allowUnfree = true;
+  # allowUnfree is already set in default.nix when creating pkgs
+  # nixpkgs.config.allowUnfree = true;
 
   system.stateVersion = "24.11";
 
@@ -66,6 +67,7 @@
 
   # System packages
   environment.systemPackages = with pkgs; [
+    hello
     vim
     wget
     curl

@@ -1,11 +1,20 @@
 let
   sources = import ./npins;
-  pkgs = import sources.nixpkgs {
+
+  pkgsRaw = import sources.nixpkgs {
     config = {
       allowUnfree = true;
     };
   };
-  lib = pkgs.lib;
+  lib = pkgsRaw.lib;
+  overlays = import ./pkgs/overlays.nix { inherit lib; };
+  pkgs = import sources.nixpkgs {
+    config = {
+      allowUnfree = true;
+    };
+    overlays = overlays;
+  };
+
   readTree = import ./tools/readTree.nix { };
 
   readHive =

@@ -8,6 +8,9 @@
       "${hive.sources.home-manager}/nixos"
     ];
 
+    # Use the pkgs with overlays from hive
+    nixpkgs.pkgs = hive.nixpkgs;
+
     # Pass hive to the module system
     _module.args = { inherit hive; };
   };
