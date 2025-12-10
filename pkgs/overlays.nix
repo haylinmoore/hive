@@ -19,12 +19,12 @@ in
     final: prev:
     infuse prev {
       # claude-code updates enough I want to bump it myself
-      claude-code.__output.version.__assign = "2.0.55";
-      claude-code.__output.src.__output.urls.__assign = [
-        "https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.0.55.tgz"
-      ];
-      claude-code.__output.src.__output.outputHash.__assign =
-        "sha256-wsjOkNxuBLMYprjaZQyUZHiqWl8UG7cZ1njkyKZpRYg=";
+      #claude-code.__output.version.__assign = "2.0.55";
+      #claude-code.__output.src.__output.urls.__assign = [
+      #  "https://registry.npmjs.org/@anthropic-ai/claude-code/-/claude-code-2.0.55.tgz"
+      #];
+      #claude-code.__output.src.__output.outputHash.__assign =
+      #  "sha256-wsjOkNxuBLMYprjaZQyUZHiqWl8UG7cZ1njkyKZpRYg=";
     }
   )
 

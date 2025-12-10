@@ -46,7 +46,7 @@
       startup = [ { command = "swaybg -m fill -i ~/Documents/wallpaper.jpg"; } ];
       keybindings = lib.mkOptionDefault {
         "Mod4+Shift+D" = "exec ${pkgs.rofi}/bin/rofi -show ssh";
-        "Mod4+M" = "exec ${hive.pkgs.patch.kitty}/bin/kitty -T qalc ${pkgs.libqalculate}/bin/qalc";
+        "Mod4+M" = "exec ${pkgs.kitty}/bin/kitty -T qalc ${pkgs.libqalculate}/bin/qalc";
         "Mod4+Shift+Slash" = "kill";
         "XF86AudioRaiseVolume" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --change-volume +5";
         "XF86AudioLowerVolume" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --change-volume -5";

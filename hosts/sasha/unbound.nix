@@ -5,20 +5,10 @@ let
   # Define common insecure DNS servers
   insecureDNSServers = [
     #"10.33.0.1"
+    "172.19.0.1"
     "9.9.9.10"
     "1.1.1.1"
   ];
-
-  # Import captive portal domains
-  captivePortalsByCategory = import ./captive-portals.nix;
-
-  # Flatten all captive portal domains into a single list
-  captivePortalDomains = lib.flatten (
-    lib.mapAttrsToList (
-      _category: categorySet:
-      if builtins.isList categorySet then categorySet else lib.flatten (lib.attrValues categorySet)
-    ) captivePortalsByCategory
-  );
 
   # Define TLD configurations
   altTLDs = {
@@ -105,12 +95,7 @@ let
           forward-tls-upstream = false;
         }) cfg.tlds
       ) altTLDs
-    )
-    ++ (map (domain: {
-      name = "${domain}.";
-      forward-addr = insecureDNSServers;
-      forward-tls-upstream = false;
-    }) captivePortalDomains);
+    );
 
   secureServerConfig = {
     logfile = "/tmp/unbound.log";
@@ -124,7 +109,7 @@ let
     prefetch = true;
     hide-identity = true;
     hide-version = true;
-    domain-insecure = allTlds ++ captivePortalDomains;
+    domain-insecure = allTlds;
   };
 
   insecureServerConfig = secureServerConfig // {

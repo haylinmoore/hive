@@ -73,7 +73,7 @@
     # cinny-desktop
     # fluffychat
     nicotine-plus
-    g4music
+    gapless 
     finamp
 
     # memes
@@ -103,7 +103,6 @@
 
   programs.kitty = {
     enable = true;
-    package = hive.pkgs.patch.kitty;
     settings = {
       font_family = "Berkeley Mono";
       bold_font = "Berkeley Mono Bold";
