@@ -101,6 +101,9 @@
   systemd.units."dev-tpmrm0.device" = {
     enable = false;
   };
+  systemd.units."dev-tpm0.device" = {
+    enable = false;
+  };
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 }
