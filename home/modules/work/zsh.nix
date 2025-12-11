@@ -23,6 +23,7 @@
       simkill = "tools/kill_stale_simnodes.sh";
       sup = "simnode/qc create -n 4 && export SIMNODE_REST_PORT=$(simnode/qc status --rest)";
       sdown = "simnode/qc cleanup";
+      wemux-allow = "tmux server-access -a wemux";
     };
 
     initContent = ''

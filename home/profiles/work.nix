@@ -44,5 +44,10 @@
     claude-code
   ];
 
+  home.file."wemux" = {
+    source = "${pkgs.wemux}/bin/wemux";
+    executable = true;
+  };
+
   programs.home-manager.enable = true;
 }

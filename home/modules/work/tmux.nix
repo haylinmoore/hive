@@ -17,6 +17,7 @@
 
       set -s set-clipboard on
       set -sg escape-time 0
+      set -g window-size smallest
     '';
   };
 }
