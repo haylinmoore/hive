@@ -121,9 +121,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "ce7f1a58ef9bec09742748cf68f25b7791c9d823",
-      "url": "https://github.com/umacabal/umaring/archive/ce7f1a58ef9bec09742748cf68f25b7791c9d823.tar.gz",
-      "hash": "16mxkfady6b732q39kpbzzar3riza97cyjwjrbbljaaai3z0b22l",
+      "revision": "a52710edf8d9b3911b829fa139a8e4f77eb35171",
+      "url": "https://github.com/umacabal/umaring/archive/a52710edf8d9b3911b829fa139a8e4f77eb35171.tar.gz",
+      "hash": "09sxhp2q7qy4h3frjihyfim3jfrlw77mc1vhbs415yvyfm35mk1c",
       "frozen": true
     }
   },
