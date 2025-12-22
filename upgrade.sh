@@ -9,11 +9,14 @@ if [[ -z "$cmd" ]]; then
     cmd="work"
   elif [[ "$(hostname)" == "sasha" ]]; then
     cmd="sasha"
+  elif [[ "$(hostname)" == "astrid" ]]; then
+    cmd="astrid"
   else
-    echo "Usage: $0 {colmena|work|sasha}"
+    echo "Usage: $0 {colmena|work|sasha|astrid}"
     echo "  colmena - Deploy to all servers via colmena"
     echo "  work    - Deploy work home-manager configuration"
     echo "  sasha   - Deploy sasha NixOS configuration"
+    echo "  astrid  - Deploy astrid NixOS configuration"
     exit 1
   fi
 fi
@@ -35,11 +38,17 @@ case "$cmd" in
     action=${1:-switch}
     sudo nixos-rebuild "$action" --file default.nix --attr hosts.sasha
     ;;
+  astrid)
+    shift
+    action=${1:-switch}
+    sudo nixos-rebuild "$action" --file default.nix --attr hosts.astrid
+    ;;
   *)
-    echo "Usage: $0 {colmena|work|sasha}"
+    echo "Usage: $0 {colmena|work|sasha|astrid}"
     echo "  colmena - Deploy to all servers via colmena"
     echo "  work    - Deploy work home-manager configuration"
     echo "  sasha   - Deploy sasha NixOS configuration"
+    echo "  astrid  - Deploy astrid NixOS configuration"
     exit 1
     ;;
 esac

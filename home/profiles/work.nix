@@ -42,6 +42,10 @@
     npins
     pre-commit
     claude-code
+    sapling
+    cowsay
+    hive.pkgs.arc
+    jq
   ];
 
   home.file."wemux" = {

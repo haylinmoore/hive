@@ -21,12 +21,18 @@ let
       modules = [ ./profiles/sasha ];
       extraSpecialArgs = { inherit hive; };
     };
+    astrid = home-manager.lib.homeManagerConfiguration {
+      inherit pkgs;
+      modules = [ ./profiles/astrid ];
+      extraSpecialArgs = { inherit hive; };
+    };
   };
 in
 {
   # Expose individual configs as derivations for nix-build -A home.work
   work = homeConfigurations.work.activationPackage;
   sasha = homeConfigurations.sasha.activationPackage;
+  astrid = homeConfigurations.astrid.activationPackage;
 
   # Pass through for potential future use
   inherit homeConfigurations;

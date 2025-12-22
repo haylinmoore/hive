@@ -10,6 +10,7 @@
     };
 
     shellAliases = {
+      phab = "~/src/prototypes/hmoore/phab";
       srcd = "cd ~/src/";
       cr = "~/src/check_run.py";
       next-patch = "~/tools/next-patch";

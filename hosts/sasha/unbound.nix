@@ -85,17 +85,16 @@ let
   allTlds = lib.flatten (lib.mapAttrsToList (_: cfg: cfg.tlds) altTLDs);
 
   # Generate forward-zone configurations
-  forwardZones =
-    lib.flatten (
-      lib.mapAttrsToList (
-        name: cfg:
-        map (tld: {
-          name = "${tld}.";
-          forward-addr = cfg.nameservers;
-          forward-tls-upstream = false;
-        }) cfg.tlds
-      ) altTLDs
-    );
+  forwardZones = lib.flatten (
+    lib.mapAttrsToList (
+      name: cfg:
+      map (tld: {
+        name = "${tld}.";
+        forward-addr = cfg.nameservers;
+        forward-tls-upstream = false;
+      }) cfg.tlds
+    ) altTLDs
+  );
 
   secureServerConfig = {
     logfile = "/tmp/unbound.log";
