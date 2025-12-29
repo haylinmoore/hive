@@ -23,6 +23,7 @@
     ./256.nix
     ./dollpublish.nix
     ./umaring.nix
+    ./authentik.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
@@ -61,6 +62,21 @@
     ipmitool
     mtr
     bird3
+  ];
+
+  security.pam.loginLimits = [
+    {
+      domain = "*";
+      type = "soft";
+      item = "nofile";
+      value = "65536";
+    }
+    {
+      domain = "*";
+      type = "hard";
+      item = "nofile";
+      value = "65536";
+    }
   ];
 
   sops.secrets."dns" = {

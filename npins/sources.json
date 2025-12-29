@@ -1,5 +1,18 @@
 {
   "pins": {
+    "authentik-nix": {
+      "type": "Git",
+      "repository": {
+        "type": "GitHub",
+        "owner": "nix-community",
+        "repo": "authentik-nix"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "e929253deddb8398c7010b28187d9d43603db950",
+      "url": "https://github.com/nix-community/authentik-nix/archive/e929253deddb8398c7010b28187d9d43603db950.tar.gz",
+      "hash": "18axraa5bib6bx4i5gqciml99hgjnxl8vq1nj0py10lg79askl8x"
+    },
     "catppuccin": {
       "type": "Git",
       "repository": {
