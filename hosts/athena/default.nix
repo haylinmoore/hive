@@ -29,6 +29,8 @@
     ../../nixos/certs/estrogen-coffee.nix
   ];
 
+  defaultHttp.enable = true;
+
   users.mutableUsers = false;
   users.users.root.hashedPasswordFile = "/persistent/root.password";
   users.users.root.openssh.authorizedKeys.keys = [

@@ -14,6 +14,8 @@
     credentialsFile = "/run/secrets/dns";
   };
 
+  defaultHttp.acmeHosts = [ "uwu.estate" ];
+
   users.users = lib.mkIf config.services.nginx.enable {
     nginx.extraGroups = [ "acme" ];
   };

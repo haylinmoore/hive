@@ -14,6 +14,8 @@
     credentialsFile = "/run/secrets/dns";
   };
 
+  defaultHttp.acmeHosts = [ "estrogen.coffee" ];
+
   users.users = lib.mkIf config.services.nginx.enable {
     nginx.extraGroups = [ "acme" ];
   };

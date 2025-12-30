@@ -18,6 +18,8 @@ rec {
     ../../nixos/modules/dli-ddns.nix
   ];
 
+  defaultHttp.enable = true;
+
   networking.firewall.enable = false;
 
   # Add meshcore-cli for system-wide use
