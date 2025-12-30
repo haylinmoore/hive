@@ -22,9 +22,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "95042630028d613080393e0f03c694b77883c7db",
-      "url": "https://github.com/catppuccin/nix/archive/95042630028d613080393e0f03c694b77883c7db.tar.gz",
-      "hash": "19fpgywqyv877k050g5mka1asvyvzfxy03ww7xk0r7wy1sdhg99z"
+      "revision": "de1b60ca45a578f59f7d84c8d338b346017b2161",
+      "url": "https://github.com/catppuccin/nix/archive/de1b60ca45a578f59f7d84c8d338b346017b2161.tar.gz",
+      "hash": "139wc98ldr3lgk4sbw43jnalk80w2axmm82z6a38d7969y0p9k4p"
     },
     "dollpublish": {
       "type": "Git",
@@ -49,9 +49,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "e5b1f87841810fc24772bf4389f9793702000c9b",
-      "url": "https://github.com/nix-community/home-manager/archive/e5b1f87841810fc24772bf4389f9793702000c9b.tar.gz",
-      "hash": "0sbf66mx4pvzb18gq7w08l9x44dlj8hdylgb53y00w2bhw174m85"
+      "revision": "d99b4ca5debaa082c7d76015aa2b7f3fc7e8b5f7",
+      "url": "https://github.com/nix-community/home-manager/archive/d99b4ca5debaa082c7d76015aa2b7f3fc7e8b5f7.tar.gz",
+      "hash": "1qfmqp8c8pg9rvhkd2i7pp8f9smivh2jrivm2xzf7api1xw57c98"
     },
     "impermanence": {
       "type": "Git",
@@ -82,8 +82,8 @@
     "nixpkgs": {
       "type": "Channel",
       "name": "nixpkgs-unstable",
-      "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.05pre909321.677fbe97984e/nixexprs.tar.xz",
-      "hash": "0i4jyr0xv8i90gxil1s36yqas4qfnp52bwr02fdx90chp31kchzv"
+      "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.05pre918100.0744ef1b047f/nixexprs.tar.xz",
+      "hash": "1gm6lf827vnf1n2wqizvgwvcmca8477rsbsk4ax7qi8zpd433p9s"
     },
     "sheepda": {
       "type": "Git",
@@ -108,9 +108,9 @@
       },
       "branch": "master",
       "submodules": false,
-      "revision": "7fd1416aba1865eddcdec5bb11339b7222c2363e",
-      "url": "https://github.com/Mic92/sops-nix/archive/7fd1416aba1865eddcdec5bb11339b7222c2363e.tar.gz",
-      "hash": "1kj0z2qcclai95k558yhk7ckcf00wi1iniv43fw02kkfmaip7l59"
+      "revision": "61b39c7b657081c2adc91b75dd3ad8a91d6f07a7",
+      "url": "https://github.com/Mic92/sops-nix/archive/61b39c7b657081c2adc91b75dd3ad8a91d6f07a7.tar.gz",
+      "hash": "0i6rncwj4xa6qzysrfrp0cg1gmb1v44xgarrzj8sr3ns2z3h0zx6"
     },
     "treefmt-nix": {
       "type": "Git",
@@ -121,9 +121,9 @@
       },
       "branch": "main",
       "submodules": false,
-      "revision": "5b4ee75aeefd1e2d5a1cc43cf6ba65eba75e83e4",
-      "url": "https://github.com/numtide/treefmt-nix/archive/5b4ee75aeefd1e2d5a1cc43cf6ba65eba75e83e4.tar.gz",
-      "hash": "0cr6aj9bk7n3y09lwmfjr7xg1f069332xf4q99z3kj1c1mp0wl82"
+      "revision": "42d96e75aa56a3f70cab7e7dc4a32868db28e8fd",
+      "url": "https://github.com/numtide/treefmt-nix/archive/42d96e75aa56a3f70cab7e7dc4a32868db28e8fd.tar.gz",
+      "hash": "1hlnqdd7vq8w380ggra39r9p9dvnfn92ph3p844jvxvkybh8vjpr"
     },
     "umaring": {
       "type": "Git",
