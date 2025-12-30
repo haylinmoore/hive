@@ -24,6 +24,7 @@
     ./dollpublish.nix
     ./umaring.nix
     ./authentik.nix
+    ./jellyfin.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
