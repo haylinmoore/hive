@@ -25,9 +25,11 @@
     ./umaring.nix
     ./authentik.nix
     ./jellyfin.nix
+    ./aconite.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
+    ../../nixos/certs/aconite-systems.nix
   ];
 
   defaultHttp.enable = true;
@@ -88,6 +90,7 @@
     owner = "acme";
     restartUnits = [
       "acme-hayl.in.service"
+      "acme-aconite.systems.service"
     ];
   };
 

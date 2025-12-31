@@ -20,9 +20,12 @@
 
   users.users.jellyfin.extraGroups = [ "media" ];
 
-  proxySites.jellyfin = {
-    domain = "jellyfin.hayl.in";
-    proxyUri = "http://127.0.0.1:8096";
+  services.nginx.virtualHosts."jellyfin.hayl.in" = {
+    forceSSL = true;
     useACMEHost = "hayl.in";
+    locations."/" = {
+      proxyPass = "http://127.0.0.1:8096";
+      proxyWebsockets = true;
+    };
   };
 }
