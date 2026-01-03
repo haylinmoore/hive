@@ -26,6 +26,7 @@
     ./authentik.nix
     ./jellyfin.nix
     ./aconite.nix
+    ./archive.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
