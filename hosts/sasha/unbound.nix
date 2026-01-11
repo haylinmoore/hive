@@ -4,7 +4,8 @@
 let
   # Define common insecure DNS servers
   insecureDNSServers = [
-    #"10.33.0.1"
+    "100.68.0.31"
+    "100.68.0.32"
     "172.19.0.1"
     "9.9.9.10"
     "1.1.1.1"
