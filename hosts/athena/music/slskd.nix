@@ -33,4 +33,9 @@
       directories.downloads = "/bulk/music/haylin/unsorted";
     };
   };
+
+  # Remove the /slskd location from music.hayl.in (will be proxied via fun.hayl.in)
+  services.nginx.virtualHosts."music.hayl.in".locations."/slskd" = lib.mkForce {
+    return = "404";
+  };
 }
