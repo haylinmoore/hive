@@ -27,6 +27,8 @@
     ./jellyfin.nix
     ./aconite.nix
     ./archive.nix
+    ./rutorrent.nix
+    ./fun.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
