@@ -6,7 +6,7 @@
 }:
 
 let
-  naersk = pkgs.callPackage hive.sources.naersk { };
+  naersk = pkgs.callPackage hive.sources.naersk.outPath { };
 
   service =
     package:
