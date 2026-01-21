@@ -11,7 +11,7 @@
       "submodules": false,
       "revision": "e929253deddb8398c7010b28187d9d43603db950",
       "url": "https://github.com/nix-community/authentik-nix/archive/e929253deddb8398c7010b28187d9d43603db950.tar.gz",
-      "hash": "18axraa5bib6bx4i5gqciml99hgjnxl8vq1nj0py10lg79askl8x"
+      "hash": "sha256-HdGpVTqPguAvkDbgjWi38sGUaI0MvxJJX2bFVZTKXaE="
     },
     "catppuccin": {
       "type": "Git",
@@ -24,7 +24,7 @@
       "submodules": false,
       "revision": "de1b60ca45a578f59f7d84c8d338b346017b2161",
       "url": "https://github.com/catppuccin/nix/archive/de1b60ca45a578f59f7d84c8d338b346017b2161.tar.gz",
-      "hash": "139wc98ldr3lgk4sbw43jnalk80w2axmm82z6a38d7969y0p9k4p"
+      "hash": "sha256-l8x0gU8mnYaGMl+gWrsSHKBJlZWD8KXJfHTkRlFiPI0="
     },
     "dollpublish": {
       "type": "Git",
@@ -37,7 +37,7 @@
       "submodules": false,
       "revision": "4343fd52f5562ab09181e9652c0433826dfc36dc",
       "url": "https://github.com/haylinmoore/dollpublish/archive/4343fd52f5562ab09181e9652c0433826dfc36dc.tar.gz",
-      "hash": "1skhlmcibwgdbykds3m5s084g4qrivl4k2sz0ywjpj7f86jyizyn",
+      "hash": "sha256-1v/opUHuyCu5B1+LSeiOGZNHENClDt2mX+3xFVmlcOo=",
       "frozen": true
     },
     "home-manager": {
@@ -51,7 +51,7 @@
       "submodules": false,
       "revision": "d99b4ca5debaa082c7d76015aa2b7f3fc7e8b5f7",
       "url": "https://github.com/nix-community/home-manager/archive/d99b4ca5debaa082c7d76015aa2b7f3fc7e8b5f7.tar.gz",
-      "hash": "1qfmqp8c8pg9rvhkd2i7pp8f9smivh2jrivm2xzf7api1xw57c98"
+      "hash": "sha256-KLFTeA/xquN+F3XHLAXcserk0L0nijbhzuldxNDF1eE="
     },
     "impermanence": {
       "type": "Git",
@@ -64,7 +64,7 @@
       "submodules": false,
       "revision": "4b3e914cdf97a5b536a889e939fb2fd2b043a170",
       "url": "https://github.com/nix-community/impermanence/archive/4b3e914cdf97a5b536a889e939fb2fd2b043a170.tar.gz",
-      "hash": "04l16szln2x0ajq2x799krb53ykvc6vm44x86ppy1jg9fr82161c"
+      "hash": "sha256-LJggUHbpyeDvNagTUrdhe/pRVp4pnS6wVKALS782gRI="
     },
     "naersk": {
       "type": "Git",
@@ -77,13 +77,13 @@
       "submodules": false,
       "revision": "d4155d6ebb70fbe2314959842f744aa7cabbbf6a",
       "url": "https://github.com/nix-community/naersk/archive/d4155d6ebb70fbe2314959842f744aa7cabbbf6a.tar.gz",
-      "hash": "1pmj1d3xp3fjz8m3msvmh8jnylwmgk76iah9qnfs8ddgwlij1v5g"
+      "hash": "sha256-r+wgI+WvNaSdxQmqaM58lVNvJYJ16zoq+tKN20cLst4="
     },
     "nixpkgs": {
       "type": "Channel",
       "name": "nixpkgs-unstable",
       "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.05pre918100.0744ef1b047f/nixexprs.tar.xz",
-      "hash": "1gm6lf827vnf1n2wqizvgwvcmca8477rsbsk4ax7qi8zpd433p9s"
+      "hash": "sha256-Ot0xSLsfRXy6IlMvnc8hSLHKNn/7R8yFDc7uI5Cjpr4="
     },
     "sheepda": {
       "type": "Git",
@@ -96,7 +96,7 @@
       "submodules": false,
       "revision": "efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46",
       "url": "https://github.com/haylinmoore/sheepda/archive/efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46.tar.gz",
-      "hash": "0cywcqw7si8m6anwb5xcgy724ipih83hk109s1n7g73fw9scyzl3",
+      "hash": "sha256-g37PdOJunHds0AmECQeC8UYijn+sl8WtMhVFfThm3DM=",
       "frozen": true
     },
     "sops": {
@@ -110,7 +110,7 @@
       "submodules": false,
       "revision": "61b39c7b657081c2adc91b75dd3ad8a91d6f07a7",
       "url": "https://github.com/Mic92/sops-nix/archive/61b39c7b657081c2adc91b75dd3ad8a91d6f07a7.tar.gz",
-      "hash": "0i6rncwj4xa6qzysrfrp0cg1gmb1v44xgarrzj8sr3ns2z3h0zx6"
+      "hash": "sha256-pn8AxxfajqyR/Dmr1wnZYdUXHgM3u6z9x0Z1Ijmz2UQ="
     },
     "treefmt-nix": {
       "type": "Git",
@@ -123,7 +123,7 @@
       "submodules": false,
       "revision": "42d96e75aa56a3f70cab7e7dc4a32868db28e8fd",
       "url": "https://github.com/numtide/treefmt-nix/archive/42d96e75aa56a3f70cab7e7dc4a32868db28e8fd.tar.gz",
-      "hash": "1hlnqdd7vq8w380ggra39r9p9dvnfn92ph3p844jvxvkybh8vjpr"
+      "hash": "sha256-+cqN4PJz9y0JQXfAK5J1drd0U05D5fcAGhzhfVrDlsI="
     },
     "umaring": {
       "type": "Git",
@@ -136,9 +136,9 @@
       "submodules": false,
       "revision": "910ecc557db636c158df79a981ef8d2777800879",
       "url": "https://github.com/umacabal/umaring/archive/910ecc557db636c158df79a981ef8d2777800879.tar.gz",
-      "hash": "1mb2fh6961h8bw01zrsyqc6wn1i0rab02nkz5kk6g5yihkw0gvvq",
+      "hash": "sha256-eO8H+ITRl2fmLH9aAZbKIAbLDcNe5x8AXwgGkwx0YtU=",
       "frozen": true
     }
   },
-  "version": 5
+  "version": 7
 }
