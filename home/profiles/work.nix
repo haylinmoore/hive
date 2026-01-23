@@ -19,7 +19,7 @@
   home.stateVersion = "25.05";
 
   # Work-specific git email
-  programs.git.userEmail = "hmoore@qumulo.com";
+  programs.git.settings.user.email = "hmoore@qumulo.com";
 
   nixpkgs.config.allowUnfreePredicate =
     pkg:

@@ -6,12 +6,6 @@
   hive,
   ...
 }:
-let
-  pinnedNixpkgs = import (builtins.fetchTarball {
-    url = "https://github.com/nixos/nixpkgs/archive/94def634a20494ee057c76998843c015909d6311.tar.gz";
-    sha256 = "1cnb74cr9zz88430xy1m9f7dxyx6237qwpljnqy62m6xjx264r9b";
-  }) { inherit (pkgs) system config; };
-in
 {
   imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
 
@@ -28,7 +22,7 @@ in
     "xe"
   ];
   boot.extraModulePackages = [ ];
-  boot.kernelPackages = pinnedNixpkgs.linuxPackages_6_16;
+  boot.kernelPackages = pkgs.linuxPackages_6_18;
 
   fileSystems."/" = {
     device = "/dev/disk/by-uuid/a896eea0-94aa-4a66-8ce7-2a2ba81b5f64";

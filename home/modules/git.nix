@@ -8,8 +8,8 @@
 {
   programs.git = {
     enable = true;
-    userName = "Haylin Moore";
-    extraConfig = {
+    settings = {
+      user.name = "Haylin Moore";
       init.defaultBranch = "main";
       pull = {
         autosetupremote = true;

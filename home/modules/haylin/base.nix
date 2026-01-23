@@ -10,7 +10,7 @@
     ../git.nix
   ];
 
-  programs.git.userEmail = lib.mkDefault "me@haylinmoore.com";
+  programs.git.settings.user.email = lib.mkDefault "me@haylinmoore.com";
 
   home.packages = with pkgs; [
     # utils
