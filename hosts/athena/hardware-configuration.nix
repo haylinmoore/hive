@@ -80,6 +80,7 @@
   fileSystems."/bulk" = {
     device = "/dev/disk/by-label/data";
     fsType = "btrfs";
+    neededForBoot = true;
     options = [
       "compress=zstd"
       "noatime"
