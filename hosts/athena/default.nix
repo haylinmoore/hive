@@ -29,6 +29,7 @@
     ./archive.nix
     ./rutorrent.nix
     ./fun.nix
+    ./minecraft.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
