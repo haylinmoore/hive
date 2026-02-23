@@ -19,6 +19,7 @@
     # desktop apps
     firefox
     slack
+    discord
     obsidian
     thunderbird
     zathura

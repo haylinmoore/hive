@@ -69,13 +69,7 @@
   ];
 
   # Networking/Firewall
-  networking.firewall.enable = true;
-  networking.firewall.allowPing = true;
-  networking.firewall.allowedTCPPorts = [
-    8000
-    8080
-    3000
-  ];
+  networking.firewall.enable = false;
 
   # Virtualization
   virtualisation.podman = {
@@ -142,4 +136,7 @@
   documentation.enable = true;
   documentation.man.enable = true;
   documentation.dev.enable = true;
+
+  # Flatpak
+  services.flatpak.enable = true;
 }

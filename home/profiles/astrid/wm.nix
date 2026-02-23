@@ -61,6 +61,7 @@
     extraConfig = ''
       input * xkb_options compose:ralt
       output * adaptive_sync on
+      output * scale 2
     '';
   };
 
