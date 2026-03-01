@@ -12,10 +12,9 @@
       forceSSL = true;
       enableACME = true;
       locations."/" = {
-        proxyPass = "https://umaring.github.io";
+        return = "301 https://umaring.github.io$request_uri";
         extraConfig = ''
-          proxy_ssl_server_name on;
-          proxy_set_header Host umaring.github.io;
+          add_header Access-Control-Allow-Origin *;
         '';
       };
     };
