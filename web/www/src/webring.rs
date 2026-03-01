@@ -16,7 +16,7 @@ pub struct MemberGetResponse {
 
 pub async fn get_webring_link() -> Option<MemberGetResponse> {
     // Make the request
-    let res = ureq::get("https://umaring.mkr.cx/haylin").call();
+    let res = ureq::get("https://umaring.github.io/haylin.json").call();
 
     if let Err(_) = res {
         return None;
