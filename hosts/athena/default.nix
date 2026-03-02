@@ -30,6 +30,7 @@
     ./rutorrent.nix
     ./fun.nix
     ./minecraft.nix
+    ./matrix.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
