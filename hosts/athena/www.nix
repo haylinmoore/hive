@@ -21,6 +21,12 @@ in
     useACMEHost = "hayl.in";
   };
 
+  proxySites.www-http = {
+    domain = "http.hayl.in";
+    ssl = false;
+    inherit proxyUri;
+  };
+
   proxySites.ygg-haylin = {
     domain = "ygg.hayl.in";
     inherit proxyUri;

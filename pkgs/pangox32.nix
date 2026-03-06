@@ -25,6 +25,7 @@ pkgsi686Linux.stdenv.mkDerivation rec {
     substituteInPlace ./pangox.c \
     --replace-fail 'font_class->find_shaper = pango_x_font_find_shaper;' ' ' 
   '';
+  
   env.NIX_CFLAGS_COMPILE = toString [
     "-Wno-error=deprecated-declarations"
     "-Wno-error=incompatible-pointer-types"
