@@ -26,9 +26,12 @@
     enable = true;
     settings.global = {
       server_name = "chat.estrogen.coffee";
-      address = [ "127.0.0.1" "::1" ];
+      address = [
+        "127.0.0.1"
+        "::1"
+      ];
       port = [ 6167 ];
-      allow_registration = true;  # disable after creating admin account
+      allow_registration = true; # disable after creating admin account
       registration_token = "haylin-setup";
       allow_encryption = true;
       allow_federation = true;
