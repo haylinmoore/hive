@@ -10,51 +10,48 @@
 
 let
 
-  navigator-dist = stdenv.mkDerivation {
-    pname = "netscape-navigator-dist";
-    version = "9.0.0.5";
-    src = fetchurl {
-      url = "https://www.zx.net.nz/mirror/http.netscape.com.edgesuite.net/pub/netscape9/en-US/9.0/unix/linux/netscape-navigator-9.0.0.5.tar.gz";
-      sha256 = "sha256-pxja4JLsF3z1cJbUEy6PybPPXdIg7HMaq9aTqM5aSAI=";
+  versions = {
+    v9005 = builtins.fetchTarball {
+        url = "https://archive.hayl.in/netscape-navigator/netscape-navigator-9.0.0.5.tar.gz";
+        sha256 = "0ms64in12lh9sjbk4n77fcagandiwi8gm6qd9xf2bnbyddn3hqpy";
     };
-    sourceRoot = "navigator";
-    dontBuild = true;
-    installPhase = ''
-      mkdir -p $out
-      cp -r . $out/
-      chmod +x $out/navigator $out/navigator-bin $out/run-mozilla.sh
-    '';
+    v9006 = builtins.fetchTarball {
+        url = "https://archive.hayl.in/netscape-navigator/netscape-navigator-9.0.0.6.tar.gz";
+        sha256 = "0fq57w55i0jsa26j4b7cadzbkb8hg8j2d4228jngqmkkn8ldbwfl";
+    };
   };
+
 in
-buildFHSEnv {
-  name = "netscape-navigator";
-  targetPkgs =
-    pkgs:
-    (
-      with pkgsi686Linux;
-      [
-        glibc
-        gtk2
-        atk
-        gdk-pixbuf
-        pango
-        glib
-        libx11
-        libxrender
-        fontconfig
-        freetype
-        libxt
-        libxft
-        libz
-      ]
-      ++ [
-        hive.pkgs.pangox32
-        hive.pkgs.libstdcpp5
-      ]
-    );
-  runScript = writeShellScript "run-navigator" ''
-    export LD_LIBRARY_PATH=/usr/lib32''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-    cd ${navigator-dist}
-    exec ./navigator "$@"
-  '';
-}
+builtins.mapAttrs ( name: src: buildFHSEnv {
+    name = "netscape-navigator";
+    targetPkgs =
+      pkgs:
+      (
+        with pkgsi686Linux;
+        [
+          glibc
+          gtk2
+          atk
+          gdk-pixbuf
+          pango
+          glib
+          libx11
+          libxrender
+          fontconfig
+          freetype
+          libxt
+          libxft
+          libz
+        ]
+        ++ [
+          hive.pkgs.pangox32
+          hive.pkgs.libstdcpp5
+        ]
+      );
+    runScript = writeShellScript "run-navigator" ''
+      export LD_LIBRARY_PATH=/usr/lib32''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      cd ${src}
+      exec ./navigator "$@"
+    '';
+  }
+) versions
