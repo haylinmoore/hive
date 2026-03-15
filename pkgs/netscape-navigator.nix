@@ -12,17 +12,19 @@ let
 
   versions = {
     v9005 = builtins.fetchTarball {
-        url = "https://archive.hayl.in/netscape-navigator/netscape-navigator-9.0.0.5.tar.gz";
-        sha256 = "0ms64in12lh9sjbk4n77fcagandiwi8gm6qd9xf2bnbyddn3hqpy";
+      url = "https://archive.hayl.in/netscape-navigator/netscape-navigator-9.0.0.5.tar.gz";
+      sha256 = "0ms64in12lh9sjbk4n77fcagandiwi8gm6qd9xf2bnbyddn3hqpy";
     };
     v9006 = builtins.fetchTarball {
-        url = "https://archive.hayl.in/netscape-navigator/netscape-navigator-9.0.0.6.tar.gz";
-        sha256 = "0fq57w55i0jsa26j4b7cadzbkb8hg8j2d4228jngqmkkn8ldbwfl";
+      url = "https://archive.hayl.in/netscape-navigator/netscape-navigator-9.0.0.6.tar.gz";
+      sha256 = "0fq57w55i0jsa26j4b7cadzbkb8hg8j2d4228jngqmkkn8ldbwfl";
     };
   };
 
 in
-builtins.mapAttrs ( name: src: buildFHSEnv {
+builtins.mapAttrs (
+  name: src:
+  buildFHSEnv {
     name = "netscape-navigator";
     targetPkgs =
       pkgs:
