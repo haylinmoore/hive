@@ -32,6 +32,7 @@
     ./minecraft.nix
     ./skyfactory.nix
     ./matrix.nix
+    ./thelounge.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
