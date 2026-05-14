@@ -44,7 +44,6 @@
     # golang
     go
     gopls
-    gotools
     go-tools
     delve
   ];
