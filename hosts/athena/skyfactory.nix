@@ -52,6 +52,10 @@ let
         uuid = "bcbd6cc3-bddb-4334-a3ed-18af305cc162";
         name = "1sreal";
       }
+      {
+        uuid = "45fb86fe-9d73-484d-a5ce-db7a570d70d8";
+        name = "GardenThanos";
+      }
     ]
   );
 in
