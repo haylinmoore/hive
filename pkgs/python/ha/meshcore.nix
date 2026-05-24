@@ -12,7 +12,7 @@ pkgs.buildHomeAssistantComponent rec {
     hash = "sha256-3ep7FkucjX3IrAHogxfY9sWtHCqrevwyc2GpqV1BMvI=";
   };
 
-  propagatedBuildInputs = with pkgs.python3Packages; [
+  propagatedBuildInputs = with pkgs.home-assistant.python.pkgs; [
     meshcore
     pycayennelpp
     bleak
