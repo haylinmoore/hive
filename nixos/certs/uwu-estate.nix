@@ -11,7 +11,7 @@
     extraDomainNames = [ "*.uwu.estate" ];
     dnsProvider = "bunny";
     dnsPropagationCheck = true;
-    credentialsFile = "/run/secrets/dns";
+    environmentFile = "/run/secrets/dns";
   };
 
   defaultHttp.acmeHosts = [ "uwu.estate" ];

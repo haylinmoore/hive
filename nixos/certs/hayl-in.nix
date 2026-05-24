@@ -11,7 +11,7 @@
     extraDomainNames = [ "*.hayl.in" ];
     dnsProvider = "bunny";
     dnsPropagationCheck = true;
-    credentialsFile = "/run/secrets/dns";
+    environmentFile = "/run/secrets/dns";
   };
 
   defaultHttp.acmeHosts = [ "hayl.in" ];
