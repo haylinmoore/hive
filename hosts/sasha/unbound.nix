@@ -72,6 +72,7 @@ let
       tlds = [
         "core.devhack.net"
         "int.devhack.net"
+        "devhack-ds01.devhack.net"
       ];
       nameservers = [
         "10.213.8.1"
