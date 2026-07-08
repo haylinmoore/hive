@@ -20,6 +20,7 @@ jobs:
           git clone git@github.com:haylinmoore/infra.git
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+      - uses: DeterminateSystems/magic-nix-cache-action@main
       - name: Get current revision
         id: get_revision
         run: |
