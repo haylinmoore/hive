@@ -33,10 +33,12 @@
     ./skyfactory.nix
     ./matrix.nix
     ./thelounge.nix
+    ./dial.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/estrogen-coffee.nix
     ../../nixos/certs/aconite-systems.nix
+    ../../nixos/certs/uwu-estate.nix
   ];
 
   defaultHttp.enable = true;
@@ -97,7 +99,9 @@
     owner = "acme";
     restartUnits = [
       "acme-hayl.in.service"
+      "acme-uwu.estate.service"
       "acme-aconite.systems.service"
+      "acme-estrogen.coffee.service"
     ];
   };
 

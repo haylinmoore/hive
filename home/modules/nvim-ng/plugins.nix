@@ -71,14 +71,9 @@
       config = ''
         local lspconfig = require('lspconfig')
 
-        -- Rust analyzer configuration for Qumulo
         lspconfig.rust_analyzer.setup({
-          cmd = { "/opt/qumulo/toolchain/bin/rust-analyzer" },
           settings = {
             ["rust-analyzer"] = {
-              rustfmt = {
-                overrideCommand = { "/opt/qumulo/toolchain/bin/rustfmt" }
-              },
               server = {
                 extraEnv = {
                   CHALK_OVERFLOW_DEPTH = "500"
