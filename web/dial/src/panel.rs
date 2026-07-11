@@ -41,7 +41,7 @@ fn panel_route(config: Arc<Config>) -> Markup {
                 tr hx-include="this" {
                     td { (option.1) }
                     td {
-                        input name="val" value=(config.get_string(option.0.clone())) {}
+                        input name="val" value=(config.get_string(option.0.clone())) autocomplete="off";
                     }
                     td hx-include="inherit" {
                         button hx-post="./" hx-ext="json-enc" hx-target="body" hx-include="inherit" hx-vals=(format!("{{\"type\": \"SetString\", \"id\": {}}}", option.0 as u8)) { "Set" }
