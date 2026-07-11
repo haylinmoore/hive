@@ -16,8 +16,11 @@ enum Trees {
 #[derive(Clone, Debug, Deserialize_repr)]
 #[repr(u8)]
 pub enum ConfigKeyspace {
-    SUPER = 0x0,
-    AllCallsDial = 0x1,
+    SUPER = 0x00,
+    AllCallsDial = 0x01,
+    BaseDialUrl = 0x02,
+    TwilioAuthToken = 0x03,
+    ValidateDial = 0x04,
     DialPhoneNumber = 0x09,
     DoorkingCallerId = 0x10,
     LandlordCallerId = 0x11,
@@ -27,6 +30,7 @@ pub enum ConfigKeyspace {
 #[derive(FromPrimitive)]
 enum SuperVersions {
     One = 1,
+    Two = 2,
 }
 
 pub struct Config {
@@ -87,36 +91,53 @@ impl Config {
                 .map(|x| SuperVersions::from_u8(x[0]).unwrap());
 
             'outer: {
-                'none: {
-                    match super_value {
-                        None => break 'none,
-                        Some(SuperVersions::One) => break 'outer,
+                'one: {
+                    'none: {
+                        match super_value {
+                            None => break 'none,
+                            Some(SuperVersions::One) => break 'one,
+                            Some(SuperVersions::Two) => break 'outer,
+                        }
                     }
+
+                    println!("db: running initial population");
+                    config.set_bool(ConfigKeyspace::AllCallsDial, false);
+
+                    config.add_door_code(DoorCode {
+                        id: 0,
+                        enabled: true,
+                        name: "haylin".to_string(),
+                        code: "123456".to_string(),
+                    });
+                    config.add_door_code(DoorCode {
+                        id: 0,
+                        enabled: true,
+                        name: "backup".to_string(),
+                        code: "987654".to_string(),
+                    });
+
+                    config.set_string(ConfigKeyspace::DialPhoneNumber, "+11234567890".to_string());
+                    config.set_string(ConfigKeyspace::DoorkingCallerId, "+11234567890".to_string());
+                    config.set_string(ConfigKeyspace::LandlordCallerId, "+11234567890".to_string());
+
+                    let _ = config
+                        .db
+                        .insert(&[ConfigKeyspace::SUPER as u8], &[SuperVersions::One as u8]);
+                    println!("db: upgraded to ONE");
                 }
+                println!("db: running upgrade from ONE to TWO");
 
-                println!("db: running initial population");
-                config.set_bool(ConfigKeyspace::AllCallsDial, false);
-
-                config.add_door_code(DoorCode {
-                    id: 0,
-                    enabled: true,
-                    name: "haylin".to_string(),
-                    code: "123456".to_string(),
-                });
-                config.add_door_code(DoorCode {
-                    id: 0,
-                    enabled: true,
-                    name: "backup".to_string(),
-                    code: "987654".to_string(),
-                });
-
-                config.set_string(ConfigKeyspace::DialPhoneNumber, "+11234567890".to_string());
-                config.set_string(ConfigKeyspace::DoorkingCallerId, "+11234567890".to_string());
-                config.set_string(ConfigKeyspace::LandlordCallerId, "+11234567890".to_string());
+                config.set_string(
+                    ConfigKeyspace::BaseDialUrl,
+                    "http://localhost:3000".to_string(),
+                );
+                config.set_string(ConfigKeyspace::TwilioAuthToken, "LoremIspum".to_string());
+                config.set_bool(ConfigKeyspace::ValidateDial, false);
 
                 let _ = config
                     .db
-                    .insert(&[ConfigKeyspace::SUPER as u8], &[SuperVersions::One as u8]);
+                    .insert(&[ConfigKeyspace::SUPER as u8], &[SuperVersions::Two as u8]);
+                println!("db: upgraded to TWO");
             }
         }
 

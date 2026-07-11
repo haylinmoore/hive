@@ -24,7 +24,7 @@ fn panel_route(config: Arc<Config>) -> Markup {
                 th { "Manage" }
             }
 
-            @for option in [(ConfigKeyspace::AllCallsDial, "All Calls Dial")] {
+            @for option in [(ConfigKeyspace::AllCallsDial, "All Calls Dial"), (ConfigKeyspace::ValidateDial, "Validate Dials")] {
                 @let value = config.get_bool(option.0.clone());
                 tr {
                     td { (option.1) }
@@ -37,11 +37,11 @@ fn panel_route(config: Arc<Config>) -> Markup {
                 }
             }
 
-            @for option in [(ConfigKeyspace::DialPhoneNumber, "Dial Phone Number"), (ConfigKeyspace::DoorkingCallerId, "DoorKing Caller ID"), (ConfigKeyspace::LandlordCallerId, "Landlord Caller ID")] {
+            @for option in [(ConfigKeyspace::DialPhoneNumber, "Dial Phone Number"), (ConfigKeyspace::DoorkingCallerId, "DoorKing Caller ID"), (ConfigKeyspace::LandlordCallerId, "Landlord Caller ID"), (ConfigKeyspace::BaseDialUrl, "Base Dial URL"), (ConfigKeyspace::TwilioAuthToken, "Twilio Auth Token")] {
                 tr hx-include="this" {
                     td { (option.1) }
                     td {
-                        input name="val" value=(config.get_string(option.0.clone())) maxlength="12" {}
+                        input name="val" value=(config.get_string(option.0.clone())) {}
                     }
                     td hx-include="inherit" {
                         button hx-post="./" hx-ext="json-enc" hx-target="body" hx-include="inherit" hx-vals=(format!("{{\"type\": \"SetString\", \"id\": {}}}", option.0 as u8)) { "Set" }

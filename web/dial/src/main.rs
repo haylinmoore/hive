@@ -13,7 +13,9 @@ use crate::panel::{get_panel_route, post_panel_route};
 
 #[tokio::main]
 async fn main() {
-    let config = Arc::new(Config::new( std::env::var("DB_PATH").unwrap_or_else(|_| String::from("db"))).await);
+    let config = Arc::new(
+        Config::new(std::env::var("DB_PATH").unwrap_or_else(|_| String::from("db"))).await,
+    );
 
     let dial = Router::new()
         .route("/inbound", get(dial_inbound))
