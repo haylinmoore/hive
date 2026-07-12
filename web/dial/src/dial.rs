@@ -143,13 +143,14 @@ pub async fn dial_doorking_gather(
     }
 
     if let Some(digits) = &params.Digits {
-        if config.check_door_code(digits.to_string()) {
-            let play = Play::new().digits("9999999999999");
+        let digits = if config.check_door_code(digits.to_string()) {
+            "9999999999999".to_string()
+        } else {
+            "############".to_string()
+        };
 
-            return Twiml(VoiceResponse::new().play_with(play));
-        }
-
-        return Twiml(VoiceResponse::new().say("Incorrect code"));
+        let play = Play::new().digits(digits);
+        return Twiml(VoiceResponse::new().play_with(play));
     }
 
     Twiml(VoiceResponse::new())
