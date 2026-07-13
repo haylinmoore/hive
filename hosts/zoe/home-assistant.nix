@@ -22,6 +22,7 @@
       "zha"
       "homekit"
       "aranet"
+      "matter"
     ];
     customComponents = [
       pkgs.home-assistant-custom-components.luxer_one
@@ -126,6 +127,16 @@
   systemd.tmpfiles.rules = [
     "f ${config.services.home-assistant.configDir}/automations.yaml 0755 hass hass"
   ];
+
+  # Local Matter controller for HA's "Matter" integration. Not exposed
+  # publicly - HA talks to it over localhost, and commissioning happens
+  # over the LAN only (zoe's firewall is disabled network-wide already).
+  services.matter-server = {
+    enable = true;
+    # Auto-detection picks "None" under the service's network sandboxing,
+    # which breaks mDNS advertisement ("Network is unreachable").
+    extraArgs.primary-interface = "enp4s0";
+  };
 
   proxySites.ha = {
     domain = "ha.uwu.estate";
