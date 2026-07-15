@@ -121,8 +121,7 @@ pub async fn dial_inbound(
         .action("/doorking_gather")
         .method("GET")
         .timeout(8)
-        .num_digits(6)
-        .finish_on_key("#");
+        .num_digits(6);
 
     Twiml(
         VoiceResponse::new()
