@@ -21,6 +21,7 @@ pub enum ConfigKeyspace {
     BaseDialUrl = 0x02,
     TwilioAuthToken = 0x03,
     ValidateDial = 0x04,
+    DoorkingAlwaysOpen = 0x05,
     DialPhoneNumber = 0x09,
     DoorkingCallerId = 0x10,
     LandlordCallerId = 0x11,
@@ -31,6 +32,7 @@ pub enum ConfigKeyspace {
 enum SuperVersions {
     One = 1,
     Two = 2,
+    Three = 3,
 }
 
 pub struct Config {
@@ -91,14 +93,16 @@ impl Config {
                 .map(|x| SuperVersions::from_u8(x[0]).unwrap());
 
             'outer: {
-                'one: {
-                    'none: {
-                        match super_value {
-                            None => break 'none,
-                            Some(SuperVersions::One) => break 'one,
-                            Some(SuperVersions::Two) => break 'outer,
+                'two: {
+                    'one: {
+                        'none: {
+                            match super_value {
+                                None => break 'none,
+                                Some(SuperVersions::One) => break 'one,
+                                Some(SuperVersions::Two) => break 'two,
+                                Some(SuperVersions::Three) => break 'outer,
+                            }
                         }
-                    }
 
                     println!("db: running initial population");
                     config.set_bool(ConfigKeyspace::AllCallsDial, false);
@@ -124,20 +128,29 @@ impl Config {
                         .db
                         .insert(&[ConfigKeyspace::SUPER as u8], &[SuperVersions::One as u8]);
                     println!("db: upgraded to ONE");
-                }
-                println!("db: running upgrade from ONE to TWO");
+                    }
+                    println!("db: running upgrade from ONE to TWO");
 
-                config.set_string(
-                    ConfigKeyspace::BaseDialUrl,
-                    "http://localhost:3000".to_string(),
-                );
-                config.set_string(ConfigKeyspace::TwilioAuthToken, "LoremIspum".to_string());
-                config.set_bool(ConfigKeyspace::ValidateDial, false);
+                    config.set_string(
+                        ConfigKeyspace::BaseDialUrl,
+                        "http://localhost:3000".to_string(),
+                    );
+                    config.set_string(ConfigKeyspace::TwilioAuthToken, "LoremIspum".to_string());
+                    config.set_bool(ConfigKeyspace::ValidateDial, false);
+
+                    let _ = config
+                        .db
+                        .insert(&[ConfigKeyspace::SUPER as u8], &[SuperVersions::Two as u8]);
+                    println!("db: upgraded to TWO");
+                }
+                println!("db: running upgrade from TWO to THREE");
+
+                config.set_bool(ConfigKeyspace::DoorkingAlwaysOpen, false);
 
                 let _ = config
                     .db
-                    .insert(&[ConfigKeyspace::SUPER as u8], &[SuperVersions::Two as u8]);
-                println!("db: upgraded to TWO");
+                    .insert(&[ConfigKeyspace::SUPER as u8], &[SuperVersions::Three as u8]);
+                println!("db: upgraded to THREE");
             }
         }
 

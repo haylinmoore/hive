@@ -116,6 +116,10 @@ pub async fn dial_inbound(
         );
     }
 
+    if config.get_bool(ConfigKeyspace::DoorkingAlwaysOpen) {
+        return open_door_response();
+    }
+
     let gather = Gather::new()
         .input(vec!["dtmf".to_string()])
         .action("/doorking_gather")
@@ -130,6 +134,11 @@ pub async fn dial_inbound(
     )
 }
 
+fn open_door_response() -> Twiml {
+    let play = Play::new().digits("9999999999999".to_string());
+    Twiml(VoiceResponse::new().play_with(play))
+}
+
 pub async fn dial_doorking_gather(
     _: TwilioVerified,
     State(config): State<Arc<Config>>,
@@ -142,13 +151,11 @@ pub async fn dial_doorking_gather(
     }
 
     if let Some(digits) = &params.Digits {
-        let digits = if config.check_door_code(digits.to_string()) {
-            "9999999999999".to_string()
-        } else {
-            "############".to_string()
-        };
+        if config.check_door_code(digits.to_string()) {
+            return open_door_response();
+        }
 
-        let play = Play::new().digits(digits);
+        let play = Play::new().digits("############".to_string());
         return Twiml(VoiceResponse::new().play_with(play));
     }
 

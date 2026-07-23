@@ -24,7 +24,7 @@ fn panel_route(config: Arc<Config>) -> Markup {
                 th { "Manage" }
             }
 
-            @for option in [(ConfigKeyspace::AllCallsDial, "All Calls Dial"), (ConfigKeyspace::ValidateDial, "Validate Dials")] {
+            @for option in [(ConfigKeyspace::AllCallsDial, "All Calls Dial"), (ConfigKeyspace::ValidateDial, "Validate Dials"), (ConfigKeyspace::DoorkingAlwaysOpen, "DoorKing Always Open")] {
                 @let value = config.get_bool(option.0.clone());
                 tr {
                     td { (option.1) }
