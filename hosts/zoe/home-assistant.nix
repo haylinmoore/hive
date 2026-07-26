@@ -23,6 +23,7 @@
       "homekit"
       "aranet"
       "matter"
+      "thread"
     ];
     customComponents = [
       pkgs.home-assistant-custom-components.luxer_one
