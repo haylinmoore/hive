@@ -43,10 +43,6 @@
     enable = true;
     environmentFile = "/run/secrets/mautrix-discord";
     registerToSynapse = false;
-    serviceDependencies = [
-      "mautrix-discord-registration.service"
-      "continuwuity.service"
-    ];
     settings = {
       homeserver = {
         address = "http://localhost:6167";
@@ -69,6 +65,14 @@
         };
       };
     };
+  };
+
+  # nixpkgs dropped `services.mautrix-discord.serviceDependencies`; the module now
+  # derives its deps internally and only knows about synapse/conduit/dendrite, so
+  # the ordering against continuwuity has to be stated here.
+  systemd.services.mautrix-discord = {
+    wants = [ "continuwuity.service" ];
+    after = [ "continuwuity.service" ];
   };
 
   services.nginx.virtualHosts."chat.estrogen.coffee" = {
