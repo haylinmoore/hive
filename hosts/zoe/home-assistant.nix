@@ -23,6 +23,7 @@
       "homekit"
       "aranet"
       "matter"
+      "otbr"
       "thread"
     ];
     customComponents = [
@@ -137,6 +138,25 @@
     # Auto-detection picks "None" under the service's network sandboxing,
     # which breaks mDNS advertisement ("Network is unreachable").
     extraArgs.primary-interface = "enp4s0";
+  };
+
+  services.openthread-border-router = {
+    enable = true;
+    backboneInterfaces = [ "enp4s0" ];
+    radio = {
+      device = "/dev/serial/by-id/usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_8a3aa8949378f011b4d8ace70ba521c7-if00-port0";
+      baudRate = 460800;
+      flowControl = false;
+    };
+    rest = {
+      listenAddress = "::";
+      listenPort = 8081;
+    };
+    web = {
+      enable = true;
+      listenAddress = "::";
+      listenPort = 58082;
+    };
   };
 
   proxySites.ha = {
