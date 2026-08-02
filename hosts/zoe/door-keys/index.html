@@ -1,0 +1,263 @@
+<!doctype html>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<title>Door | UwU Estate</title>
+
+<body>
+  <script>
+    (function () {
+      const m = document.cookie.match(/(?:^|; )colorscheme=([^;]+)/);
+      document.body.setAttribute("colorscheme", m ? decodeURIComponent(m[1]) : "white");
+    })();
+  </script>
+
+  <form id="door-form">
+    <main class="card">
+      <section class="step">
+        <h2><span class="num">1</span> Enter the building</h2>
+        <p>Dial <strong id="dk-code">@DOORKING_CODE@</strong> on the callbox, then press <strong>Call</strong>.</p>
+      </section>
+
+      <section class="step">
+        <h2><span class="num">2</span> Unlock apartment door</h2>
+        <button type="submit">Unlock</button>
+        <p id="status" class="status"></p>
+      </section>
+
+      <div class="themecolors">
+        <div style="background-color: var(--scheme-blue)" theme="blue"></div>
+        <div style="background-color: var(--scheme-pink)" theme="pink"></div>
+        <div style="background-color: var(--scheme-white); box-sizing: border-box;" theme="white"></div>
+        <div style="background-color: var(--scheme-purple)" theme="purple"></div>
+        <div style="background-color: var(--scheme-red)" theme="red"></div>
+      </div>
+    </main>
+  </form>
+
+  <script>
+    const secret = new URLSearchParams(location.search).get("secret") || "";
+    const status = document.getElementById("status");
+
+    document.getElementById("door-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      status.textContent = "Unlocking…";
+      try {
+        const res = await fetch("/api/webhook/door", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ secret }),
+        });
+        status.textContent = res.ok ? "Unlocked." : "Failed (" + res.status + ").";
+      } catch (err) {
+        status.textContent = "Error: " + err.message;
+      }
+    });
+
+    [...document.getElementsByClassName("themecolors")[0].children].forEach(
+      (c) =>
+        (c.onclick = () => {
+          const theme = c.getAttribute("theme");
+          document.body.setAttribute("colorscheme", theme);
+          document.cookie = `colorscheme=${theme}; expires=${new Date(Date.now() + 86400 * 365 * 1000).toUTCString()}; path=/`;
+        }),
+    );
+  </script>
+
+  <style>
+    :root {
+      --background-color: #e5dae2;
+      --container-bg: #fafafa;
+      --container-backdrop: oklch(48.07% 0.213 349.81);
+      --text-color: #191919;
+
+      --scheme-white: #fafafa;
+      --scheme-blue: oklch(0.75 0.19 223.62);
+      --scheme-purple: oklch(0.69 0.2 298.69);
+      --scheme-red: oklch(0.7 0.24 25.43);
+      --scheme-pink: oklch(82.67% 0.1518 349.81);
+    }
+
+    body[colorscheme="blue"] {
+      --background-color: #19191e;
+      --container-bg: #302d33;
+      --container-backdrop: var(--scheme-blue);
+      --text-color: #fafafa;
+    }
+
+    body[colorscheme="purple"] {
+      --background-color: #19191e;
+      --container-bg: #242432;
+      --container-backdrop: var(--scheme-purple);
+      --text-color: #fafafa;
+    }
+
+    body[colorscheme="red"] {
+      --background-color: #191516;
+      --container-bg: #2a2432;
+      --container-backdrop: var(--scheme-red);
+      --text-color: #fafafa;
+    }
+
+    body[colorscheme="pink"] {
+      --background-color: #19191e;
+      --container-bg: #2e2833;
+      --container-backdrop: var(--scheme-pink);
+      --text-color: #fafafa;
+    }
+
+    body {
+      --lighter: color-mix(in lch, var(--container-backdrop) 75%, white);
+      --lightest: color-mix(in lch, var(--container-backdrop) 50%, white);
+    }
+
+    body[colorscheme="white"] {
+      --lightest: color-mix(in lch, var(--container-backdrop) 80%, red);
+    }
+
+    body[colorscheme="white"] .themecolors div[theme="white"] {
+      border: 1px solid #191919;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: clamp(16px, 4.3vw, 22px);
+      background: var(--background-color);
+      color-scheme: dark;
+    }
+
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem;
+      background: var(--background-color);
+      font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text-color);
+      line-height: 1.5;
+      transition: background-color 0.15s ease;
+    }
+
+    #door-form {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      margin-bottom: 8vh;
+    }
+
+    .card {
+      position: relative;
+      width: min(100%, 28rem);
+      background: var(--container-bg);
+      box-shadow: 16px 16px var(--container-backdrop);
+      padding: 1.75rem;
+      padding-bottom: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    .step {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    h2 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      border-bottom: 2px solid var(--container-backdrop);
+      padding-bottom: 0.55rem;
+    }
+
+    .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.6em;
+      height: 1.6em;
+      border: 2px solid var(--container-backdrop);
+      font-size: 0.85em;
+    }
+
+    .step p {
+      font-size: 1rem;
+    }
+
+    #dk-code {
+      display: inline-block;
+      background: var(--container-backdrop);
+      color: var(--container-bg);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.05em 0.45em;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--container-bg);
+      background: var(--container-backdrop);
+      border: 2px solid var(--container-backdrop);
+      padding: 1rem;
+      cursor: pointer;
+
+      transition:
+        transform 0.1s ease,
+        background 0.1s ease,
+        color 0.1s ease;
+
+      &:hover {
+        background: var(--container-bg);
+        color: var(--container-backdrop);
+      }
+      &:active {
+        transform: translate(4px, 4px);
+      }
+    }
+
+    .status {
+      font-size: 0.95rem;
+      color: var(--lighter);
+    }
+
+    .status:empty {
+      display: none;
+    }
+
+    .themecolors {
+      bottom: 16px;
+      left: 16px;
+      display: block;
+      margin: auto;
+      position: absolute;
+    }
+
+    .themecolors div {
+      width: 16px;
+      height: 16px;
+      float: left;
+      margin-left: 8px;
+    }
+
+    .themecolors div:hover {
+      cursor: pointer;
+    }
+  </style>
+</body>

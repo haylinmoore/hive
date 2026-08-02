@@ -47,7 +47,7 @@
         ];
         use_x_forwarded_for = true;
       };
-      "scripts ui" = "!include scripts.yaml";
+      "script ui" = "!include scripts.yaml";
       "automation ui" = "!include automations.yaml";
       "automation manual" =
         let
