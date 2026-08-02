@@ -47,6 +47,7 @@
         ];
         use_x_forwarded_for = true;
       };
+      "scripts ui" = "!include scripts.yaml";
       "automation ui" = "!include automations.yaml";
       "automation manual" =
         let
@@ -139,6 +140,17 @@
     # which breaks mDNS advertisement ("Network is unreachable").
     extraArgs.primary-interface = "enp4s0";
   };
+
+  # Work around a python-matter-server startup crash: it fetches PAA root
+  # certs from the DCL on start, and one malformed cert there makes the strict
+  # rust-based x509 parser raise an uncaught ValueError, killing start() so the
+  # server never binds 5580. The fetch is skipped when <cache>/certs/.version
+  # is under 24h old, so keep it fresh to pin the already-cached cert set.
+  # Remove once upstream tolerates the bad cert (home-assistant/python-matter-server).
+  systemd.services.matter-server.preStart = ''
+    mkdir -p "$CACHE_DIRECTORY/certs"
+    touch "$CACHE_DIRECTORY/certs/.version"
+  '';
 
   services.openthread-border-router = {
     enable = true;
