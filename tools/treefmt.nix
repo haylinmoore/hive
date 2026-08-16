@@ -11,6 +11,14 @@ treefmt-nix.mkWrapper pkgs {
     jsonfmt.enable = true;
     yamlfmt.enable = true;
     mdformat.enable = true;
+    prettier = {
+      enable = true;
+      includes = [
+        "*.html"
+        "*.css"
+        "*.js"
+      ];
+    };
   };
   settings.global.excludes = [
     "web/www/content/words/*"

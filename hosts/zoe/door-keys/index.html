@@ -8,7 +8,10 @@
   <script>
     (function () {
       const m = document.cookie.match(/(?:^|; )colorscheme=([^;]+)/);
-      document.body.setAttribute("colorscheme", m ? decodeURIComponent(m[1]) : "white");
+      document.body.setAttribute(
+        "colorscheme",
+        m ? decodeURIComponent(m[1]) : "white",
+      );
     })();
   </script>
 
@@ -16,7 +19,10 @@
     <main class="card">
       <section class="step">
         <h2><span class="num">1</span> Enter the building</h2>
-        <p>Dial <strong id="dk-code">@DOORKING_CODE@</strong> on the callbox, then press <strong>Call</strong>.</p>
+        <p>
+          Dial <strong id="dk-code">@DOORKING_CODE@</strong> on the callbox,
+          then press <strong>Call</strong>.
+        </p>
       </section>
 
       <section class="step">
@@ -28,8 +34,14 @@
       <div class="themecolors">
         <div style="background-color: var(--scheme-blue)" theme="blue"></div>
         <div style="background-color: var(--scheme-pink)" theme="pink"></div>
-        <div style="background-color: var(--scheme-white); box-sizing: border-box;" theme="white"></div>
-        <div style="background-color: var(--scheme-purple)" theme="purple"></div>
+        <div
+          style="background-color: var(--scheme-white); box-sizing: border-box"
+          theme="white"
+        ></div>
+        <div
+          style="background-color: var(--scheme-purple)"
+          theme="purple"
+        ></div>
         <div style="background-color: var(--scheme-red)" theme="red"></div>
       </div>
     </main>
@@ -39,20 +51,24 @@
     const secret = new URLSearchParams(location.search).get("secret") || "";
     const status = document.getElementById("status");
 
-    document.getElementById("door-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      status.textContent = "Unlocking…";
-      try {
-        const res = await fetch("/api/webhook/door", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ secret }),
-        });
-        status.textContent = res.ok ? "Unlocked." : "Failed (" + res.status + ").";
-      } catch (err) {
-        status.textContent = "Error: " + err.message;
-      }
-    });
+    document
+      .getElementById("door-form")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        status.textContent = "Unlocking…";
+        try {
+          const res = await fetch("/api/webhook/door", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({ secret }),
+          });
+          status.textContent = res.ok
+            ? "Unlocked."
+            : "Failed (" + res.status + ").";
+        } catch (err) {
+          status.textContent = "Error: " + err.message;
+        }
+      });
 
     [...document.getElementsByClassName("themecolors")[0].children].forEach(
       (c) =>

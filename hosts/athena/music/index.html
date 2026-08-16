@@ -1,181 +1,203 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>music.hayl.in</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-        }
-        
-        .container {
-            text-align: center;
-            padding: 2rem;
-            backdrop-filter: blur(10px);
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            max-width: 600px;
-            width: 90%;
-        }
-        
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+      }
+
+      .container {
+        text-align: center;
+        padding: 2rem;
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        max-width: 600px;
+        width: 90%;
+      }
+
+      h1 {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #fff, #e0e0e0);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+      }
+
+      .services {
+        display: grid;
+        gap: 1.5rem;
+        margin-top: 2rem;
+      }
+
+      .service {
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 15px;
+        text-decoration: none;
+        color: white;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .service:hover {
+        transform: translateY(-5px);
+        background: rgba(255, 255, 255, 0.25);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      }
+
+      .service-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+      }
+
+      .service-desc {
+        opacity: 0.8;
+        font-size: 0.9rem;
+      }
+
+      .clear-button {
+        margin-top: 2rem;
+        padding: 0.75rem 1.5rem;
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        color: white;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-weight: 500;
+      }
+
+      .clear-button:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+      }
+
+      .clear-button:active {
+        transform: translateY(0);
+      }
+
+      @media (max-width: 768px) {
         h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: linear-gradient(45deg, #fff, #e0e0e0);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+          font-size: 2rem;
         }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            opacity: 0.9;
+        .container {
+          padding: 1.5rem;
         }
-        
-        .services {
-            display: grid;
-            gap: 1.5rem;
-            margin-top: 2rem;
-        }
-        
-        .service {
-            padding: 1.5rem;
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 15px;
-            text-decoration: none;
-            color: white;
-            transition: all 0.3s ease;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .service:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.25);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-        }
-        
-        .service-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-        
-        .service-desc {
-            opacity: 0.8;
-            font-size: 0.9rem;
-        }
-        
-        .clear-button {
-            margin-top: 2rem;
-            padding: 0.75rem 1.5rem;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
-            color: white;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-        
-        .clear-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            border-color: rgba(255, 255, 255, 0.5);
-            transform: translateY(-2px);
-        }
-        
-        .clear-button:active {
-            transform: translateY(0);
-        }
-        
-        @media (max-width: 768px) {
-            h1 { font-size: 2rem; }
-            .container { padding: 1.5rem; }
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>🎵 music.hayl.in</h1>
-        
-        <div class="services">
-            <a href="/feishin" class="service">
-                <div class="service-title">🎧 feishin</div>
-            </a>
-            
-            <a href="/navi" class="service">
-                <div class="service-title">💽 navidrome</div>
-            </a>
-            
-            <a href="https://fun.hayl.in/slskd" class="service">
-                <div class="service-title">🔄 soulseek</div>
-            </a>
-        </div>
-        
-        <button class="clear-button" onclick="clearAllStorage()">
-            🗑️ Clear Cookies & Storage
-        </button>
+      <h1>🎵 music.hayl.in</h1>
+
+      <div class="services">
+        <a href="/feishin" class="service">
+          <div class="service-title">🎧 feishin</div>
+        </a>
+
+        <a href="/navi" class="service">
+          <div class="service-title">💽 navidrome</div>
+        </a>
+
+        <a href="https://fun.hayl.in/slskd" class="service">
+          <div class="service-title">🔄 soulseek</div>
+        </a>
+      </div>
+
+      <button class="clear-button" onclick="clearAllStorage()">
+        🗑️ Clear Cookies & Storage
+      </button>
     </div>
-    
+
     <script>
-        function clearAllStorage() {
-            if (confirm('This will clear all cookies, local storage, and session storage for this site. Continue?')) {
-                // Clear all cookies
-                document.cookie.split(";").forEach(function(c) { 
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+      function clearAllStorage() {
+        if (
+          confirm(
+            "This will clear all cookies, local storage, and session storage for this site. Continue?",
+          )
+        ) {
+          // Clear all cookies
+          document.cookie.split(";").forEach(function (c) {
+            document.cookie = c
+              .replace(/^ +/, "")
+              .replace(
+                /=.*/,
+                "=;expires=" + new Date().toUTCString() + ";path=/",
+              );
+          });
+
+          // Clear localStorage
+          if (window.localStorage) {
+            window.localStorage.clear();
+          }
+
+          // Clear sessionStorage
+          if (window.sessionStorage) {
+            window.sessionStorage.clear();
+          }
+
+          // Clear IndexedDB
+          if (window.indexedDB) {
+            indexedDB
+              .databases()
+              .then((databases) => {
+                databases.forEach((db) => {
+                  indexedDB.deleteDatabase(db.name);
                 });
-                
-                // Clear localStorage
-                if (window.localStorage) {
-                    window.localStorage.clear();
-                }
-                
-                // Clear sessionStorage
-                if (window.sessionStorage) {
-                    window.sessionStorage.clear();
-                }
-                
-                // Clear IndexedDB
-                if (window.indexedDB) {
-                    indexedDB.databases().then(databases => {
-                        databases.forEach(db => {
-                            indexedDB.deleteDatabase(db.name);
-                        });
-                    }).catch(e => console.error('Error clearing IndexedDB:', e));
-                }
-                
-                // Clear cache storage
-                if ('caches' in window) {
-                    caches.keys().then(names => {
-                        names.forEach(name => {
-                            caches.delete(name);
-                        });
-                    }).catch(e => console.error('Error clearing cache storage:', e));
-                }
-                
-                alert('All cookies and storage have been cleared. You may need to refresh the page.');
-                
-                // Optionally reload the page
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            }
+              })
+              .catch((e) => console.error("Error clearing IndexedDB:", e));
+          }
+
+          // Clear cache storage
+          if ("caches" in window) {
+            caches
+              .keys()
+              .then((names) => {
+                names.forEach((name) => {
+                  caches.delete(name);
+                });
+              })
+              .catch((e) => console.error("Error clearing cache storage:", e));
+          }
+
+          alert(
+            "All cookies and storage have been cleared. You may need to refresh the page.",
+          );
+
+          // Optionally reload the page
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
         }
+      }
     </script>
-</body>
+  </body>
 </html>
