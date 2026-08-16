@@ -6,6 +6,7 @@ let
   insecureDNSServers = [
     "9.9.9.10"
     "1.1.1.1"
+    "192.168.128.1"
   ];
 
   # Define TLD configurations
