@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>hived</title>
+    <style>
+      :root {
+        --pg: #fcfbf6;
+        --ink: #17160f;
+        --dim: #6f6e60;
+        --rule: #d5d3c4;
+        --zebra: #f4f2e9;
+        --ok: #2e6b34;
+        --warn: #8a6503;
+        --bad: #a52a21;
+        --link: #0645ad;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --pg: #16181a;
+          --ink: #e6e6df;
+          --dim: #8b8d82;
+          --rule: #333a3d;
+          --zebra: #1d2124;
+          --ok: #63b183;
+          --warn: #c9a24a;
+          --bad: #de8686;
+          --link: #79b8ff;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--pg);
+        color: var(--ink);
+        margin: 0;
+        padding: 0 0 32px;
+        font:
+          13px/1.55 ui-monospace,
+          SFMono-Regular,
+          "DejaVu Sans Mono",
+          "Courier New",
+          monospace;
+      }
+      a {
+        color: var(--link);
+      }
+      .head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+        border-bottom: 2px solid var(--ink);
+        padding: 14px 18px 7px;
+        margin-bottom: 14px;
+      }
+      h1 {
+        font-size: 16px;
+        margin: 0;
+        letter-spacing: 0.06em;
+        text-transform: lowercase;
+      }
+      .clock {
+        margin-left: auto;
+        color: var(--dim);
+        font-size: 11.5px;
+      }
+      .hosts {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 26px;
+        margin: 0 18px 4px;
+      }
+      .host {
+        min-width: 240px;
+      }
+      .host .name {
+        background: var(--ink);
+        color: var(--pg);
+        padding: 1px 7px;
+        font-size: 11.5px;
+        letter-spacing: 0.1em;
+      }
+      .host .line {
+        color: var(--dim);
+        font-size: 11.5px;
+        margin-top: 4px;
+      }
+      h2 {
+        font-size: 10.5px;
+        color: var(--dim);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        margin: 20px 18px 7px;
+        font-weight: 700;
+      }
+      .scroll {
+        overflow-x: auto;
+        padding: 0 18px;
+      }
+      table {
+        border-collapse: collapse;
+        font-size: 12.5px;
+      }
+      th {
+        text-align: left;
+        color: var(--dim);
+        font-size: 10.5px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 400;
+        border-bottom: 1px solid var(--ink);
+        padding: 0 11px 5px 0;
+        white-space: nowrap;
+      }
+      td {
+        padding: 4px 11px 4px 0;
+        white-space: nowrap;
+        vertical-align: top;
+      }
+      tbody tr:nth-child(odd) td {
+        background: var(--zebra);
+      }
+      th:first-child,
+      td:first-child {
+        padding-left: 8px;
+      }
+      .ok {
+        color: var(--ok);
+      }
+      .warn {
+        color: var(--warn);
+      }
+      .bad {
+        color: var(--bad);
+      }
+      .dim {
+        color: var(--dim);
+      }
+      .subject {
+        white-space: normal;
+        max-width: 42ch;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="head">
+      <h1>hived</h1>
+      <span class="clock" id="clock"></span>
+    </div>
+    <div class="hosts" id="hosts"></div>
+    <h2>history</h2>
+    <div class="scroll" id="history"></div>
+
+    <script>
+      // One row per commit, one column per host, so a commit that succeeded on
+      // one node and failed on the other reads at a glance. Served from Pages
+      // rather than a node so it still loads when a node is down.
+      const HOSTS = ["zoe", "athena"];
+      const base = (host) => `https://hived.${host}.infra.hayl.in`;
+
+      const CLASSES = {
+        succeeded: "ok",
+        degraded: "warn",
+        failed: "bad",
+        rejected: "bad",
+        interrupted: "bad",
+        superseded: "dim",
+        cancelled: "dim",
+      };
+
+      const short = (rev) => (rev || "").slice(0, 7);
+
+      function secs(v) {
+        if (v == null) return "–";
+        const t = Math.round(v);
+        return t >= 60
+          ? `${Math.floor(t / 60)}m${String(t % 60).padStart(2, "0")}s`
+          : `${t}s`;
+      }
+
+      function stateText(d) {
+        if (!d) return "–";
+        if (d.state === "running") return `running ${d.phase || ""}`.trim();
+        if (d.state === "failed" && d.error) return `failed ${d.error.phase}`;
+        return d.state;
+      }
+
+      async function load(host) {
+        const [status, list] = await Promise.all([
+          fetch(`${base(host)}/v1/status`).then((r) => r.json()),
+          fetch(`${base(host)}/v1/deployments?limit=100`).then((r) => r.json()),
+        ]);
+        return { host, status, deployments: list.deployments || [] };
+      }
+
+      function renderHosts(results) {
+        document.getElementById("hosts").innerHTML = results
+          .map(({ host, status, error }) => {
+            if (error) {
+              return `<div class="host"><span class="name">${host.toUpperCase()}</span>
+                <div class="line bad">unreachable</div></div>`;
+            }
+            const d = status.deployed;
+            const drift = status.drifted
+              ? `<span class="warn">drifted</span>`
+              : `<span class="ok">in sync</span>`;
+            const failing = (status.system_failed_units || []).join(", ");
+            return `<div class="host">
+              <span class="name">${host.toUpperCase()}</span>
+              <div class="line">
+                ${d ? `<a href="${base(host)}/d/${d.id}">${short(d.rev)}</a> ${escapeHtml(d.subject || "")}` : "nothing deployed yet"}
+              </div>
+              <div class="line">
+                generation ${(d && d.generation) || "?"}, ${drift}${failing ? `, failing: ${escapeHtml(failing)}` : ""}
+              </div>
+            </div>`;
+          })
+          .join("");
+      }
+
+      function renderHistory(results) {
+        // Union of every commit either node has seen, newest first.
+        const rows = new Map();
+        for (const { host, deployments } of results) {
+          for (const d of deployments) {
+            if (!rows.has(d.rev)) {
+              rows.set(d.rev, {
+                rev: d.rev,
+                subject: d.subject,
+                when: d.queued_at,
+                by: {},
+              });
+            }
+            const row = rows.get(d.rev);
+            row.when = Math.max(row.when, d.queued_at);
+            if (d.subject && !row.subject) row.subject = d.subject;
+            // Keep the newest attempt per host.
+            if (!row.by[host] || d.id > row.by[host].id) row.by[host] = d;
+          }
+        }
+
+        const ordered = [...rows.values()].sort((a, b) => b.when - a.when);
+        const head = HOSTS.map((h) => `<th>${h}</th><th>time</th>`).join("");
+
+        const body = ordered
+          .map((row) => {
+            const cells = HOSTS.map((host) => {
+              const d = row.by[host];
+              if (!d) return `<td class="dim">–</td><td class="dim">–</td>`;
+              const cls = CLASSES[d.state] || "";
+              const link = `${base(host)}/d/${d.id}`;
+              return `<td class="${cls}"><a href="${link}">${stateText(d)}</a></td>
+                      <td class="dim">${secs(d.total)}</td>`;
+            }).join("");
+            return `<tr>
+              <td>${short(row.rev)}</td>
+              <td class="subject">${escapeHtml(row.subject || "")}</td>
+              ${cells}
+            </tr>`;
+          })
+          .join("");
+
+        document.getElementById("history").innerHTML =
+          `<table><thead><tr><th>rev</th><th>commit</th>${head}</tr></thead><tbody>${body}</tbody></table>`;
+      }
+
+      function escapeHtml(text) {
+        return String(text).replace(
+          /[&<>"]/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+        );
+      }
+
+      async function refresh() {
+        const results = await Promise.all(
+          HOSTS.map((h) =>
+            load(h).catch((error) => ({ host: h, error, deployments: [] })),
+          ),
+        );
+        renderHosts(results);
+        renderHistory(results);
+        document.getElementById("clock").textContent = new Date()
+          .toISOString()
+          .replace("T", " ")
+          .slice(0, 19);
+      }
+
+      refresh();
+      setInterval(refresh, 15000);
+    </script>
+  </body>
+</html>
