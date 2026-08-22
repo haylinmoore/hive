@@ -79,7 +79,7 @@ case "$cmd" in
     toplevel=".gcroots/node-$cmd"
 
     do_build() {
-      run_colmena build --config colmena.nix --on "$cmd" --no-build-on-target
+      run_colmena build --config colmena.nix --on "$cmd" --no-build-on-target --keep-result
     }
 
     do_activate() {
