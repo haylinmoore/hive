@@ -301,11 +301,16 @@ pub fn status_json(app: &App) -> serde_json::Value {
     let deployed = store.last_switched();
     // A colmena deploy from a laptop leaves the node on something no record
     // describes. Say so rather than showing a stale commit as current.
-    let drifted = match (deployed.and_then(|d| d.toplevel.as_ref()), &running_system) {
-        (Some(recorded), Some(actual)) => recorded != actual,
-        // Nothing deployed yet is not drift, it is just an empty history.
-        _ => false,
-    };
+    //
+    // Not while a deploy is running, though: activate runs before check, so
+    // between the two the node has legitimately moved off the last terminal
+    // record and every deploy would flash "drifted" on its way through.
+    let drifted = store.running().is_none()
+        && match (deployed.and_then(|d| d.toplevel.as_ref()), &running_system) {
+            (Some(recorded), Some(actual)) => recorded != actual,
+            // Nothing deployed yet is not drift, it is just an empty history.
+            _ => false,
+        };
 
     json!({
         "host": app.cfg.host,
