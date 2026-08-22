@@ -5,6 +5,7 @@ use crate::store::StateDir;
 use std::io;
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone)]
@@ -34,7 +35,13 @@ impl Run<'_> {
         let started = Instant::now();
         cmd.stdin(Stdio::null());
 
-        let output = match run_with_timeout(cmd, timeout) {
+        let dir = self.dir.clone();
+        let id = self.id;
+        let sink: Sink = Arc::new(move |chunk: &[u8]| {
+            let _ = dir.append_log(id, chunk);
+        });
+
+        let output = match run_with_timeout(cmd, timeout, sink) {
             Ok(o) => o,
             Err(e) => {
                 let message = format!("{e}");
@@ -47,7 +54,6 @@ impl Run<'_> {
             }
         };
 
-        self.log(&String::from_utf8_lossy(&output.combined));
         if output.timed_out {
             let message = format!(
                 "{} timed out after {}s",
@@ -83,29 +89,52 @@ struct Captured {
     timed_out: bool,
 }
 
-/// Wait for a child, killing it if it overruns. Output is collected through a
-/// pipe shared by stdout and stderr so ordering matches what a terminal shows.
-fn run_with_timeout(cmd: &mut Command, timeout: Duration) -> io::Result<Captured> {
-    use std::sync::mpsc;
+pub type Sink = Arc<dyn Fn(&[u8]) + Send + Sync>;
+
+/// How much output we keep in memory for the error tail. A runaway build can
+/// print far more than that, and the log file already has all of it.
+const TAIL_BUFFER: usize = 256 * 1024;
+
+/// Wait for a child, killing it if it overruns.
+///
+/// Output is handed to `sink` as it arrives rather than at the end, so a
+/// forty minute build is readable while it runs instead of appearing all at
+/// once when it finishes.
+fn run_with_timeout(cmd: &mut Command, timeout: Duration, sink: Sink) -> io::Result<Captured> {
+    use std::io::Read;
+    use std::sync::Mutex;
     use std::thread;
 
     let mut child = cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
 
-    let mut stdout = child.stdout.take().unwrap();
-    let mut stderr = child.stderr.take().unwrap();
-    let (tx, rx) = mpsc::channel();
-    let tx2 = tx.clone();
+    let tail = Arc::new(Mutex::new(Vec::<u8>::new()));
 
-    thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = io::Read::read_to_end(&mut stdout, &mut buf);
-        let _ = tx.send(buf);
-    });
-    thread::spawn(move || {
-        let mut buf = Vec::new();
-        let _ = io::Read::read_to_end(&mut stderr, &mut buf);
-        let _ = tx2.send(buf);
-    });
+    let pump = |mut src: Box<dyn Read + Send>, sink: Sink, tail: Arc<Mutex<Vec<u8>>>| {
+        thread::spawn(move || {
+            let mut buf = [0u8; 8192];
+            loop {
+                match src.read(&mut buf) {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => {
+                        let chunk = &buf[..n];
+                        sink(chunk);
+                        if let Ok(mut t) = tail.lock() {
+                            t.extend_from_slice(chunk);
+                            if t.len() > TAIL_BUFFER {
+                                let drop_to = t.len() - TAIL_BUFFER;
+                                t.drain(..drop_to);
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    };
+
+    let a = pump(Box::new(stdout), sink.clone(), tail.clone());
+    let b = pump(Box::new(stderr), sink, tail.clone());
 
     let deadline = Instant::now() + timeout;
     let mut timed_out = false;
@@ -121,13 +150,10 @@ fn run_with_timeout(cmd: &mut Command, timeout: Duration) -> io::Result<Captured
         }
     };
 
-    let mut combined = Vec::new();
-    for _ in 0..2 {
-        if let Ok(buf) = rx.recv_timeout(Duration::from_secs(5)) {
-            combined.extend_from_slice(&buf);
-        }
-    }
+    let _ = a.join();
+    let _ = b.join();
 
+    let combined = tail.lock().map(|t| t.clone()).unwrap_or_default();
     Ok(Captured {
         combined,
         success: status.success() && !timed_out,
@@ -444,16 +470,45 @@ mod tests {
     fn a_command_that_overruns_is_killed() {
         let mut cmd = Command::new("sleep");
         cmd.arg("30");
-        let out = run_with_timeout(&mut cmd, Duration::from_millis(300)).unwrap();
+        let out = run_with_timeout(&mut cmd, Duration::from_millis(300), Arc::new(|_| {})).unwrap();
         assert!(out.timed_out);
         assert!(!out.success);
+    }
+
+    /// The old version buffered everything and wrote it after the process
+    /// exited, so a long build showed nothing until it finished.
+    #[test]
+    fn output_reaches_the_sink_while_the_command_is_still_running() {
+        use std::sync::Mutex;
+        let seen = Arc::new(Mutex::new(Vec::<u8>::new()));
+        let probe = seen.clone();
+        let sink: Sink = Arc::new(move |c: &[u8]| {
+            probe.lock().unwrap().extend_from_slice(c);
+        });
+
+        let mut cmd = Command::new("sh");
+        cmd.args(["-c", "echo early; sleep 2; echo late"]);
+        let handle = std::thread::spawn(move || {
+            run_with_timeout(&mut cmd, Duration::from_secs(20), sink).unwrap()
+        });
+
+        // Half a second in, the first line must already be visible.
+        std::thread::sleep(Duration::from_millis(600));
+        let mid = String::from_utf8_lossy(&seen.lock().unwrap().clone()).to_string();
+        assert!(mid.contains("early"), "nothing streamed yet: {mid:?}");
+        assert!(!mid.contains("late"), "should not have the later line yet");
+
+        let out = handle.join().unwrap();
+        assert!(out.success);
+        let all = String::from_utf8_lossy(&out.combined);
+        assert!(all.contains("early") && all.contains("late"), "{all}");
     }
 
     #[test]
     fn output_is_captured_from_both_streams() {
         let mut cmd = Command::new("sh");
         cmd.args(["-c", "echo out; echo err >&2; exit 3"]);
-        let out = run_with_timeout(&mut cmd, Duration::from_secs(10)).unwrap();
+        let out = run_with_timeout(&mut cmd, Duration::from_secs(10), Arc::new(|_| {})).unwrap();
         assert!(!out.success);
         assert_eq!(out.code, Some(3));
         let text = String::from_utf8_lossy(&out.combined);
