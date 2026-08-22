@@ -245,14 +245,72 @@
         return d.state;
       }
 
-      const get = (url) =>
-        fetch(url).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
+      // Navigation reads through a short-lived cache, so going back renders
+      // from memory instead of refetching. Hovering a link fills that cache
+      // ahead of the click. The periodic refresh clears it, so live numbers
+      // stay live rather than being served stale for ever.
+      const TTL_MS = 15000;
+      const CACHE = new Map();
+
+      function cached(url, parse) {
+        const hit = CACHE.get(url);
+        if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
+        const value = fetch(url).then((r) =>
+          r.ok ? parse(r) : Promise.reject(r.status),
+        );
+        CACHE.set(url, { at: Date.now(), value });
+        // A failure must not be remembered, or one blip poisons the view.
+        value.catch(() => CACHE.delete(url));
+        return value;
+      }
+
+      const get = (url) => cached(url, (r) => r.json());
+      const getText = (url) => cached(url, (r) => r.text());
+
+      const urls = {
+        status: (base) => base + "/v1/status",
+        list: (base) => base + "/v1/deployments?limit=100",
+        one: (base, id) => base + "/v1/deployments/" + id,
+        log: (base, id) => base + "/v1/deployments/" + id + "/logs",
+      };
+
+      // Warm whatever the link would need, so the click costs nothing.
+      function prefetch(hash) {
+        const m = (hash || "").match(/^#\/([A-Za-z0-9_-]+)\/(\d+)$/);
+        if (m) {
+          const base = baseOf(m[1]);
+          get(urls.one(base, m[2])).catch(() => {});
+          getText(urls.log(base, m[2])).catch(() => {});
+          return;
+        }
+        if (hash === "#/" || hash === "#") {
+          for (const host of HOSTS) {
+            get(urls.status(host.base)).catch(() => {});
+            get(urls.list(host.base)).catch(() => {});
+          }
+        }
+      }
+
+      // A short delay, so dragging the cursor down a table does not fire one
+      // request per row.
+      let hoverTimer = null;
+      function onHover(event) {
+        const link =
+          event.target.closest && event.target.closest('a[href^="#"]');
+        if (!link) return;
+        const hash = link.getAttribute("href");
+        clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(() => prefetch(hash), 80);
+      }
+      document.addEventListener("mouseover", onHover);
+      document.addEventListener("focusin", onHover);
+      document.addEventListener("touchstart", onHover, { passive: true });
 
       async function loadHost(host) {
         const base = host.base;
         const [status, list] = await Promise.all([
-          get(`${base}/v1/status`),
-          get(`${base}/v1/deployments?limit=100`),
+          get(urls.status(base)),
+          get(urls.list(base)),
         ]);
         return { host: host.name, status, deployments: list.deployments || [] };
       }
@@ -355,7 +413,7 @@
         const view = document.getElementById("view");
         let d;
         try {
-          d = await get(`${base}/v1/deployments/${id}`);
+          d = await get(urls.one(base, id));
         } catch (e) {
           view.innerHTML = `<p class="back bad">could not load ${esc(host)} #${esc(id)} (${esc(e)})</p>
             <p class="back"><a href="#/">back</a></p>`;
@@ -364,12 +422,9 @@
 
         let log = "";
         if (!d.log_reaped) {
-          try {
-            const r = await fetch(`${base}/v1/deployments/${id}/logs`);
-            if (r.ok) log = await r.text();
-          } catch {
-            log = "(log unavailable)";
-          }
+          log = await getText(urls.log(base, id)).catch(
+            () => "(log unavailable)",
+          );
         }
 
         const phases = PHASES.filter(
@@ -409,7 +464,8 @@
 
       let timer = null;
 
-      async function route() {
+      async function route(fresh = false) {
+        if (fresh) CACHE.clear();
         const m = (location.hash || "").match(/^#\/([A-Za-z0-9_-]+)\/(\d+)$/);
         let live = false;
         try {
@@ -425,7 +481,7 @@
 
         // Poll fast while something is moving, slowly when nothing is.
         clearTimeout(timer);
-        timer = setTimeout(route, live ? 5000 : 30000);
+        timer = setTimeout(() => route(true), live ? 5000 : 30000);
       }
 
       window.addEventListener("hashchange", route);
