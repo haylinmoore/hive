@@ -36,6 +36,7 @@
     ./dial.nix
 
     ../../nixos/certs/hayl-in.nix
+    ../../nixos/certs/host-infra.nix
     ../../nixos/certs/estrogen-coffee.nix
     ../../nixos/certs/aconite-systems.nix
     ../../nixos/certs/uwu-estate.nix
@@ -93,12 +94,15 @@
     }
   ];
 
+  services.hived.enable = true;
+
   sops.secrets."dns" = {
     sopsFile = ../../secrets/dns.env;
     format = "dotenv";
     owner = "acme";
     restartUnits = [
       "acme-hayl.in.service"
+      "acme-athena.infra.hayl.in.service"
       "acme-uwu.estate.service"
       "acme-aconite.systems.service"
       "acme-estrogen.coffee.service"
