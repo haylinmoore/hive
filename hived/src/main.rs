@@ -14,6 +14,9 @@ use crate::store::StateDir;
 use std::sync::Arc;
 use std::time::Duration;
 
+/// How long a just-started runner is given to appear before we call it dead.
+const RECONCILE_GRACE_SECS: i64 = 30;
+
 fn usage() -> ! {
     eprintln!("usage: hived serve | hived run <id>");
     std::process::exit(2)
@@ -113,7 +116,7 @@ fn supervise_once(app: &App) {
 
     let interrupted = app
         .dir
-        .update(|s| s.reconcile(now(), |id| is_unit_active(cfg, id)))
+        .update(|s| s.reconcile(now(), RECONCILE_GRACE_SECS, |id| is_unit_active(cfg, id)))
         .unwrap_or_default();
     for id in interrupted {
         eprintln!("deployment {id} was interrupted");

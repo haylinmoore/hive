@@ -60,12 +60,23 @@ pub fn view<'a>(dir: &StateDir, store: &'a Store, d: &'a Deployment) -> Deployme
     }
 }
 
+/// Whether the runner for `id` is still alive.
+///
+/// `systemctl is-active` only succeeds for ActiveState=active, and a
+/// Type=oneshot unit is "activating" for the whole of its ExecStart. Asking
+/// is-active would call a running deploy dead a second after starting it.
 pub fn is_unit_active(cfg: &Config, id: u64) -> bool {
-    Command::new("systemctl")
-        .args(["is-active", "--quiet", &cfg.run_unit(id)])
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    let out = Command::new("systemctl")
+        .args(["show", "-p", "ActiveState", "--value", &cfg.run_unit(id)])
+        .output();
+    match out {
+        Ok(o) => matches!(
+            String::from_utf8_lossy(&o.stdout).trim(),
+            "active" | "activating" | "reloading" | "deactivating"
+        ),
+        // If we cannot ask, assume alive rather than kill a live deploy.
+        Err(_) => true,
+    }
 }
 
 pub fn start_unit(cfg: &Config, id: u64) -> std::io::Result<()> {

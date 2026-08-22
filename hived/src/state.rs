@@ -301,10 +301,13 @@ impl Store {
     /// After a restart, a record still marked running whose runner is gone was
     /// killed by a reboot or an OOM. Without this the phantom blocks admission
     /// forever.
-    pub fn reconcile(&mut self, now: i64, is_active: impl Fn(u64) -> bool) -> Vec<u64> {
+    /// `grace` protects a just-started deployment: the runner is started with
+    /// --no-block, so for a moment the unit does not exist yet and looks dead.
+    pub fn reconcile(&mut self, now: i64, grace: i64, is_active: impl Fn(u64) -> bool) -> Vec<u64> {
         let mut interrupted = Vec::new();
         for d in self.deployments.iter_mut() {
-            if d.state == State::Running && !is_active(d.id) {
+            let settling = d.started_at.map(|t| now - t < grace).unwrap_or(false);
+            if d.state == State::Running && !settling && !is_active(d.id) {
                 d.finish(State::Interrupted, now);
                 interrupted.push(d.id);
             }
@@ -402,7 +405,7 @@ mod tests {
         s.admit("bbb", 11);
 
         // the runner unit for 1 is gone, nothing wrote a terminal record
-        assert_eq!(s.reconcile(20, |_| false), vec![1]);
+        assert_eq!(s.reconcile(60, 20, |_| false), vec![1]);
         assert_eq!(s.get(1).unwrap().state, State::Interrupted);
         // the waiting one is untouched and can now run
         assert_eq!(s.get(2).unwrap().state, State::Queued);
@@ -410,10 +413,22 @@ mod tests {
     }
 
     #[test]
+    fn a_just_started_runner_is_left_alone() {
+        let mut s = store();
+        s.admit("aaa", 10);
+        // started at 10, checked at 15, grace 20: still settling even though
+        // the unit is not visible yet
+        assert!(s.reconcile(15, 20, |_| false).is_empty());
+        assert_eq!(s.get(1).unwrap().state, State::Running);
+        // past the grace window it is fair game
+        assert_eq!(s.reconcile(40, 20, |_| false), vec![1]);
+    }
+
+    #[test]
     fn a_live_runner_is_adopted_not_interrupted() {
         let mut s = store();
         s.admit("aaa", 10);
-        assert!(s.reconcile(20, |_| true).is_empty());
+        assert!(s.reconcile(60, 20, |_| true).is_empty());
         assert_eq!(s.get(1).unwrap().state, State::Running);
     }
 
