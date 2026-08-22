@@ -3,21 +3,28 @@
 cd "$(dirname "$0")" || exit
 cmd=${1}
 
+usage() {
+  echo "Usage: $0 {colmena|work|sasha|astrid|zoe|athena}"
+  echo "  colmena - Deploy to all servers via colmena"
+  echo "  work    - Deploy work home-manager configuration"
+  echo "  sasha   - Deploy sasha NixOS configuration"
+  echo "  astrid  - Deploy astrid NixOS configuration"
+  echo "  zoe     - Build and activate zoe locally (build|activate|switch)"
+  echo "  athena  - Build and activate athena locally (build|activate|switch)"
+}
+
 # Auto-detect if no command provided
 if [[ -z "$cmd" ]]; then
   if [[ "$USER" == "hmoore" ]]; then
     cmd="work"
-  elif [[ "$(hostname)" == "sasha" ]]; then
-    cmd="sasha"
-  elif [[ "$(hostname)" == "astrid" ]]; then
-    cmd="astrid"
   else
-    echo "Usage: $0 {colmena|work|sasha|astrid|zoe|athena}"
-    echo "  colmena - Deploy to all servers via colmena"
-    echo "  work    - Deploy work home-manager configuration"
-    echo "  sasha   - Deploy sasha NixOS configuration"
-    echo "  astrid  - Deploy astrid NixOS configuration"
-    exit 1
+    case "$(hostname)" in
+      sasha | astrid | zoe | athena) cmd="$(hostname)" ;;
+      *)
+        usage
+        exit 1
+        ;;
+    esac
   fi
 fi
 
@@ -83,13 +90,7 @@ case "$cmd" in
     esac
     ;;
   *)
-    echo "Usage: $0 {colmena|work|sasha|astrid|zoe|athena}"
-    echo "  colmena - Deploy to all servers via colmena"
-    echo "  work    - Deploy work home-manager configuration"
-    echo "  sasha   - Deploy sasha NixOS configuration"
-    echo "  astrid  - Deploy astrid NixOS configuration"
-    echo "  zoe     - Build and activate zoe locally (build|activate|switch)"
-    echo "  athena  - Build and activate athena locally (build|activate|switch)"
+    usage
     exit 1
     ;;
 esac
