@@ -273,7 +273,7 @@ fn record_pre_failed(dir: &StateDir, id: u64, before: &Snapshot) {
     });
 }
 
-fn git<'a>(repo: &Path, args: &[&'a str]) -> Command {
+fn git(repo: &Path, args: &[&str]) -> Command {
     let mut cmd = Command::new("git");
     cmd.arg("-C").arg(repo).args(args);
     cmd
