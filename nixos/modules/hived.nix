@@ -157,7 +157,14 @@ in
 
     # Declared next to the thing that generates it. A no-op on hosts without
     # impermanence, which is why this is unconditional.
-    persist.directories = [ cfg.stateDir ];
+    persist.directories = [
+      {
+        directory = cfg.stateDir;
+        user = "hived";
+        group = "hived";
+        mode = "0755";
+      }
+    ];
 
     systemd.tmpfiles.rules = [
       "d ${cfg.stateDir} 0755 hived hived - -"
