@@ -77,6 +77,13 @@ case "$cmd" in
     }
 
     do_activate() {
+      # This switches the machine it runs on. Activating another host's closure
+      # here would replace this system with that one.
+      if [[ "$(hostname)" != "$cmd" ]]; then
+        echo "refusing to activate $cmd on $(hostname)" >&2
+        echo "run this on $cmd, or from here use '$0 colmena apply --on $cmd'" >&2
+        exit 1
+      fi
       if [[ ! -L "$toplevel" ]]; then
         echo "$toplevel is missing, run '$0 $cmd build' first" >&2
         exit 1
