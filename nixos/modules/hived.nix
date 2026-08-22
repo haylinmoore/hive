@@ -14,6 +14,8 @@ let
     HIVED_HOST = host;
     HIVED_BIND = "127.0.0.1:${toString cfg.port}";
     HIVED_STATE_DIR = cfg.stateDir;
+    # The console and the GitHub Pages dashboard are the same file.
+    HIVED_DASHBOARD = "${hive.web.hived}/index.html";
     HIVED_REPO_URL = cfg.repoUrl;
     HIVED_BRANCH = cfg.branch;
     HIVED_AUDIENCE = cfg.audience;
