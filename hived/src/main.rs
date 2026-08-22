@@ -2,6 +2,7 @@ mod api;
 mod auth;
 mod config;
 mod health;
+mod page;
 mod runner;
 mod state;
 mod store;

@@ -124,6 +124,12 @@ async fn create(
         return err(e.status(), e.message());
     }
 
+    eprintln!(
+        "deploy request for {rev} from {} (run {})",
+        claims.sub,
+        claims.run_id.as_deref().unwrap_or("?")
+    );
+
     let admission = match app.dir.update(|s| s.admit(&rev, now())) {
         Ok(a) => a,
         Err(e) => return err(500, &format!("state write failed: {e}")),
@@ -327,5 +333,6 @@ pub fn router(app: Shared) -> Router {
             get(show).delete(cancel).options(preflight),
         )
         .route("/v1/deployments/{id}/logs", get(logs))
+        .merge(crate::page::routes())
         .with_state(app)
 }
