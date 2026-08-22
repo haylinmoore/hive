@@ -4,21 +4,28 @@ on:
   push:
     branches:
       - main
+# GitHub cancels the older run, hived supersedes the older job. Either alone
+# would be enough, together they make back to back pushes a non-event.
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  id-token: write
+  contents: read
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [zoe, athena]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H zoe.infra.hayl.in >> ~/.ssh/known_hosts
-          ssh-keyscan -H athena.infra.hayl.in >> ~/.ssh/known_hosts
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-      - name: Run Colmena
-        run: |
-          nix-shell -p colmena --run "colmena apply --config colmena.nix --parallel 0 --build-on-target --on=zoe,athena"
+      - name: Deploy ${{ matrix.host }}
+        uses: actions/github-script@v7
+        env:
+          HOST: ${{ matrix.host }}
+          SHA: ${{ github.sha }}
+        with:
+          script: |
+            const script = require('./.github/workflows/deploy.js')
+            await script({ core, host: process.env.HOST, sha: process.env.SHA })
