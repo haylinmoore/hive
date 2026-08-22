@@ -20,6 +20,12 @@ jobs:
       matrix:
         host: [zoe, athena]
     steps:
+      # Only the poll script, the node fetches the repo itself.
+      - name: Fetch the deploy script
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/workflows
+          sparse-checkout-cone-mode: false
       - name: Deploy ${{ matrix.host }}
         uses: actions/github-script@v7
         env:
