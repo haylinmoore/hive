@@ -223,6 +223,10 @@ in
       };
     };
 
+    # Headless hosts do not enable polkit by default, and without it the rule
+    # below is silently dropped and the listener cannot start its runner.
+    security.polkit.enable = true;
+
     security.polkit.extraConfig = ''
       // hived may start its own runner and nothing else. The instance is
       // digits only, so there is no room to smuggle in another unit.
