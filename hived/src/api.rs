@@ -267,6 +267,13 @@ async fn logs(
                 HeaderValue::from_static("text/plain; charset=utf-8"),
             );
             headers.insert("x-hived-next-offset", HeaderValue::from(next));
+            // Cross-origin JS cannot see custom headers unless they are
+            // exposed, and the dashboard needs the offset to tail a live log
+            // instead of refetching all of it every second.
+            headers.insert(
+                header::ACCESS_CONTROL_EXPOSE_HEADERS,
+                HeaderValue::from_static("x-hived-next-offset, x-hived-eof"),
+            );
             headers.insert(
                 "x-hived-eof",
                 HeaderValue::from_static(if eof { "true" } else { "false" }),
