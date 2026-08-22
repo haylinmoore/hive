@@ -3,6 +3,12 @@
 cd "$(dirname "$0")" || exit
 cmd=${1}
 
+# hived's runner has a deliberately small PATH and no hostname binary,
+# so read the name from the kernel instead of depending on a package.
+this_host() {
+  cat /proc/sys/kernel/hostname 2>/dev/null || hostname
+}
+
 usage() {
   echo "Usage: $0 {colmena|work|sasha|astrid|zoe|athena}"
   echo "  colmena - Deploy to all servers via colmena"
@@ -18,8 +24,8 @@ if [[ -z "$cmd" ]]; then
   if [[ "$USER" == "hmoore" ]]; then
     cmd="work"
   else
-    case "$(hostname)" in
-      sasha | astrid | zoe | athena) cmd="$(hostname)" ;;
+    case "$(this_host)" in
+      sasha | astrid | zoe | athena) cmd="$(this_host)" ;;
       *)
         usage
         exit 1
@@ -79,8 +85,8 @@ case "$cmd" in
     do_activate() {
       # This switches the machine it runs on. Activating another host's closure
       # here would replace this system with that one.
-      if [[ "$(hostname)" != "$cmd" ]]; then
-        echo "refusing to activate $cmd on $(hostname)" >&2
+      if [[ "$(this_host)" != "$cmd" ]]; then
+        echo "refusing to activate $cmd on $(this_host)" >&2
         echo "run this on $cmd, or from here use '$0 colmena apply --on $cmd'" >&2
         exit 1
       fi
