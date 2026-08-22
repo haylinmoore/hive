@@ -7,6 +7,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
+#[derive(Debug, Clone)]
 pub struct Outcome {
     pub state: State,
     pub error: Option<DeployError>,
@@ -152,6 +153,14 @@ fn tail(bytes: &[u8], max: usize) -> String {
         Some(nl) => format!("[...]\n{}", &slice[nl + 1..]),
         None => format!("[...]\n{slice}"),
     }
+}
+
+/// What the node is actually running, so a deploy made from a laptop with
+/// uncommitted changes shows up as drift rather than as a stale line.
+pub fn current_system() -> Option<String> {
+    std::fs::read_link("/run/current-system")
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
 }
 
 fn current_generation() -> Option<u64> {
@@ -376,11 +385,13 @@ fn check(run: &Run, before: &Snapshot) -> Outcome {
     }
 
     let generation = current_generation();
+    let toplevel = current_system();
     let broken_for_record = broken.clone();
     let _ = run.dir.update(|s| {
         if let Some(d) = s.get_mut(run.id) {
             d.new_failed_units = broken_for_record.clone();
             d.generation = generation;
+            d.toplevel = toplevel.clone();
         }
     });
 

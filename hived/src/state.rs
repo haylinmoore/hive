@@ -96,6 +96,8 @@ pub struct Deployment {
     #[serde(default)]
     pub durations: BTreeMap<Phase, f64>,
     #[serde(default)]
+    pub toplevel: Option<String>,
+    #[serde(default)]
     pub generation: Option<u64>,
     #[serde(default)]
     pub previous_generation: Option<u64>,
@@ -123,6 +125,7 @@ impl Deployment {
             started_at: None,
             finished_at: None,
             durations: BTreeMap::new(),
+            toplevel: None,
             generation: None,
             previous_generation: None,
             error: None,
