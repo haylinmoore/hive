@@ -373,6 +373,10 @@ fn check(run: &Run, before: &Snapshot) -> Outcome {
     loop {
         if let Ok(after) = health::snapshot() {
             for unit in health::newly_failed(before, &after, &run.cfg.ignored_units) {
+                // Our own runner is not part of the system we are judging.
+                if unit.starts_with(&run.cfg.run_unit_prefix) {
+                    continue;
+                }
                 if !broken.contains(&unit) {
                     broken.push(unit);
                 }

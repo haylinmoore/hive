@@ -295,7 +295,7 @@ pub fn status_json(app: &App) -> serde_json::Value {
         "generation": deployed.and_then(|d| d.generation),
         "drifted": drifted,
         "current_system": running_system,
-        "system_failed_units": health::failed_units(&snapshot),
+        "system_failed_units": health::failed_units(&snapshot).into_iter().filter(|u| !u.starts_with(&app.cfg.run_unit_prefix)).collect::<Vec<_>>(),
         "deployed": deployed.map(|d| view(&app.dir, &store, d)),
         "running": store.running().map(|d| view(&app.dir, &store, d)),
         "queued": store.queued().map(|d| view(&app.dir, &store, d)),

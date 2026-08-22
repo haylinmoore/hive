@@ -52,19 +52,28 @@ fn run_one(cfg: Config, dir: StateDir, id: u64) -> ! {
     let state = outcome.state;
 
     let log_bytes = dir.log_size(id);
-    let _ = dir.update(|s| {
-        if let Some(d) = s.get_mut(id) {
-            d.error = error.clone();
-            d.log_bytes = log_bytes;
-        }
-        s.finish(id, state, now());
-    });
+    let recorded = dir
+        .update(|s| {
+            let existed = s.get(id).is_some();
+            if let Some(d) = s.get_mut(id) {
+                d.error = error.clone();
+                d.log_bytes = log_bytes;
+            }
+            s.finish(id, state, now());
+            existed
+        })
+        .unwrap_or(false);
 
-    let code = match state {
-        State::Succeeded | State::Degraded => 0,
-        _ => 1,
-    };
-    std::process::exit(code)
+    // A failed deploy exits the unit cleanly, because the outcome is already in
+    // the record. Letting the unit fail would park hived's own runner in
+    // `systemctl --failed` for good, drag the node to `degraded`, and make
+    // hived report itself as broken. Only a runner that could not record
+    // anything is a real unit failure.
+    if recorded {
+        std::process::exit(0)
+    }
+    eprintln!("no record for deployment {id}");
+    std::process::exit(1)
 }
 
 fn serve(cfg: Config, dir: StateDir) -> ! {
