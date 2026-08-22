@@ -22,13 +22,15 @@ in
       "/var/lib/systemd/coredump"
       "/etc/NetworkManager/system-connections"
       "/var/lib/acme"
-    ];
+    ]
+    ++ config.persist.directories;
     files = [
       "/etc/machine-id"
       "/etc/ssh/ssh_host_ed25519_key"
       "/etc/ssh/ssh_host_ed25519_key.pub"
       "/etc/ssh/ssh_host_rsa_key"
       "/etc/ssh/ssh_host_rsa_key.pub"
-    ];
+    ]
+    ++ config.persist.files;
   };
 }
