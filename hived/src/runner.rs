@@ -392,9 +392,18 @@ fn activate(run: &Run) -> Result<(), DeployError> {
 /// `switch-to-configuration` returns as soon as it has issued the restarts, so
 /// a service that dies five seconds later is still `activating` at that moment
 /// and a single sample would call it healthy.
+/// Consecutive quiet samples required before calling the system settled.
+const SETTLE_QUIET_SAMPLES: u32 = 3;
+
 fn check(run: &Run, before: &Snapshot) -> Outcome {
+    let started_check = Instant::now();
+    // The settle window is a ceiling, not a fixed wait. Sitting out the whole
+    // thing added half a minute to every deploy for no information, so instead
+    // wait for systemd to run out of queued jobs and then take a few more
+    // samples to catch anything that dies immediately.
     let deadline = Instant::now() + run.cfg.settle;
     let mut broken: Vec<String> = Vec::new();
+    let mut quiet = 0;
 
     loop {
         if let Ok(after) = health::snapshot() {
@@ -408,11 +417,22 @@ fn check(run: &Run, before: &Snapshot) -> Outcome {
                 }
             }
         }
-        if Instant::now() >= deadline {
+
+        if health::system_state() == "starting" {
+            quiet = 0;
+        } else {
+            quiet += 1;
+        }
+
+        if quiet >= SETTLE_QUIET_SAMPLES || Instant::now() >= deadline {
             break;
         }
-        std::thread::sleep(Duration::from_secs(2));
+        std::thread::sleep(Duration::from_secs(1));
     }
+    run.log(&format!(
+        "\nsettled after {}s\n",
+        started_check.elapsed().as_secs()
+    ));
 
     let generation = current_generation();
     let toplevel = current_system();

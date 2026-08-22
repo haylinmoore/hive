@@ -106,6 +106,16 @@ fn parse_show_restarts(stdout: &str) -> Vec<(String, u32)> {
     out
 }
 
+/// systemd's own view of whether it still has work queued. "starting" means
+/// jobs are outstanding, so there is no point judging health yet.
+pub fn system_state() -> String {
+    Command::new("systemctl")
+        .arg("is-system-running")
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default()
+}
+
 pub fn failed_units(snap: &Snapshot) -> Vec<String> {
     snap.iter()
         .filter(|(_, s)| s.failed())
