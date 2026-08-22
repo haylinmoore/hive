@@ -16,6 +16,7 @@ rec {
     ./home-assistant.nix
     ./door-keys
     ../../nixos/certs/uwu-estate.nix
+    ../../nixos/certs/host-infra.nix
     ../../nixos/modules/dli-ddns.nix
   ];
 
@@ -32,8 +33,13 @@ rec {
     sopsFile = ../../secrets/dns.env;
     format = "dotenv";
     owner = "acme";
-    restartUnits = [ "acme-uwu.estate.service" ];
+    restartUnits = [
+      "acme-uwu.estate.service"
+      "acme-zoe.infra.hayl.in.service"
+    ];
   };
+
+  services.hived.enable = true;
 
   services.dli-ddns.zoe-infra-hayl-in = {
     provider = "bunny";
