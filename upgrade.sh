@@ -28,6 +28,12 @@ if [[ -z "$cmd" ]]; then
   fi
 fi
 
+# hived runs the activate step as root, where sudo is only an extra dependency.
+sudo=(sudo)
+if [[ $EUID -eq 0 ]]; then
+  sudo=()
+fi
+
 # Run colmena from the environment if present, otherwise from the dev shell.
 run_colmena() {
   if command -v colmena > /dev/null 2>&1; then
@@ -52,12 +58,12 @@ case "$cmd" in
   sasha)
     shift
     action=${1:-switch}
-    sudo nixos-rebuild "$action" --file default.nix --attr hosts.sasha
+    "${sudo[@]}" nixos-rebuild "$action" --file default.nix --attr hosts.sasha
     ;;
   astrid)
     shift
     action=${1:-switch}
-    sudo nixos-rebuild "$action" --file default.nix --attr hosts.astrid
+    "${sudo[@]}" nixos-rebuild "$action" --file default.nix --attr hosts.astrid
     ;;
   zoe | athena)
     # Build locally through colmena so the closure matches a colmena deploy
@@ -75,8 +81,8 @@ case "$cmd" in
         echo "$toplevel is missing, run '$0 $cmd build' first" >&2
         exit 1
       fi
-      sudo nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f "$toplevel")"
-      sudo /nix/var/nix/profiles/system/bin/switch-to-configuration switch
+      "${sudo[@]}" nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f "$toplevel")"
+      "${sudo[@]}" /nix/var/nix/profiles/system/bin/switch-to-configuration switch
     }
 
     case "$action" in
