@@ -249,19 +249,70 @@
       // from memory instead of refetching. Hovering a link fills that cache
       // ahead of the click. The periodic refresh clears it, so live numbers
       // stay live rather than being served stale for ever.
-      const TTL_MS = 15000;
+      const TTL_MS = 4000;
       const CACHE = new Map();
+
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      // Activation restarts nginx and the listener on purpose, so a node is
+      // briefly unreachable during its own deploy. Retry rather than showing
+      // the reader an error for something that is expected and self-healing.
+      async function attempt(url, parse, tries = 5) {
+        let last;
+        for (let i = 0; i < tries; i++) {
+          try {
+            const r = await fetch(url);
+            if (r.ok) return await parse(r);
+            // A 404 or 403 is an answer, not a blip. Only retry server-side
+            // and transport failures.
+            if (r.status < 500) throw new Error(`HTTP ${r.status}`);
+            last = new Error(`HTTP ${r.status}`);
+          } catch (e) {
+            last = e;
+            if (String(e.message || "").startsWith("HTTP 4")) throw e;
+          }
+          if (i < tries - 1) await sleep(Math.min(300 * 2 ** i, 2000));
+        }
+        throw last;
+      }
 
       function cached(url, parse) {
         const hit = CACHE.get(url);
         if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
-        const value = fetch(url).then((r) =>
-          r.ok ? parse(r) : Promise.reject(r.status),
-        );
+        const value = attempt(url, parse);
         CACHE.set(url, { at: Date.now(), value });
         // A failure must not be remembered, or one blip poisons the view.
         value.catch(() => CACHE.delete(url));
         return value;
+      }
+
+      // Accumulated log text per deployment, so a live log is tailed by byte
+      // offset instead of refetched whole every second.
+      const LOGS = new Map();
+
+      async function tailLog(base, host, id) {
+        const key = `${host}/${id}`;
+        const st = LOGS.get(key) || { text: "", offset: 0, eof: false };
+        try {
+          const res = await attempt(
+            `${base}${"/v1/deployments/"}${id}/logs?offset=${st.offset}`,
+            async (r) => ({
+              chunk: await r.text(),
+              next: Number(r.headers.get("x-hived-next-offset")),
+              eof: r.headers.get("x-hived-eof") === "true",
+            }),
+          );
+          st.text += res.chunk;
+          // Without the exposed header we cannot tell where we got to, so fall
+          // back to refetching from the start next time.
+          st.offset = Number.isFinite(res.next) && res.next > 0 ? res.next : 0;
+          if (!Number.isFinite(res.next) || res.next <= 0) st.text = res.chunk;
+          st.eof = res.eof;
+          LOGS.set(key, st);
+        } catch {
+          if (!st.text) st.text = "(log unavailable)";
+        }
+        return st.text;
       }
 
       const get = (url) => cached(url, (r) => r.json());
@@ -280,7 +331,6 @@
         if (m) {
           const base = baseOf(m[1]);
           get(urls.one(base, m[2])).catch(() => {});
-          getText(urls.log(base, m[2])).catch(() => {});
           return;
         }
         if (hash === "#/" || hash === "#") {
@@ -422,9 +472,7 @@
 
         let log = "";
         if (!d.log_reaped) {
-          log = await getText(urls.log(base, id)).catch(
-            () => "(log unavailable)",
-          );
+          log = await tailLog(base, host, id);
         }
 
         const phases = PHASES.filter(
@@ -481,7 +529,7 @@
 
         // Poll fast while something is moving, slowly when nothing is.
         clearTimeout(timer);
-        timer = setTimeout(() => route(true), live ? 5000 : 30000);
+        timer = setTimeout(() => route(true), live ? 1000 : 5000);
       }
 
       window.addEventListener("hashchange", route);
