@@ -37,7 +37,7 @@ type Server struct {
 }
 
 // New creates a new server instance
-func New(hostKeyPath string, domain string) (*Server, error) {
+func New(hostKeyPath string, domain string, authorizedKeysPath string) (*Server, error) {
 	s := &Server{
 		tunnels:       make(map[string]*tunnel.Tunnel),
 		ipConnections: make(map[string]int),
@@ -55,8 +55,21 @@ func New(hostKeyPath string, domain string) (*Server, error) {
 		}
 	})
 
+	keys, err := loadAuthorizedKeys(authorizedKeysPath)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Loaded %d authorized key(s) from %s", len(keys), authorizedKeysPath)
+
 	s.sshConfig = &ssh.ServerConfig{
-		NoClientAuth: true,
+		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			comment, ok := keys.lookup(key)
+			if !ok {
+				log.Printf("Rejected %s from %s: key not authorized", ssh.FingerprintSHA256(key), conn.RemoteAddr())
+				return nil, fmt.Errorf("key not authorized")
+			}
+			return &ssh.Permissions{Extensions: map[string]string{"key-comment": comment}}, nil
+		},
 	}
 
 	hostKey, err := loadOrGenerateHostKey(hostKeyPath)

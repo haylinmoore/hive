@@ -63,26 +63,28 @@ const (
 
 // Config holds runtime configuration loaded from environment
 type Config struct {
-	SSHAddr     string
-	HTTPAddr    string
-	HTTPSAddr   string
-	StatsAddr   string
-	HostKeyPath string
-	TLSCert     string
-	TLSKey      string
-	Domain      string
+	SSHAddr            string
+	HTTPAddr           string
+	HTTPSAddr          string
+	StatsAddr          string
+	HostKeyPath        string
+	AuthorizedKeysPath string
+	TLSCert            string
+	TLSKey             string
+	Domain             string
 }
 
 // Default returns configuration with default values
 func Default() *Config {
 	return &Config{
-		SSHAddr:     ":22",
-		HTTPAddr:    ":80",
-		HTTPSAddr:   ":443",
-		StatsAddr:   "127.0.0.1:9090",
-		HostKeyPath: "host_key",
-		TLSCert:     fmt.Sprintf("/etc/letsencrypt/live/%s/fullchain.pem", DefaultDomain),
-		TLSKey:      fmt.Sprintf("/etc/letsencrypt/live/%s/privkey.pem", DefaultDomain),
-		Domain:      DefaultDomain,
+		SSHAddr:            ":22",
+		HTTPAddr:           ":80",
+		HTTPSAddr:          ":443",
+		StatsAddr:          "127.0.0.1:9090",
+		HostKeyPath:        "host_key",
+		AuthorizedKeysPath: "authorized_keys",
+		TLSCert:            fmt.Sprintf("/etc/letsencrypt/live/%s/fullchain.pem", DefaultDomain),
+		TLSKey:             fmt.Sprintf("/etc/letsencrypt/live/%s/privkey.pem", DefaultDomain),
+		Domain:             DefaultDomain,
 	}
 }

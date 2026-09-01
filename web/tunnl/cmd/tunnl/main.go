@@ -30,6 +30,9 @@ func main() {
 	if v := os.Getenv("HOST_KEY_PATH"); v != "" {
 		cfg.HostKeyPath = v
 	}
+	if v := os.Getenv("AUTHORIZED_KEYS"); v != "" {
+		cfg.AuthorizedKeysPath = v
+	}
 	if v := os.Getenv("TLS_CERT"); v != "" {
 		cfg.TLSCert = v
 	}
@@ -43,7 +46,7 @@ func main() {
 		cfg.Domain = v
 	}
 
-	srv, err := server.New(cfg.HostKeyPath, cfg.Domain)
+	srv, err := server.New(cfg.HostKeyPath, cfg.Domain, cfg.AuthorizedKeysPath)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}

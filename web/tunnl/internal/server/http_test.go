@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -306,7 +307,11 @@ func TestCopyWithLimits(t *testing.T) {
 
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
-	s, err := New(t.TempDir()+"/host_key", config.DefaultDomain)
+	dir := t.TempDir()
+	if err := os.WriteFile(dir+"/authorized_keys", []byte(testAuthorizedKey), 0600); err != nil {
+		t.Fatalf("failed to write authorized keys: %v", err)
+	}
+	s, err := New(dir+"/host_key", config.DefaultDomain, dir+"/authorized_keys")
 	if err != nil {
 		t.Fatalf("failed to create test server: %v", err)
 	}
