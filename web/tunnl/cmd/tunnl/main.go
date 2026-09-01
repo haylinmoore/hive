@@ -13,6 +13,7 @@ import (
 
 	"tunnl.gg/internal/config"
 	"tunnl.gg/internal/server"
+	"tunnl.gg/internal/tlscert"
 )
 
 func main() {
@@ -98,7 +99,8 @@ func main() {
 		IdleTimeout:       config.HTTPSIdleTimeout,
 		MaxHeaderBytes:    1 << 20,
 		TLSConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
+			MinVersion:     tls.VersionTLS12,
+			GetCertificate: tlscert.New(cfg.TLSCert, cfg.TLSKey).GetCertificate,
 		},
 	}
 
@@ -123,7 +125,7 @@ func main() {
 
 	log.Printf("HTTPS server listening on %s", cfg.HTTPSAddr)
 	go func() {
-		if err := httpsServer.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey); err != http.ErrServerClosed {
+		if err := httpsServer.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			serverErr <- fmt.Errorf("HTTPS server error: %w", err)
 		}
 	}()

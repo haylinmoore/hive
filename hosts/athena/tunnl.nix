@@ -54,12 +54,12 @@ in
 
   # Group-owning the certificate by tunnl is what lets the service read it as
   # itself; the acme group would mean nothing inside the container.
-  security.acme.certs.${domain} = {
-    group = "tunnl";
-    # The certificate is read at startup, so a renewal only takes effect when
-    # the container comes back up.
-    reloadServices = [ "container@tunnl.service" ];
-  };
+  #
+  # No reload hook: tunnl stats the certificate on each handshake and reloads
+  # it when the file changes, so a renewal costs nothing and does not drop
+  # live tunnels. That also covers first boot, where the service necessarily
+  # starts before issuance finishes.
+  security.acme.certs.${domain}.group = "tunnl";
 
   # The bind mount below needs the certificate directory to exist before the
   # container starts, which is not guaranteed on a first boot.

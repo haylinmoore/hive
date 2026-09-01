@@ -3,11 +3,15 @@
 SSH reverse-tunnel server. Open a remote forward and the server proxies
 `https://<subdomain>.<domain>` back to your local port:
 
-    ssh -t -R 80:localhost:8080 tunnl.hayl.in
+```
+ssh -t -R 80:localhost:8080 tunnl.hayl.in
+```
 
 Pass a name as the SSH command to pick the subdomain yourself:
 
-    ssh -t -R 80:localhost:8080 tunnl.hayl.in myapp
+```
+ssh -t -R 80:localhost:8080 tunnl.hayl.in myapp
+```
 
 Without one you get a generated `adjective-noun-hex` name. A name already
 in use, or one that is not a single lowercase DNS label, comes back as an
@@ -26,7 +30,7 @@ root's key list from `nixos/shared/users.nix`.
 | `STATS_ADDR` | `127.0.0.1:9090` | Stats endpoint, loopback only |
 | `HOST_KEY_PATH` | `host_key` | SSH host key, generated if absent |
 | `AUTHORIZED_KEYS` | `authorized_keys` | Keys permitted to open tunnels |
-| `TLS_CERT` / `TLS_KEY` | Let's Encrypt paths | Wildcard cert for `*.<domain>` |
+| `TLS_CERT` / `TLS_KEY` | Let's Encrypt paths | Wildcard cert for `*.<domain>`, re-read when it changes |
 | `DOMAIN` | `tunnl.gg` | Domain tunnels are served under |
 
 `GET /?tunnels=true` on the stats endpoint lists the active subdomains
