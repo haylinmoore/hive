@@ -31,7 +31,6 @@
     ./fun.nix
     ./minecraft.nix
     ./skyfactory.nix
-    ./matrix.nix
     ./thelounge.nix
     ./dial.nix
     ./tunnl.nix
