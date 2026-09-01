@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"sync"
 	"time"
-
-	"tunnl.gg/internal/config"
 )
 
 // SSHCloser is an interface for closing SSH connections
@@ -17,31 +15,28 @@ type SSHCloser interface {
 
 // Tunnel represents an active SSH tunnel
 type Tunnel struct {
-	Subdomain  string
-	Listener   net.Listener
-	CreatedAt  time.Time
-	LastActive time.Time
-	BindAddr   string
-	BindPort   uint32
-	ClientIP   string // SSH client IP that created this tunnel
-	mu         sync.Mutex
-	sshConn    SSHCloser       // Reference to SSH connection for forced closure
-	transport  *http.Transport // Reusable HTTP transport for proxying
-	logger     *RequestLogger  // Async request logger for SSH terminal output
+	Subdomain string
+	Listener  net.Listener
+	CreatedAt time.Time
+	BindAddr  string
+	BindPort  uint32
+	ClientIP  string // SSH client IP that created this tunnel
+	mu        sync.Mutex
+	sshConn   SSHCloser       // Reference to SSH connection for forced closure
+	transport *http.Transport // Reusable HTTP transport for proxying
+	logger    *RequestLogger  // Async request logger for SSH terminal output
 }
 
 // New creates a new tunnel with the given parameters
 func New(subdomain string, listener net.Listener, bindAddr string, bindPort uint32, clientIP string) *Tunnel {
-	now := time.Now()
 	listenerAddr := listener.Addr().String()
 	return &Tunnel{
-		Subdomain:  subdomain,
-		Listener:   listener,
-		CreatedAt:  now,
-		LastActive: now,
-		BindAddr:   bindAddr,
-		BindPort:   bindPort,
-		ClientIP:   clientIP,
+		Subdomain: subdomain,
+		Listener:  listener,
+		CreatedAt: time.Now(),
+		BindAddr:  bindAddr,
+		BindPort:  bindPort,
+		ClientIP:  clientIP,
 		transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return net.DialTimeout("tcp", listenerAddr, 10*time.Second)
@@ -53,33 +48,10 @@ func New(subdomain string, listener net.Listener, bindAddr string, bindPort uint
 }
 
 // Touch updates the last active timestamp
-func (t *Tunnel) Touch() {
-	t.mu.Lock()
-	t.LastActive = time.Now()
-	t.mu.Unlock()
-}
 
 // IsExpired returns true if the tunnel has been inactive for too long or exceeded max lifetime
-func (t *Tunnel) IsExpired() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return time.Since(t.LastActive) > config.InactivityTimeout ||
-		time.Since(t.CreatedAt) > config.MaxTunnelLifetime
-}
 
 // TimeRemaining returns the time remaining before the tunnel expires (either by inactivity or max lifetime)
-func (t *Tunnel) TimeRemaining() time.Duration {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	inactivityRemaining := config.InactivityTimeout - time.Since(t.LastActive)
-	lifetimeRemaining := config.MaxTunnelLifetime - time.Since(t.CreatedAt)
-
-	if inactivityRemaining < lifetimeRemaining {
-		return inactivityRemaining
-	}
-	return lifetimeRemaining
-}
 
 // SetSSHConn sets the SSH connection reference for forced closure
 func (t *Tunnel) SetSSHConn(conn SSHCloser) {

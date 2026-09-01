@@ -6,14 +6,10 @@ import (
 )
 
 const (
-	DefaultDomain     = "tunnl.gg"
-	InactivityTimeout = 2 * time.Hour
+	DefaultDomain = "tunnl.gg"
 
 	// SSH handshake timeout
 	SSHHandshakeTimeout = 30 * time.Second
-
-	// Tunnel lifetime
-	MaxTunnelLifetime = 24 * time.Hour // max tunnel duration regardless of activity
 
 	// HTTP server timeouts
 	HTTPReadHeaderTimeout  = 5 * time.Second

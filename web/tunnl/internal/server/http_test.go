@@ -85,29 +85,6 @@ func TestSetSecurityHeaders(t *testing.T) {
 	}
 }
 
-func TestFormatDuration(t *testing.T) {
-	tests := []struct {
-		name string
-		d    time.Duration
-		want string
-	}{
-		{"2 hours", 2 * time.Hour, "2h"},
-		{"1 hour", 1 * time.Hour, "1h"},
-		{"90 minutes", 90 * time.Minute, "1h"},
-		{"45 minutes", 45 * time.Minute, "45m"},
-		{"10 minutes", 10 * time.Minute, "10m"},
-		{"3 hours", 3 * time.Hour, "3h"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := formatDuration(tt.d); got != tt.want {
-				t.Errorf("formatDuration(%v) = %q, want %q", tt.d, got, tt.want)
-			}
-		})
-	}
-}
-
 func newTestServer(t *testing.T) *Server {
 	t.Helper()
 	dir := t.TempDir()

@@ -183,8 +183,6 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 	log.Printf("New SSH connection from %s, serving subdomain: %s", sshConn.RemoteAddr(), sub)
 
 	url := fmt.Sprintf("https://%s.%s", sub, s.domain)
-	expiresAt := tun.CreatedAt.Add(config.MaxTunnelLifetime).Format("Jan 02, 2006 at 15:04 MST")
-	expiresLine := fmt.Sprintf("%s (or %s idle)", expiresAt, formatDuration(config.InactivityTimeout))
 
 	// ANSI color codes
 	const (
@@ -197,28 +195,9 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 	urlMessage := "\r\n" +
 		gray + "Connected to " + s.domain + "." + reset + "\r\n" +
 		boldGreen + "Tunnel is live!" + reset + "\r\n" +
-		gray + "Public URL: " + purple + url + reset + "\r\n" +
-		gray + "Expires:    " + expiresLine + reset + "\r\n\r\n"
+		gray + "Public URL: " + purple + url + reset + "\r\n\r\n"
 
 	fmt.Fprint(channel, urlMessage)
-
-	// Inactivity checker
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				if tun.IsExpired() {
-					log.Printf("Tunnel %s expired due to inactivity", sub)
-					sshConn.Close()
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 
 	logger := tunnel.NewRequestLogger(channel, config.LogBufferSize)
 	tun.SetLogger(logger)
@@ -231,7 +210,6 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 			if err != nil {
 				return
 			}
-			tun.Touch()
 			go s.forwardToSSH(sshConn, tcpConn, tun)
 		}
 	}()
@@ -360,10 +338,3 @@ func (s *Server) forwardToSSH(sshConn *ssh.ServerConn, tcpConn net.Conn, tun *tu
 }
 
 // formatDuration formats a duration as a human-readable string (e.g., "2h", "45m")
-func formatDuration(d time.Duration) string {
-	if d >= time.Hour {
-		h := int(d.Hours())
-		return fmt.Sprintf("%dh", h)
-	}
-	return fmt.Sprintf("%dm", int(d.Minutes()))
-}

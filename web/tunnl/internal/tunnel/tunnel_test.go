@@ -6,7 +6,6 @@ import (
 	"net"
 	"sync"
 	"testing"
-	"time"
 )
 
 func newTestTunnel(t *testing.T) *Tunnel {
@@ -17,59 +16,6 @@ func newTestTunnel(t *testing.T) *Tunnel {
 	}
 	t.Cleanup(func() { ln.Close() })
 	return New("test-sub-00000000", ln, "127.0.0.1", 8080, "127.0.0.1")
-}
-
-func TestTouch(t *testing.T) {
-	tun := newTestTunnel(t)
-	before := tun.LastActive
-	time.Sleep(10 * time.Millisecond)
-	tun.Touch()
-	if !tun.LastActive.After(before) {
-		t.Error("Touch() did not update LastActive")
-	}
-}
-
-func TestIsExpired_NotExpiredInitially(t *testing.T) {
-	tun := newTestTunnel(t)
-	if tun.IsExpired() {
-		t.Error("new tunnel should not be expired")
-	}
-}
-
-func TestIsExpired_Inactivity(t *testing.T) {
-	tun := newTestTunnel(t)
-	tun.mu.Lock()
-	tun.LastActive = time.Now().Add(-3 * time.Hour)
-	tun.mu.Unlock()
-
-	if !tun.IsExpired() {
-		t.Error("tunnel with old LastActive should be expired")
-	}
-}
-
-func TestIsExpired_MaxLifetime(t *testing.T) {
-	tun := newTestTunnel(t)
-	tun.mu.Lock()
-	tun.CreatedAt = time.Now().Add(-25 * time.Hour)
-	tun.mu.Unlock()
-
-	if !tun.IsExpired() {
-		t.Error("tunnel past max lifetime should be expired")
-	}
-}
-
-func TestTimeRemaining(t *testing.T) {
-	tun := newTestTunnel(t)
-	remaining := tun.TimeRemaining()
-
-	// For a new tunnel, remaining should be close to InactivityTimeout (2h)
-	// since it's less than MaxTunnelLifetime (24h)
-	if remaining <= 0 {
-		t.Error("TimeRemaining() should be positive for a new tunnel")
-	}
-	if remaining > 2*time.Hour+time.Second {
-		t.Errorf("TimeRemaining() = %v, want <= 2h", remaining)
-	}
 }
 
 func TestTransport(t *testing.T) {
@@ -193,21 +139,5 @@ func TestClose(t *testing.T) {
 	_, err = ln.Accept()
 	if err == nil {
 		t.Error("Close() should close the listener")
-	}
-}
-
-func TestTimeRemaining_LifetimeShorter(t *testing.T) {
-	tun := newTestTunnel(t)
-
-	// Set CreatedAt so lifetime remaining is shorter than inactivity remaining
-	tun.mu.Lock()
-	tun.CreatedAt = time.Now().Add(-23*time.Hour - 50*time.Minute)
-	tun.LastActive = time.Now() // just touched, so inactivity remaining ~2h
-	tun.mu.Unlock()
-
-	remaining := tun.TimeRemaining()
-	// Lifetime remaining should be ~10 minutes, which is less than inactivity timeout of 2h
-	if remaining > 15*time.Minute {
-		t.Errorf("TimeRemaining() = %v, want <= 15m (lifetime should be limiting)", remaining)
 	}
 }
