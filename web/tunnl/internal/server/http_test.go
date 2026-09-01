@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -38,31 +37,6 @@ func TestStripPort(t *testing.T) {
 	}
 }
 
-func TestIsBrowserRequest(t *testing.T) {
-	tests := []struct {
-		name      string
-		userAgent string
-		want      bool
-	}{
-		{"chrome", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/91.0", true},
-		{"firefox", "Mozilla/5.0 (X11; Linux x86_64; rv:89.0) Gecko/20100101 Firefox/89.0", true},
-		{"curl", "curl/7.68.0", false},
-		{"go http", "Go-http-client/1.1", false},
-		{"empty", "", false},
-		{"safari", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &http.Request{Header: http.Header{}}
-			r.Header.Set("User-Agent", tt.userAgent)
-			if got := isBrowserRequest(r); got != tt.want {
-				t.Errorf("isBrowserRequest(%q) = %v, want %v", tt.userAgent, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestIsWebSocketRequest(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -88,33 +62,6 @@ func TestIsWebSocketRequest(t *testing.T) {
 			}
 			if got := isWebSocketRequest(r); got != tt.want {
 				t.Errorf("isWebSocketRequest() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestHasWarningCookie(t *testing.T) {
-	sub := "test-sub-12345678"
-	cookieName := config.WarningCookieName + "_" + sub
-
-	tests := []struct {
-		name   string
-		cookie *http.Cookie
-		want   bool
-	}{
-		{"no cookie", nil, false},
-		{"valid cookie", &http.Cookie{Name: cookieName, Value: "1"}, true},
-		{"wrong value", &http.Cookie{Name: cookieName, Value: "0"}, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &http.Request{Header: http.Header{}}
-			if tt.cookie != nil {
-				r.AddCookie(tt.cookie)
-			}
-			if got := hasWarningCookie(r, sub); got != tt.want {
-				t.Errorf("hasWarningCookie() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -159,150 +106,6 @@ func TestFormatDuration(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestLimitedReadCloser(t *testing.T) {
-	t.Run("within limit", func(t *testing.T) {
-		data := "hello world"
-		rc := io.NopCloser(strings.NewReader(data))
-		lrc := &limitedReadCloser{rc: rc, limit: 100}
-
-		buf, err := io.ReadAll(lrc)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if string(buf) != data {
-			t.Errorf("got %q, want %q", string(buf), data)
-		}
-	})
-
-	t.Run("exceeds limit", func(t *testing.T) {
-		data := "hello world" // 11 bytes
-		rc := io.NopCloser(strings.NewReader(data))
-		lrc := &limitedReadCloser{rc: rc, limit: 5}
-
-		buf := make([]byte, 20)
-		// First read should return up to limit
-		n, err := lrc.Read(buf)
-		if err != nil {
-			t.Fatalf("first read error: %v", err)
-		}
-		if n != 5 {
-			t.Errorf("first read got %d bytes, want 5", n)
-		}
-
-		// Second read should error
-		_, err = lrc.Read(buf)
-		if err == nil {
-			t.Error("expected error after exceeding limit")
-		}
-	})
-
-	t.Run("exactly at limit", func(t *testing.T) {
-		data := "hello"
-		rc := io.NopCloser(strings.NewReader(data))
-		lrc := &limitedReadCloser{rc: rc, limit: int64(len(data))}
-
-		buf, err := io.ReadAll(lrc)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if string(buf) != data {
-			t.Errorf("got %q, want %q", string(buf), data)
-		}
-	})
-
-	t.Run("close", func(t *testing.T) {
-		rc := io.NopCloser(strings.NewReader("test"))
-		lrc := &limitedReadCloser{rc: rc, limit: 100}
-		if err := lrc.Close(); err != nil {
-			t.Errorf("Close() error: %v", err)
-		}
-	})
-}
-
-func TestCopyWithLimits(t *testing.T) {
-	t.Run("normal copy", func(t *testing.T) {
-		server, client := net.Pipe()
-		defer server.Close()
-		defer client.Close()
-
-		data := []byte("hello world")
-		go func() {
-			server.Write(data)
-			server.Close()
-		}()
-
-		dst, dstWriter := net.Pipe()
-		defer dst.Close()
-		defer dstWriter.Close()
-
-		received := make(chan []byte, 1)
-		go func() {
-			buf, _ := io.ReadAll(dst)
-			received <- buf
-		}()
-
-		n, err := copyWithLimits(dstWriter, client, 1024, 5*time.Second)
-		dstWriter.Close()
-
-		if err != nil {
-			t.Fatalf("copyWithLimits error: %v", err)
-		}
-		if n != int64(len(data)) {
-			t.Errorf("copyWithLimits returned %d bytes, want %d", n, len(data))
-		}
-
-		got := <-received
-		if string(got) != string(data) {
-			t.Errorf("got %q, want %q", string(got), string(data))
-		}
-	})
-
-	t.Run("transfer limit exceeded", func(t *testing.T) {
-		server, client := net.Pipe()
-		defer server.Close()
-		defer client.Close()
-
-		// Write more than limit
-		go func() {
-			buf := make([]byte, 100)
-			for i := 0; i < 100; i++ {
-				server.Write(buf)
-			}
-			server.Close()
-		}()
-
-		dst, dstWriter := net.Pipe()
-		defer dst.Close()
-		defer dstWriter.Close()
-
-		// Drain dst to avoid blocking
-		go io.Copy(io.Discard, dst)
-
-		_, err := copyWithLimits(dstWriter, client, 500, 5*time.Second)
-		if err == nil || !strings.Contains(err.Error(), "transfer limit exceeded") {
-			t.Errorf("expected transfer limit exceeded error, got: %v", err)
-		}
-	})
-
-	t.Run("idle timeout", func(t *testing.T) {
-		server, client := net.Pipe()
-		defer server.Close()
-		defer client.Close()
-
-		dst, dstWriter := net.Pipe()
-		defer dst.Close()
-		defer dstWriter.Close()
-
-		go io.Copy(io.Discard, dst)
-
-		// Don't write anything — should timeout
-		_, err := copyWithLimits(dstWriter, client, 1024, 50*time.Millisecond)
-		if err == nil {
-			t.Error("expected timeout error, got nil")
-		}
-	})
 }
 
 func newTestServer(t *testing.T) *Server {
@@ -415,27 +218,49 @@ func TestStatusCaptureWriter(t *testing.T) {
 	})
 }
 
-func TestRedirectToWarningPage(t *testing.T) {
-	s := newTestServer(t)
-	sub := "happy-tiger-abcdef01"
-	r := httptest.NewRequest("GET", "https://happy-tiger-abcdef01.tunnl.gg/path?q=1", nil)
-	r.Host = "happy-tiger-abcdef01.tunnl.gg"
-	w := httptest.NewRecorder()
+func TestCopyIdleTimeout(t *testing.T) {
+	t.Run("copies until EOF", func(t *testing.T) {
+		src, srcWriter := net.Pipe()
+		dst, dstReader := net.Pipe()
+		defer src.Close()
+		defer dst.Close()
 
-	s.redirectToWarningPage(w, r, sub)
+		payload := strings.Repeat("x", 128*1024)
+		go func() {
+			io.WriteString(srcWriter, payload)
+			srcWriter.Close()
+		}()
 
-	if w.Code != http.StatusTemporaryRedirect {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusTemporaryRedirect)
-	}
+		received := make(chan int64, 1)
+		go func() {
+			n, _ := io.Copy(io.Discard, dstReader)
+			received <- n
+		}()
 
-	loc := w.Header().Get("Location")
-	if !strings.HasPrefix(loc, "https://tunnl.gg/#/warning?") {
-		t.Errorf("Location = %q, want prefix https://tunnl.gg/#/warning?", loc)
-	}
-	if !strings.Contains(loc, "redirect="+url.QueryEscape("https://happy-tiger-abcdef01.tunnl.gg/path?q=1")) {
-		t.Errorf("Location missing redirect param: %q", loc)
-	}
-	if !strings.Contains(loc, "subdomain="+url.QueryEscape("happy-tiger-abcdef01.tunnl.gg")) {
-		t.Errorf("Location missing subdomain param: %q", loc)
-	}
+		written, err := copyIdleTimeout(dst, src, time.Second)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if written != int64(len(payload)) {
+			t.Errorf("copied %d bytes, want %d", written, len(payload))
+		}
+		dst.Close()
+		if got := <-received; got != int64(len(payload)) {
+			t.Errorf("destination saw %d bytes, want %d", got, len(payload))
+		}
+	})
+
+	t.Run("gives up when idle", func(t *testing.T) {
+		src, srcWriter := net.Pipe()
+		dst, dstReader := net.Pipe()
+		defer src.Close()
+		defer dst.Close()
+		defer srcWriter.Close()
+
+		go io.Copy(io.Discard, dstReader)
+
+		if _, err := copyIdleTimeout(dst, src, 50*time.Millisecond); err == nil {
+			t.Error("expected a timeout error, got nil")
+		}
+	})
 }

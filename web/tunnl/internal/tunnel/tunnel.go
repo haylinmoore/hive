@@ -17,19 +17,17 @@ type SSHCloser interface {
 
 // Tunnel represents an active SSH tunnel
 type Tunnel struct {
-	Subdomain     string
-	Listener      net.Listener
-	CreatedAt     time.Time
-	LastActive    time.Time
-	BindAddr      string
-	BindPort      uint32
-	ClientIP      string // SSH client IP that created this tunnel
-	mu            sync.Mutex
-	rateLimiter   *RateLimiter
-	sshConn       SSHCloser        // Reference to SSH connection for forced closure
-	rateLimitHits int              // Count of rate limit violations
-	transport     *http.Transport  // Reusable HTTP transport for proxying
-	logger        *RequestLogger   // Async request logger for SSH terminal output
+	Subdomain  string
+	Listener   net.Listener
+	CreatedAt  time.Time
+	LastActive time.Time
+	BindAddr   string
+	BindPort   uint32
+	ClientIP   string // SSH client IP that created this tunnel
+	mu         sync.Mutex
+	sshConn    SSHCloser       // Reference to SSH connection for forced closure
+	transport  *http.Transport // Reusable HTTP transport for proxying
+	logger     *RequestLogger  // Async request logger for SSH terminal output
 }
 
 // New creates a new tunnel with the given parameters
@@ -37,14 +35,13 @@ func New(subdomain string, listener net.Listener, bindAddr string, bindPort uint
 	now := time.Now()
 	listenerAddr := listener.Addr().String()
 	return &Tunnel{
-		Subdomain:   subdomain,
-		Listener:    listener,
-		CreatedAt:   now,
-		LastActive:  now,
-		BindAddr:    bindAddr,
-		BindPort:    bindPort,
-		ClientIP:    clientIP,
-		rateLimiter: NewRateLimiter(config.RequestsPerSecond, config.BurstSize),
+		Subdomain:  subdomain,
+		Listener:   listener,
+		CreatedAt:  now,
+		LastActive: now,
+		BindAddr:   bindAddr,
+		BindPort:   bindPort,
+		ClientIP:   clientIP,
 		transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 				return net.DialTimeout("tcp", listenerAddr, 10*time.Second)
@@ -70,13 +67,6 @@ func (t *Tunnel) IsExpired() bool {
 		time.Since(t.CreatedAt) > config.MaxTunnelLifetime
 }
 
-// IsMaxLifetimeExceeded returns true if the tunnel has exceeded max lifetime
-func (t *Tunnel) IsMaxLifetimeExceeded() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return time.Since(t.CreatedAt) > config.MaxTunnelLifetime
-}
-
 // TimeRemaining returns the time remaining before the tunnel expires (either by inactivity or max lifetime)
 func (t *Tunnel) TimeRemaining() time.Duration {
 	t.mu.Lock()
@@ -91,24 +81,11 @@ func (t *Tunnel) TimeRemaining() time.Duration {
 	return lifetimeRemaining
 }
 
-// AllowRequest checks if a request is allowed by the rate limiter
-func (t *Tunnel) AllowRequest() bool {
-	return t.rateLimiter.Allow()
-}
-
 // SetSSHConn sets the SSH connection reference for forced closure
 func (t *Tunnel) SetSSHConn(conn SSHCloser) {
 	t.mu.Lock()
 	t.sshConn = conn
 	t.mu.Unlock()
-}
-
-// RecordRateLimitHit records a rate limit violation and returns true if the tunnel should be killed
-func (t *Tunnel) RecordRateLimitHit() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.rateLimitHits++
-	return t.rateLimitHits >= config.RateLimitViolationsMax
 }
 
 // CloseSSH closes the SSH connection associated with this tunnel

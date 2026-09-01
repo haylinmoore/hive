@@ -72,59 +72,11 @@ func TestTimeRemaining(t *testing.T) {
 	}
 }
 
-func TestRecordRateLimitHit(t *testing.T) {
-	tun := newTestTunnel(t)
-
-	// Should not trigger kill until threshold
-	for i := 0; i < 9; i++ {
-		if tun.RecordRateLimitHit() {
-			t.Fatalf("RecordRateLimitHit() returned true on hit %d, want false", i+1)
-		}
-	}
-
-	// 10th hit should trigger kill
-	if !tun.RecordRateLimitHit() {
-		t.Error("RecordRateLimitHit() should return true on 10th violation")
-	}
-}
-
 func TestTransport(t *testing.T) {
 	tun := newTestTunnel(t)
 	tr := tun.Transport()
 	if tr == nil {
 		t.Error("Transport() returned nil")
-	}
-}
-
-func TestAllowRequest(t *testing.T) {
-	tun := newTestTunnel(t)
-
-	// Should allow requests up to burst size
-	for i := 0; i < 20; i++ {
-		if !tun.AllowRequest() {
-			t.Fatalf("AllowRequest() returned false on request %d (within burst)", i+1)
-		}
-	}
-
-	// Should deny after burst exhausted
-	if tun.AllowRequest() {
-		t.Error("AllowRequest() should return false after burst exhausted")
-	}
-}
-
-func TestIsMaxLifetimeExceeded(t *testing.T) {
-	tun := newTestTunnel(t)
-
-	if tun.IsMaxLifetimeExceeded() {
-		t.Error("new tunnel should not have exceeded max lifetime")
-	}
-
-	tun.mu.Lock()
-	tun.CreatedAt = time.Now().Add(-25 * time.Hour)
-	tun.mu.Unlock()
-
-	if !tun.IsMaxLifetimeExceeded() {
-		t.Error("tunnel past max lifetime should report exceeded")
 	}
 }
 

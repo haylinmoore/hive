@@ -8,18 +8,11 @@ import (
 const (
 	DefaultDomain     = "tunnl.gg"
 	InactivityTimeout = 2 * time.Hour
-	MaxTunnelsPerIP   = 3 // Reduced from 5
+	MaxTunnelsPerIP   = 3
 	MaxTotalTunnels   = 1000
 
 	// SSH handshake timeout
 	SSHHandshakeTimeout = 30 * time.Second
-
-	// HTTP rate limiting per tunnel
-	RequestsPerSecond = 10 // requests per second per tunnel
-	BurstSize         = 20 // max burst size
-
-	// Request size limits
-	MaxRequestBodySize = 128 * 1024 * 1024 // 128MB
 
 	// Connection rate limiting (new connections per IP)
 	MaxConnectionsPerMinute = 10              // max new connections per IP per minute
@@ -31,9 +24,6 @@ const (
 
 	// Tunnel lifetime
 	MaxTunnelLifetime = 24 * time.Hour // max tunnel duration regardless of activity
-
-	// Response size limits
-	MaxResponseBodySize = 128 * 1024 * 1024 // 128MB
 
 	// HTTP server timeouts
 	HTTPReadHeaderTimeout  = 5 * time.Second
@@ -51,14 +41,9 @@ const (
 
 	// WebSocket limits
 	WebSocketIdleTimeout = 2 * time.Hour
-	MaxWebSocketTransfer = 1024 * 1024 * 1024 // 1GB
 
 	// Request logging
 	LogBufferSize = 128 // buffered channel size for SSH terminal request logs
-
-	// Interstitial warning cookie
-	WarningCookieName   = "tunnl_warned"
-	WarningCookieMaxAge = 86400 // 1 day
 )
 
 // Config holds runtime configuration loaded from environment

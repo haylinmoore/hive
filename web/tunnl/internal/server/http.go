@@ -1,15 +1,11 @@
 package server
 
 import (
-	"crypto/subtle"
-	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"net/url"
 	"strings"
 	"time"
 
@@ -18,18 +14,9 @@ import (
 	"tunnl.gg/internal/tunnel"
 )
 
-var errResponseTooLarge = errors.New("response body too large")
-
 // ServeHTTP implements http.Handler for HTTPS requests
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	setSecurityHeaders(w)
-
-	// Enforce request body size limit
-	if r.ContentLength > config.MaxRequestBodySize {
-		http.Error(w, "Request Entity Too Large", http.StatusRequestEntityTooLarge)
-		return
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, config.MaxRequestBodySize)
 
 	host := strings.ToLower(stripPort(r.Host))
 	domain := strings.ToLower(s.domain)
@@ -52,28 +39,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !tun.AllowRequest() {
-		// Record violation and kill tunnel + block SSH client IP if too many violations
-		if tun.RecordRateLimitHit() {
-			log.Printf("Tunnel %s killed due to rate limit abuse, blocking SSH client %s", sub, tun.ClientIP)
-			s.BlockIP(tun.ClientIP)
-			tun.CloseSSH()
-		}
-		w.Header().Set("Retry-After", "1")
-		http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-		return
-	}
-
 	tun.Touch()
 	s.IncrementRequests()
-
-	// Show interstitial warning for browser requests
-	if isBrowserRequest(r) &&
-		r.Header.Get("tunnl-skip-browser-warning") == "" &&
-		!hasWarningCookie(r, sub) {
-		s.redirectToWarningPage(w, r, sub)
-		return
-	}
 
 	if isWebSocketRequest(r) {
 		s.handleWebSocket(w, r, tun, sub)
@@ -90,24 +57,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			req.Host = r.Host
 		},
 		Transport: tun.Transport(),
-		ModifyResponse: func(resp *http.Response) error {
-			// Enforce response body size limit
-			if resp.ContentLength > config.MaxResponseBodySize {
-				return fmt.Errorf("%w: %d bytes (max %d)", errResponseTooLarge, resp.ContentLength, config.MaxResponseBodySize)
-			}
-			// Wrap body with size limiter for chunked/unknown-length responses
-			resp.Body = &limitedReadCloser{
-				rc:    resp.Body,
-				limit: config.MaxResponseBodySize,
-			}
-			return nil
-		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			log.Printf("Proxy error for %s: %v", sub, err)
-			if errors.Is(err, errResponseTooLarge) {
-				http.Error(w, "Response Too Large", http.StatusBadGateway)
-				return
-			}
 			http.Error(w, "Bad Gateway", http.StatusBadGateway)
 		},
 	}
@@ -156,11 +107,10 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request, tun *tu
 		logger.LogWebSocketOpen(wsPath)
 	}
 
-	// Copy data bidirectionally with limits
 	var backendBytes, clientBytes int64
 	done := make(chan struct{})
 	go func() {
-		backendBytes, _ = copyWithLimits(backendConn, clientConn, config.MaxWebSocketTransfer, config.WebSocketIdleTimeout)
+		backendBytes, _ = copyIdleTimeout(backendConn, clientConn, config.WebSocketIdleTimeout)
 		// Signal backend we're done sending
 		if tc, ok := backendConn.(*net.TCPConn); ok {
 			tc.CloseWrite()
@@ -168,7 +118,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request, tun *tu
 	}()
 	go func() {
 		defer close(done)
-		clientBytes, _ = copyWithLimits(clientConn, backendConn, config.MaxWebSocketTransfer, config.WebSocketIdleTimeout)
+		clientBytes, _ = copyIdleTimeout(clientConn, backendConn, config.WebSocketIdleTimeout)
 	}()
 	<-done
 
@@ -177,10 +127,10 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request, tun *tu
 	}
 }
 
-// copyWithLimits copies from src to dst with a byte transfer limit and idle timeout.
-// It resets the read deadline on src after each successful read.
+// copyIdleTimeout copies from src to dst, resetting the read deadline on src
+// after each successful read so an idle connection eventually gives up.
 // Returns the number of bytes written and any error.
-func copyWithLimits(dst, src net.Conn, maxBytes int64, idleTimeout time.Duration) (int64, error) {
+func copyIdleTimeout(dst, src net.Conn, idleTimeout time.Duration) (int64, error) {
 	buf := make([]byte, 32*1024)
 	var written int64
 	for {
@@ -188,9 +138,6 @@ func copyWithLimits(dst, src net.Conn, maxBytes int64, idleTimeout time.Duration
 		n, readErr := src.Read(buf)
 		if n > 0 {
 			written += int64(n)
-			if written > maxBytes {
-				return written, fmt.Errorf("transfer limit exceeded")
-			}
 			dst.SetWriteDeadline(time.Now().Add(idleTimeout))
 			if _, writeErr := dst.Write(buf[:n]); writeErr != nil {
 				return written, writeErr
@@ -212,35 +159,6 @@ func setSecurityHeaders(w http.ResponseWriter) {
 	w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 }
 
-func isBrowserRequest(r *http.Request) bool {
-	ua := strings.ToLower(r.Header.Get("User-Agent"))
-	browserKeywords := []string{"mozilla", "chrome", "safari", "firefox", "edge", "opera"}
-	for _, kw := range browserKeywords {
-		if strings.Contains(ua, kw) {
-			return true
-		}
-	}
-	return false
-}
-
-func hasWarningCookie(r *http.Request, sub string) bool {
-	cookie, err := r.Cookie(config.WarningCookieName + "_" + sub)
-	if err != nil {
-		return false
-	}
-	return subtle.ConstantTimeCompare([]byte(cookie.Value), []byte("1")) == 1
-}
-
-func (s *Server) redirectToWarningPage(w http.ResponseWriter, r *http.Request, sub string) {
-	originalURL := "https://" + r.Host + r.URL.RequestURI()
-	fullSubdomain := sub + "." + s.domain
-	warningURL := fmt.Sprintf("https://%s/#/warning?redirect=%s&subdomain=%s",
-		s.domain,
-		url.QueryEscape(originalURL),
-		url.QueryEscape(fullSubdomain))
-	http.Redirect(w, r, warningURL, http.StatusTemporaryRedirect)
-}
-
 func isWebSocketRequest(r *http.Request) bool {
 	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket") &&
 		strings.Contains(strings.ToLower(r.Header.Get("Connection")), "upgrade")
@@ -259,39 +177,6 @@ func stripPort(host string) string {
 		return host[:idx]
 	}
 	return host
-}
-
-// limitedReadCloser wraps an io.ReadCloser and limits the number of bytes read
-type limitedReadCloser struct {
-	rc    io.ReadCloser
-	limit int64
-	read  int64
-}
-
-func (l *limitedReadCloser) Read(p []byte) (n int, err error) {
-	if len(p) == 0 {
-		return 0, nil
-	}
-	if l.read >= l.limit {
-		var probe [1]byte
-		n, err := l.rc.Read(probe[:])
-		if n > 0 {
-			l.read += int64(n)
-			return 0, fmt.Errorf("%w (exceeded %d bytes)", errResponseTooLarge, l.limit)
-		}
-		return 0, err
-	}
-	remaining := l.limit - l.read
-	if int64(len(p)) > remaining {
-		p = p[:remaining]
-	}
-	n, err = l.rc.Read(p)
-	l.read += int64(n)
-	return n, err
-}
-
-func (l *limitedReadCloser) Close() error {
-	return l.rc.Close()
 }
 
 // statusCaptureWriter wraps http.ResponseWriter to capture the status code.
