@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"strings"
 )
 
 var adjectives = []string{
@@ -44,46 +43,28 @@ func Generate() (string, error) {
 	return fmt.Sprintf("%s-%s-%s", adj, noun, hexSuffix), nil
 }
 
-// IsValid checks if a subdomain matches the expected format (adjective-noun-hex)
+// MaxLength is the longest a subdomain may be, per the DNS label limit.
+const MaxLength = 63
+
+// IsValid reports whether s is usable as a single DNS label under the
+// wildcard certificate: lowercase alphanumerics and hyphens, not starting or
+// ending with a hyphen. Dots are rejected because *.<domain> only covers one
+// level.
 func IsValid(s string) bool {
-	parts := strings.Split(s, "-")
-	if len(parts) != 3 {
+	if len(s) == 0 || len(s) > MaxLength {
 		return false
 	}
-
-	// Check adjective
-	adjValid := false
-	for _, adj := range adjectives {
-		if parts[0] == adj {
-			adjValid = true
-			break
-		}
-	}
-	if !adjValid {
+	if s[0] == '-' || s[len(s)-1] == '-' {
 		return false
 	}
-
-	// Check noun
-	nounValid := false
-	for _, noun := range nouns {
-		if parts[1] == noun {
-			nounValid = true
-			break
-		}
-	}
-	if !nounValid {
-		return false
-	}
-
-	// Check hex suffix (8 characters)
-	if len(parts[2]) != 8 {
-		return false
-	}
-	for _, c := range parts[2] {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+	for _, c := range s {
+		switch {
+		case c >= 'a' && c <= 'z':
+		case c >= '0' && c <= '9':
+		case c == '-':
+		default:
 			return false
 		}
 	}
-
 	return true
 }

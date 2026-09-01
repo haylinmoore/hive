@@ -100,24 +100,6 @@ func loadOrGenerateHostKey(path string) (ssh.Signer, error) {
 }
 
 // GenerateUniqueSubdomain generates a subdomain that doesn't collide with existing ones
-func (s *Server) GenerateUniqueSubdomain() (string, error) {
-	const maxAttempts = 10
-	for i := 0; i < maxAttempts; i++ {
-		sub, err := subdomain.Generate()
-		if err != nil {
-			return "", err
-		}
-
-		s.mu.RLock()
-		_, exists := s.tunnels[sub]
-		s.mu.RUnlock()
-
-		if !exists {
-			return sub, nil
-		}
-	}
-	return "", fmt.Errorf("failed to generate unique subdomain after %d attempts", maxAttempts)
-}
 
 // CheckAndReserveConnection checks if a new connection from the given IP is allowed
 // and atomically reserves a slot if allowed. Returns true if reservation was made.
@@ -128,13 +110,34 @@ func (s *Server) GenerateUniqueSubdomain() (string, error) {
 // DecrementIPConnection decrements the connection count for an IP
 
 // RegisterTunnel registers a new tunnel
-func (s *Server) RegisterTunnel(sub string, listener net.Listener, bindAddr string, bindPort uint32, clientIP string) *tunnel.Tunnel {
+
+// ClaimTunnel registers a tunnel under sub, failing if sub is already taken.
+func (s *Server) ClaimTunnel(sub string, listener net.Listener, bindAddr string, bindPort uint32, clientIP string) (*tunnel.Tunnel, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if _, exists := s.tunnels[sub]; exists {
+		return nil, fmt.Errorf("subdomain %q is already in use", sub)
+	}
+
 	t := tunnel.New(sub, listener, bindAddr, bindPort, clientIP)
 	s.tunnels[sub] = t
-	return t
+	return t, nil
+}
+
+// ClaimGenerated claims a tunnel under a randomly generated subdomain.
+func (s *Server) ClaimGenerated(listener net.Listener, bindAddr string, bindPort uint32, clientIP string) (string, *tunnel.Tunnel, error) {
+	const maxAttempts = 10
+	for i := 0; i < maxAttempts; i++ {
+		sub, err := subdomain.Generate()
+		if err != nil {
+			return "", nil, err
+		}
+		if t, err := s.ClaimTunnel(sub, listener, bindAddr, bindPort, clientIP); err == nil {
+			return sub, t, nil
+		}
+	}
+	return "", nil, fmt.Errorf("failed to find a free subdomain after %d attempts", maxAttempts)
 }
 
 // RemoveTunnel removes and closes a tunnel

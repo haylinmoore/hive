@@ -6,11 +6,13 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh"
 
 	"tunnl.gg/internal/config"
+	"tunnl.gg/internal/subdomain"
 	"tunnl.gg/internal/tunnel"
 )
 
@@ -27,6 +29,15 @@ type forwardedTCPPayload struct {
 }
 
 // HandleSSHConnection handles a new SSH connection
+// execRequest is the payload of an SSH "exec" request. Clients pass the
+// subdomain they want as the command:
+//
+//	ssh -t -R 80:localhost:8080 <domain> myapp
+type execRequest struct {
+	Command string
+}
+
+// HandleSSHConnection handles a new SSH connection
 func (s *Server) HandleSSHConnection(conn net.Conn) {
 	clientIP := "unknown"
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
@@ -37,7 +48,6 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 		tcpConn.SetNoDelay(true)
 	}
 
-	// Do SSH handshake first so we can send error messages to the client
 	conn.SetDeadline(time.Now().Add(config.SSHHandshakeTimeout))
 	sshConn, chans, reqs, err := ssh.NewServerConn(conn, s.sshConfig)
 	if err != nil {
@@ -49,33 +59,25 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 
 	s.IncrementConnections()
 
-	sub, err := s.GenerateUniqueSubdomain()
-	if err != nil {
-		log.Printf("Failed to generate subdomain: %v", err)
-		return
-	}
-	log.Printf("New SSH connection from %s, assigned subdomain: %s", sshConn.RemoteAddr(), sub)
-
 	tunnelListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		log.Printf("Failed to create tunnel listener: %v", err)
 		return
 	}
-	// Ensure listener is closed on early return (before tunnel registration)
-	// This is safe even after tunnel registration since net.Listener.Close() is idempotent
+	// Ensure listener is closed on early return (before the tunnel is claimed).
+	// This is safe even after claiming since net.Listener.Close() is idempotent.
 	defer tunnelListener.Close()
-
-	var bindAddr string
-	var bindPort uint32
-	tunnelRegistered := make(chan struct{})
-	var tun *tunnel.Tunnel
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	var bindAddr string
+	var bindPort uint32
+	forwardRequested := make(chan struct{})
+
 	// Handle global requests (port forwarding)
 	go func() {
-		registered := false
+		requested := false
 		for {
 			select {
 			case req, ok := <-reqs:
@@ -84,7 +86,7 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 				}
 				switch req.Type {
 				case "tcpip-forward":
-					if registered {
+					if requested {
 						req.Reply(false, nil)
 						continue
 					}
@@ -95,10 +97,8 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 					}
 					bindAddr = fwdReq.BindAddr
 					bindPort = fwdReq.BindPort
-					tun = s.RegisterTunnel(sub, tunnelListener, bindAddr, bindPort, clientIP)
-					tun.SetSSHConn(sshConn)
-					registered = true
-					close(tunnelRegistered)
+					requested = true
+					close(forwardRequested)
 					req.Reply(true, nil)
 				case "cancel-tcpip-forward":
 					req.Reply(true, nil)
@@ -112,49 +112,11 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 	}()
 
 	select {
-	case <-tunnelRegistered:
+	case <-forwardRequested:
 	case <-time.After(30 * time.Second):
 		log.Printf("Timeout waiting for tcpip-forward request from %s", sshConn.RemoteAddr())
 		return
 	}
-
-	defer s.RemoveTunnel(sub)
-
-	url := fmt.Sprintf("https://%s.%s", sub, s.domain)
-	expiresAt := tun.CreatedAt.Add(config.MaxTunnelLifetime).Format("Jan 02, 2006 at 15:04 MST")
-	expiresLine := fmt.Sprintf("%s (or %s idle)", expiresAt, formatDuration(config.InactivityTimeout))
-
-	// ANSI color codes
-	const (
-		reset     = "\033[0m"
-		gray      = "\033[38;5;245m"
-		boldGreen = "\033[1;32m"
-		purple    = "\033[38;5;141m"
-	)
-
-	urlMessage := "\r\n" +
-		gray + "Connected to " + s.domain + "." + reset + "\r\n" +
-		boldGreen + "Tunnel is live!" + reset + "\r\n" +
-		gray + "Public URL: " + purple + url + reset + "\r\n" +
-		gray + "Expires:    " + expiresLine + reset + "\r\n\r\n"
-
-	// Inactivity checker
-	go func() {
-		ticker := time.NewTicker(1 * time.Minute)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				if tun.IsExpired() {
-					log.Printf("Tunnel %s expired due to inactivity", sub)
-					sshConn.Close()
-					return
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
 
 	// Wait for a session channel with timeout
 	sessionReceived := make(chan ssh.NewChannel, 1)
@@ -190,7 +152,73 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 		return
 	}
 
+	// The subdomain, if the client asked for one, arrives as the SSH command.
+	// Claiming has to wait for it, so nothing is registered until now.
+	requested, ok := awaitCommand(requests)
+	if !ok {
+		log.Printf("Connection from %s rejected: no exec or shell request", sshConn.RemoteAddr())
+		return
+	}
+
+	var sub string
+	var tun *tunnel.Tunnel
+	if requested == "" {
+		sub, tun, err = s.ClaimGenerated(tunnelListener, bindAddr, bindPort, clientIP)
+	} else if !subdomain.IsValid(requested) {
+		err = fmt.Errorf("%q is not a valid subdomain: use up to %d lowercase letters, digits and hyphens", requested, subdomain.MaxLength)
+	} else {
+		sub = requested
+		tun, err = s.ClaimTunnel(sub, tunnelListener, bindAddr, bindPort, clientIP)
+	}
+	if err != nil {
+		log.Printf("Tunnel request from %s rejected: %v", sshConn.RemoteAddr(), err)
+		fmt.Fprintf(channel, "\r\n  ERROR: %s\r\n\r\n", err)
+		channel.Close()
+		return
+	}
+
+	tun.SetSSHConn(sshConn)
+	defer s.RemoveTunnel(sub)
+
+	log.Printf("New SSH connection from %s, serving subdomain: %s", sshConn.RemoteAddr(), sub)
+
+	url := fmt.Sprintf("https://%s.%s", sub, s.domain)
+	expiresAt := tun.CreatedAt.Add(config.MaxTunnelLifetime).Format("Jan 02, 2006 at 15:04 MST")
+	expiresLine := fmt.Sprintf("%s (or %s idle)", expiresAt, formatDuration(config.InactivityTimeout))
+
+	// ANSI color codes
+	const (
+		reset     = "\033[0m"
+		gray      = "\033[38;5;245m"
+		boldGreen = "\033[1;32m"
+		purple    = "\033[38;5;141m"
+	)
+
+	urlMessage := "\r\n" +
+		gray + "Connected to " + s.domain + "." + reset + "\r\n" +
+		boldGreen + "Tunnel is live!" + reset + "\r\n" +
+		gray + "Public URL: " + purple + url + reset + "\r\n" +
+		gray + "Expires:    " + expiresLine + reset + "\r\n\r\n"
+
 	fmt.Fprint(channel, urlMessage)
+
+	// Inactivity checker
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				if tun.IsExpired() {
+					log.Printf("Tunnel %s expired due to inactivity", sub)
+					sshConn.Close()
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	logger := tunnel.NewRequestLogger(channel, config.LogBufferSize)
 	tun.SetLogger(logger)
@@ -208,14 +236,10 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 		}
 	}()
 
-	// Handle session requests
-	go func(ch ssh.Channel, reqs <-chan *ssh.Request) {
+	// Handle remaining session requests
+	go func(reqs <-chan *ssh.Request) {
 		for req := range reqs {
 			switch req.Type {
-			case "pty-req", "shell":
-				if req.WantReply {
-					req.Reply(true, nil)
-				}
 			case "signal":
 				if req.WantReply {
 					req.Reply(true, nil)
@@ -228,7 +252,7 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 				}
 			}
 		}
-	}(channel, requests)
+	}(requests)
 
 	// Read from channel to detect disconnect or Ctrl+C
 	buf := make([]byte, 1)
@@ -246,43 +270,52 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 	log.Printf("SSH connection closed for subdomain: %s", sub)
 }
 
-// sendErrorAndClose sends an error message to the client and closes the connection
-// This is used when the connection is rejected after SSH handshake (e.g., IP blocked)
-func (s *Server) sendErrorAndClose(sshConn *ssh.ServerConn, chans <-chan ssh.NewChannel, errMsg string) {
-	// Wait for session channel with short timeout
-	select {
-	case newChannel, ok := <-chans:
-		if !ok {
-			return
-		}
-		if newChannel.ChannelType() != "session" {
-			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
-			return
-		}
-		channel, requests, err := newChannel.Accept()
-		if err != nil {
-			return
-		}
-		// Handle pty-req and shell requests so the message displays properly
-		go func() {
-			for req := range requests {
-				if req.Type == "pty-req" || req.Type == "shell" {
+// awaitCommand waits for the client's exec or shell request and returns the
+// command it carried, empty for a plain shell. Requests that arrive first
+// (pty-req, env) are answered on the way past.
+func awaitCommand(reqs <-chan *ssh.Request) (string, bool) {
+	timeout := time.After(5 * time.Second)
+	for {
+		select {
+		case req, ok := <-reqs:
+			if !ok {
+				return "", false
+			}
+			switch req.Type {
+			case "exec":
+				var payload execRequest
+				if err := ssh.Unmarshal(req.Payload, &payload); err != nil {
 					if req.WantReply {
-						req.Reply(true, nil)
+						req.Reply(false, nil)
 					}
-				} else if req.WantReply {
+					return "", false
+				}
+				if req.WantReply {
+					req.Reply(true, nil)
+				}
+				return strings.TrimSpace(payload.Command), true
+			case "shell":
+				if req.WantReply {
+					req.Reply(true, nil)
+				}
+				return "", true
+			case "pty-req", "env":
+				if req.WantReply {
+					req.Reply(true, nil)
+				}
+			default:
+				if req.WantReply {
 					req.Reply(false, nil)
 				}
 			}
-		}()
-		// Send error message
-		fmt.Fprintf(channel, "\r\n  ERROR: %s\r\n\r\n", errMsg)
-		channel.Close()
-	case <-time.After(3 * time.Second):
-		// Client didn't send session channel in time
-		return
+		case <-timeout:
+			return "", false
+		}
 	}
 }
+
+// sendErrorAndClose sends an error message to the client and closes the connection
+// This is used when the connection is rejected after SSH handshake (e.g., IP blocked)
 
 func (s *Server) forwardToSSH(sshConn *ssh.ServerConn, tcpConn net.Conn, tun *tunnel.Tunnel) {
 	defer tcpConn.Close()
