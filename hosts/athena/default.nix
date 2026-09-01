@@ -34,6 +34,7 @@
     ./matrix.nix
     ./thelounge.nix
     ./dial.nix
+    ./tunnl.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/host-infra.nix
@@ -106,6 +107,7 @@
       "acme-uwu.estate.service"
       "acme-aconite.systems.service"
       "acme-estrogen.coffee.service"
+      "acme-tunnl.hayl.in.service"
     ];
   };
 
