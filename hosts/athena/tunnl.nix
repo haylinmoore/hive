@@ -15,6 +15,12 @@ let
   hostAddress = "fd00:1::1";
   localAddress = "fd00:1::2";
 
+  # The container is ephemeral, so its state lives on the host and is bind
+  # mounted in. Ownership has to agree across that boundary, which means a
+  # fixed uid and gid on both sides rather than whatever each side allocates.
+  id = 985;
+
+  stateDir = "/var/lib/tunnl";
   certDir = "/var/lib/acme/${domain}";
 
   authorizedKeys = pkgs.writeText "tunnl-authorized-keys" (
@@ -26,16 +32,40 @@ in
 {
   imports = [ ../../nixos/certs/tunnl-hayl-in.nix ];
 
+  users.users.tunnl = {
+    isSystemUser = true;
+    uid = id;
+    group = "tunnl";
+    home = stateDir;
+    createHome = false;
+  };
+  users.groups.tunnl.gid = id;
+
+  # The host key has to survive a reboot. impermanence creates the bind mount
+  # before tmpfiles would fix ownership up, so it has to be told the owner.
+  persist.directories = [
+    {
+      directory = stateDir;
+      user = "tunnl";
+      group = "tunnl";
+      mode = "0750";
+    }
+  ];
+
+  # Group-owning the certificate by tunnl is what lets the service read it as
+  # itself; the acme group would mean nothing inside the container.
+  security.acme.certs.${domain} = {
+    group = "tunnl";
+    # The certificate is read at startup, so a renewal only takes effect when
+    # the container comes back up.
+    reloadServices = [ "container@tunnl.service" ];
+  };
+
   # The bind mount below needs the certificate directory to exist before the
   # container starts, which is not guaranteed on a first boot.
   systemd.tmpfiles.rules = [
-    "d /persistent/containers/tunnl 0700 root root -"
-    "d ${certDir} 0750 acme acme -"
+    "d ${certDir} 0750 acme tunnl -"
   ];
-
-  # LoadCredential copies the certificate at start, so a renewal only reaches
-  # tunnl when the container comes back up.
-  security.acme.certs.${domain}.reloadServices = [ "container@tunnl.service" ];
 
   containers.tunnl = {
     ephemeral = true;
@@ -50,8 +80,8 @@ in
         hostPath = certDir;
         isReadOnly = true;
       };
-      "/var/lib/tunnl" = {
-        hostPath = "/persistent/containers/tunnl";
+      ${stateDir} = {
+        hostPath = stateDir;
         isReadOnly = false;
       };
     };
@@ -60,6 +90,15 @@ in
       { config, pkgs, ... }:
       {
         system.stateVersion = "25.11";
+
+        users.users.tunnl = {
+          isSystemUser = true;
+          uid = id;
+          group = "tunnl";
+          home = stateDir;
+          createHome = false;
+        };
+        users.groups.tunnl.gid = id;
 
         systemd.services.tunnl = {
           description = "tunnl SSH tunnel server";
@@ -74,10 +113,10 @@ in
             HTTP_ADDR = ":80";
             HTTPS_ADDR = ":443";
             DOMAIN = domain;
-            HOST_KEY_PATH = "/var/lib/tunnl/host_key";
+            HOST_KEY_PATH = "${stateDir}/host_key";
             AUTHORIZED_KEYS = authorizedKeys.outPath;
-            TLS_CERT = "%d/cert";
-            TLS_KEY = "%d/key";
+            TLS_CERT = "${certDir}/fullchain.pem";
+            TLS_KEY = "${certDir}/key.pem";
           };
 
           serviceConfig = {
@@ -87,14 +126,7 @@ in
 
             User = "tunnl";
             Group = "tunnl";
-            WorkingDirectory = "/var/lib/tunnl";
-
-            # The cert is owned by acme on the host, whose gid means nothing in
-            # here; systemd reads it as root and hands it over before dropping.
-            LoadCredential = [
-              "cert:${certDir}/fullchain.pem"
-              "key:${certDir}/key.pem"
-            ];
+            WorkingDirectory = stateDir;
 
             AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
             CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
@@ -103,16 +135,9 @@ in
             ProtectHome = true;
             PrivateDevices = true;
             PrivateTmp = true;
-            ReadWritePaths = [ "/var/lib/tunnl" ];
+            ReadWritePaths = [ stateDir ];
           };
         };
-
-        users.users.tunnl = {
-          isSystemUser = true;
-          group = "tunnl";
-          home = "/var/lib/tunnl";
-        };
-        users.groups.tunnl = { };
 
         networking = {
           interfaces.eth0.ipv6.addresses = [
