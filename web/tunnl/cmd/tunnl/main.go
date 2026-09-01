@@ -165,6 +165,5 @@ func main() {
 	sshListener.Close()
 	<-sshDone // Wait for SSH accept loop to finish
 
-	srv.Stop()
 	log.Println("Shutdown complete")
 }

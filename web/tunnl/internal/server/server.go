@@ -9,51 +9,32 @@ import (
 	"net"
 	"os"
 	"sync"
-	"time"
 
 	"github.com/mikesmitty/edkey"
 	"golang.org/x/crypto/ssh"
 
-	"tunnl.gg/internal/config"
 	"tunnl.gg/internal/subdomain"
 	"tunnl.gg/internal/tunnel"
 )
 
 // Server manages SSH tunnels and HTTP proxying
 type Server struct {
-	tunnels       map[string]*tunnel.Tunnel
-	ipConnections map[string]int
-	sshConns      map[string][]*ssh.ServerConn // SSH connections per IP for forced closure
-	mu            sync.RWMutex
-	sshConfig     *ssh.ServerConfig
-	domain        string
+	tunnels   map[string]*tunnel.Tunnel
+	mu        sync.RWMutex
+	sshConfig *ssh.ServerConfig
+	domain    string
 
 	// Stats
 	totalConnections uint64
 	totalRequests    uint64
-
-	// Abuse protection
-	abuseTracker *AbuseTracker
 }
 
 // New creates a new server instance
 func New(hostKeyPath string, domain string, authorizedKeysPath string) (*Server, error) {
 	s := &Server{
-		tunnels:       make(map[string]*tunnel.Tunnel),
-		ipConnections: make(map[string]int),
-		sshConns:      make(map[string][]*ssh.ServerConn),
-		abuseTracker:  NewAbuseTracker(),
-		domain:        domain,
+		tunnels: make(map[string]*tunnel.Tunnel),
+		domain:  domain,
 	}
-
-	// Set callback to close SSH connections when IP is blocked
-	// Closing SSH connections triggers cleanup which removes tunnels via defers
-	s.abuseTracker.SetOnBlockCallback(func(ip string) {
-		connCount := s.CloseAllForIP(ip)
-		if connCount > 0 {
-			log.Printf("Closed %d SSH connection(s) for blocked IP %s", connCount, ip)
-		}
-	})
 
 	keys, err := loadAuthorizedKeys(authorizedKeysPath)
 	if err != nil {
@@ -141,47 +122,10 @@ func (s *Server) GenerateUniqueSubdomain() (string, error) {
 // CheckAndReserveConnection checks if a new connection from the given IP is allowed
 // and atomically reserves a slot if allowed. Returns true if reservation was made.
 // Caller MUST call DecrementIPConnection when done if this returns nil.
-func (s *Server) CheckAndReserveConnection(clientIP string) error {
-	// Check if IP is blocked
-	if expiry := s.abuseTracker.GetBlockExpiry(clientIP); !expiry.IsZero() {
-		remaining := time.Until(expiry).Round(time.Minute)
-		return fmt.Errorf("IP %s is temporarily blocked. Try again in %v", clientIP, remaining)
-	}
-
-	// Check connection rate limit
-	if !s.abuseTracker.CheckConnectionRate(clientIP) {
-		return fmt.Errorf("connection rate limit exceeded: max %d connections per minute. Repeated violations will result in a temporary block", config.MaxConnectionsPerMinute)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.ipConnections[clientIP] >= config.MaxTunnelsPerIP {
-		return fmt.Errorf("rate limit exceeded: max %d tunnels per IP", config.MaxTunnelsPerIP)
-	}
-	if len(s.tunnels) >= config.MaxTotalTunnels {
-		return fmt.Errorf("server capacity reached: max %d total tunnels", config.MaxTotalTunnels)
-	}
-
-	// Atomically reserve the connection slot
-	s.ipConnections[clientIP]++
-	return nil
-}
 
 // BlockIP blocks an IP address
-func (s *Server) BlockIP(ip string) {
-	s.abuseTracker.BlockIP(ip)
-}
 
 // DecrementIPConnection decrements the connection count for an IP
-func (s *Server) DecrementIPConnection(clientIP string) {
-	s.mu.Lock()
-	s.ipConnections[clientIP]--
-	if s.ipConnections[clientIP] <= 0 {
-		delete(s.ipConnections, clientIP)
-	}
-	s.mu.Unlock()
-}
 
 // RegisterTunnel registers a new tunnel
 func (s *Server) RegisterTunnel(sub string, listener net.Listener, bindAddr string, bindPort uint32, clientIP string) *tunnel.Tunnel {
@@ -211,57 +155,11 @@ func (s *Server) GetTunnel(sub string) *tunnel.Tunnel {
 }
 
 // RegisterSSHConn registers an SSH connection for an IP (for forced closure on block)
-func (s *Server) RegisterSSHConn(clientIP string, conn *ssh.ServerConn) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.sshConns[clientIP] = append(s.sshConns[clientIP], conn)
-}
 
 // UnregisterSSHConn removes an SSH connection from tracking
-func (s *Server) UnregisterSSHConn(clientIP string, conn *ssh.ServerConn) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	conns := s.sshConns[clientIP]
-	// Build new slice without the target connection
-	newConns := make([]*ssh.ServerConn, 0, len(conns))
-	for _, c := range conns {
-		if c != conn {
-			newConns = append(newConns, c)
-		}
-	}
-
-	if len(newConns) == 0 {
-		delete(s.sshConns, clientIP)
-	} else {
-		s.sshConns[clientIP] = newConns
-	}
-}
 
 // CloseAllForIP closes all SSH connections for a specific IP
 // Closing SSH connections triggers cleanup which removes tunnels via defers
 // Returns the number of connections closed
-func (s *Server) CloseAllForIP(ip string) int {
-	// Collect connections while holding the lock
-	s.mu.Lock()
-	sshConns := s.sshConns[ip]
-	// Make a copy of the slice since we'll modify the map after releasing lock
-	connsCopy := make([]*ssh.ServerConn, len(sshConns))
-	copy(connsCopy, sshConns)
-	// Remove from map now to prevent double-close attempts
-	delete(s.sshConns, ip)
-	s.mu.Unlock()
-
-	// Close connections outside the lock to avoid deadlock
-	// The cleanup handlers (UnregisterSSHConn) will be no-ops since we already removed from map
-	for _, conn := range connsCopy {
-		conn.Close()
-	}
-
-	return len(connsCopy)
-}
 
 // Stop gracefully stops the server's background goroutines
-func (s *Server) Stop() {
-	s.abuseTracker.Stop()
-}

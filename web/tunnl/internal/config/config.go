@@ -8,19 +8,9 @@ import (
 const (
 	DefaultDomain     = "tunnl.gg"
 	InactivityTimeout = 2 * time.Hour
-	MaxTunnelsPerIP   = 3
-	MaxTotalTunnels   = 1000
 
 	// SSH handshake timeout
 	SSHHandshakeTimeout = 30 * time.Second
-
-	// Connection rate limiting (new connections per IP)
-	MaxConnectionsPerMinute = 10              // max new connections per IP per minute
-	ConnectionRateWindow    = 1 * time.Minute // sliding window for connection rate
-
-	// IP blocking
-	BlockDuration          = 1 * time.Hour // how long to block abusive IPs
-	RateLimitViolationsMax = 10            // violations before auto-block
 
 	// Tunnel lifetime
 	MaxTunnelLifetime = 24 * time.Hour // max tunnel duration regardless of activity

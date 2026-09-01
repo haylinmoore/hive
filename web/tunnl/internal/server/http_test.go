@@ -118,7 +118,6 @@ func newTestServer(t *testing.T) *Server {
 	if err != nil {
 		t.Fatalf("failed to create test server: %v", err)
 	}
-	t.Cleanup(func() { s.Stop() })
 	return s
 }
 

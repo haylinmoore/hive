@@ -47,22 +47,6 @@ func (s *Server) HandleSSHConnection(conn net.Conn) {
 	conn.SetDeadline(time.Time{}) // clear deadline after successful handshake
 	defer sshConn.Close()
 
-	// Check rate limits and reservations after handshake
-	if err := s.CheckAndReserveConnection(clientIP); err != nil {
-		log.Printf("Connection rejected from %s: %v", clientIP, err)
-		// Discard global requests to avoid goroutine leak
-		go ssh.DiscardRequests(reqs)
-		// Try to send error message to client via session channel
-		s.sendErrorAndClose(sshConn, chans, err.Error())
-		return
-	}
-	// Connection slot reserved - must decrement on exit
-	defer s.DecrementIPConnection(clientIP)
-
-	// Track SSH connection for forced closure on IP block
-	s.RegisterSSHConn(clientIP, sshConn)
-	defer s.UnregisterSSHConn(clientIP, sshConn)
-
 	s.IncrementConnections()
 
 	sub, err := s.GenerateUniqueSubdomain()
