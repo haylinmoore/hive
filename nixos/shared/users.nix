@@ -7,7 +7,6 @@
 
 let
   haytop = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHavg+rhFmR2p9wuWiO4VxKaIXpq1gOm17jCoZ9jMxvL haylin@haytop";
-  infra = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICKsUHsNfWi9qEivDXP146uGBnW2H1m4tOW+An0b3MkZ infra@hayl.in";
   qumulo = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXL2etr9int91HoWiyh8P4+UJH/nb2i5KSJ+tBb+BDi hmoore@qumulo.com";
 in
 {
@@ -28,10 +27,7 @@ in
   };
 
   config = {
-    sshKeys.admin = [
-      haytop
-      infra
-    ];
+    sshKeys.admin = [ haytop ];
 
     # The work laptop should be able to expose a local port without being
     # trusted with a root shell on the infrastructure.
