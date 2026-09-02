@@ -4,13 +4,19 @@
   pkgs,
   ...
 }:
+let
+  # Server is off, world is kept. Flip to true to bring it back.
+  enable = false;
+in
 {
+  # Declared regardless of enable so the world stays persisted and owned
+  # rather than sitting in /persistent unreferenced.
   environment.persistence."/persistent".directories = [
     "/var/lib/minecraft"
   ];
 
   services.minecraft-server = {
-    enable = true;
+    inherit enable;
     eula = true;
     declarative = true;
     openFirewall = true;

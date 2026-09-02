@@ -5,6 +5,9 @@
   ...
 }:
 let
+  # Server is off, world is kept. Flip to true to bring it back.
+  enable = false;
+
   dataDir = "/var/lib/skyfactory";
 
   serverProperties = pkgs.writeText "server.properties" ''
@@ -60,36 +63,44 @@ let
   );
 in
 {
+  # Declared regardless of enable so the world stays persisted and owned
+  # rather than sitting in /persistent unreferenced.
   environment.persistence."/persistent".directories = [
-    "/var/lib/skyfactory"
+    dataDir
   ];
 
-  networking.firewall.allowedTCPPorts = [ 25566 ];
+  networking.firewall.allowedTCPPorts = lib.mkIf enable [ 25566 ];
 
-  virtualisation.oci-containers.containers.skyfactory = {
-    image = "daltonsbaker/skyfactory2_5";
-    ports = [ "25566:25566" ];
-    volumes = [ "${dataDir}:/data" ];
-    cmd = [
-      "java"
-      "-Xms4096M"
-      "-Xmx4096M"
-      "-jar"
-      "forge-1.7.10-10.13.4.1614-1.7.10-universal.jar"
-      "nogui"
-    ];
-    workdir = "/data";
-    extraOptions = [
-      "--tty"
-      "--interactive"
-    ];
-    autoStart = true;
+  virtualisation.oci-containers.containers = lib.mkIf enable {
+    skyfactory = {
+      image = "daltonsbaker/skyfactory2_5";
+      ports = [ "25566:25566" ];
+      volumes = [ "${dataDir}:/data" ];
+      cmd = [
+        "java"
+        "-Xms4096M"
+        "-Xmx4096M"
+        "-jar"
+        "forge-1.7.10-10.13.4.1614-1.7.10-universal.jar"
+        "nogui"
+      ];
+      workdir = "/data";
+      extraOptions = [
+        "--tty"
+        "--interactive"
+      ];
+      autoStart = true;
+    };
   };
 
-  systemd.services.podman-skyfactory.preStart = lib.mkAfter ''
-    cp -f ${serverProperties} ${dataDir}/server.properties
-    cp -f ${whitelist} ${dataDir}/whitelist.json
-    echo "eula=true" > ${dataDir}/eula.txt
-    chmod a+rw ${dataDir}/server.properties ${dataDir}/whitelist.json ${dataDir}/eula.txt
-  '';
+  # Guarded as a whole: naming the unit outside this would declare a
+  # podman-skyfactory service with no ExecStart.
+  systemd.services = lib.mkIf enable {
+    podman-skyfactory.preStart = lib.mkAfter ''
+      cp -f ${serverProperties} ${dataDir}/server.properties
+      cp -f ${whitelist} ${dataDir}/whitelist.json
+      echo "eula=true" > ${dataDir}/eula.txt
+      chmod a+rw ${dataDir}/server.properties ${dataDir}/whitelist.json ${dataDir}/eula.txt
+    '';
+  };
 }
