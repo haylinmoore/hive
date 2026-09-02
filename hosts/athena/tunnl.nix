@@ -24,7 +24,7 @@ let
   certDir = "/var/lib/acme/${domain}";
 
   authorizedKeys = pkgs.writeText "tunnl-authorized-keys" (
-    lib.concatMapStrings (key: key + "\n") config.users.users.root.openssh.authorizedKeys.keys
+    lib.concatMapStrings (key: key + "\n") config.sshKeys.tunnl
   );
 
   tunnl = hive.web.tunnl;
