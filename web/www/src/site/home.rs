@@ -29,7 +29,7 @@ pub async fn home(
                 h1 { (state.name.uppercase_full_str()) }
                 p {
                     "I'm a software and network engineer living on the west coast. I currently work at "
-                    a target="_blank" href="https://qumulo.com" { "Qumulo" } " writing a distributed file-system and thinking a lot about nix. "
+                    a target="_blank" href="https://qumulo.com" { "Qumulo" } " writing a petabyte-scale CDN with linearizable reads and writes at every edge. "
                     "Previously, I worked at " a target="_blank" href="https://arista.com" { "Arista Networks" } " doing network automation, large scale digital-twin network validation, and routing for SMPTE2110 networks. "
                 }
             }
