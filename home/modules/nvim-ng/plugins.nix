@@ -136,8 +136,10 @@
           end
 
           -- Set up the keybinding for Ctrl-/
-          -- Note: Ctrl-/ is represented as <C-_> in terminal vim
+          -- Legacy terminals send Ctrl-/ as 0x1f, which nvim reads as <C-_>.
+          -- With tmux extended-keys (or kitty/CSI-u terminals) it arrives as <C-/>.
           vim.keymap.set({'n', 't'}, '<C-_>', toggle_terminal, { noremap = true, silent = true })
+          vim.keymap.set({'n', 't'}, '<C-/>', toggle_terminal, { noremap = true, silent = true })
         '';
       };
       type = "lua";
