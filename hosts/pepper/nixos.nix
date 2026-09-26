@@ -13,6 +13,7 @@
     ./unbound.nix
     ./fonts.nix
     ./services.nix
+    ./rebuild.nix
     ../../nixos/shared/nix.nix
   ];
 
