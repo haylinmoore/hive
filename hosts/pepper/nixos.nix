@@ -14,6 +14,7 @@
     ./fonts.nix
     ./services.nix
     ./rebuild.nix
+    ./power.nix
     ../../nixos/shared/nix.nix
   ];
 
