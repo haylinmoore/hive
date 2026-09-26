@@ -58,6 +58,7 @@
   };
 
   swapDevices = [ { device = "/dev/mapper/luks-f7188184-8815-456c-9242-a3e7b976d987"; } ];
+  boot.resumeDevice = "/dev/mapper/luks-f7188184-8815-456c-9242-a3e7b976d987";
 
   networking.useDHCP = lib.mkDefault true;
 
