@@ -27,5 +27,10 @@
     "vm.dirty_writeback_centisecs" = 1500;
   };
 
+  systemd.coredump.settings.Coredump = {
+    Storage = "none";
+    ProcessSizeMax = 0;
+  };
+
   environment.systemPackages = [ pkgs.powertop ];
 }
