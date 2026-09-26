@@ -1,4 +1,4 @@
-{ ... }:
+{ config, ... }:
 {
   # Services
   services.openssh.enable = true;
@@ -8,6 +8,8 @@
   services.tailscale.enable = true;
   services.strongswan.enable = true;
   services.fprintd.enable = true;
+  security.pam.services.swaylock.rules.auth.fprintd.order =
+    config.security.pam.services.swaylock.rules.auth.unix.order + 10;
 
   # Yggdrasil
   services.yggdrasil = {
