@@ -122,10 +122,7 @@
     useGlobalPkgs = true;
     useUserPackages = true;
     extraSpecialArgs = { inherit hive; };
-    users.haylin.imports = [
-      ../../home/profiles/sasha
-      ./home.nix
-    ];
+    users.haylin = import ../../home/profiles/pepper;
   };
 
   # Environment variables

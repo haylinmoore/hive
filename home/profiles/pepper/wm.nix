@@ -1,10 +1,22 @@
 {
+  config,
   pkgs,
   lib,
   hive,
   ...
 }:
+let
+  swaylock = "${pkgs.procps}/bin/pidof swaylock || ${pkgs.swaylock}/bin/swaylock -f -i ${config.home.homeDirectory}/Documents/wallpaper.jpg -s fill";
+  lock = "${pkgs.systemd}/bin/loginctl lock-session";
+in
 {
+  services.swayidle = {
+    enable = true;
+    events = {
+      lock = swaylock;
+      before-sleep = swaylock;
+    };
+  };
 
   home.pointerCursor = {
     name = "Adwaita";
@@ -55,16 +67,11 @@
         "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl s +25";
         "Print" = "exec ${pkgs.grim}/bin/grim - | wl-copy";
         "Mod4+Print" = ''exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp -d)" - | wl-copy'';
-        "Mod4+Tab" = "exec ${pkgs.swaylock}/bin/swaylock -i ~/Documents/wallpaper.jpg -s fill";
-        "Mod4+Shift+Tab" =
-          "exec ${pkgs.bash}/bin/bash -c '${pkgs.grim}/bin/grim /tmp/screenshot.png && ${pkgs.swaylock}/bin/swaylock -i /tmp/screenshot.png -s fill'";
+        "Mod4+Tab" = "exec ${lock}";
+        "Mod4+Shift+Tab" = "exec ${lock}";
       };
       input = lib.mkOptionDefault {
-        "10248:536:ASUF1208:00_2808:0218_Touchpad" = {
-          "click_method" = "clickfinger";
-          "tap" = "enabled";
-          "dwt" = "disabled";
-        };
+        "type:touchpad".tap = "enabled";
       };
     };
     extraConfig = ''

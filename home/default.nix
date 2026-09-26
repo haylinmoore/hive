@@ -16,9 +16,9 @@ let
       modules = [ ./profiles/work.nix ];
       extraSpecialArgs = { inherit hive; };
     };
-    sasha = home-manager.lib.homeManagerConfiguration {
+    pepper = home-manager.lib.homeManagerConfiguration {
       inherit pkgs;
-      modules = [ ./profiles/sasha ];
+      modules = [ ./profiles/pepper ];
       extraSpecialArgs = { inherit hive; };
     };
     astrid = home-manager.lib.homeManagerConfiguration {
@@ -31,7 +31,7 @@ in
 {
   # Expose individual configs as derivations for nix-build -A home.work
   work = homeConfigurations.work.activationPackage;
-  sasha = homeConfigurations.sasha.activationPackage;
+  pepper = homeConfigurations.pepper.activationPackage;
   astrid = homeConfigurations.astrid.activationPackage;
 
   # Pass through for potential future use

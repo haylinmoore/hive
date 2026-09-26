@@ -15,7 +15,6 @@
   home.username = "haylin";
   home.homeDirectory = "/home/haylin";
 
-  # sasha-specific packages
   home.packages = with pkgs; [
     virtualgl
     discord
@@ -48,7 +47,6 @@
     delve
   ];
 
-  # sasha uses Berkeley Mono
   programs.kitty.settings = {
     font_family = "Berkeley Mono";
     bold_font = "Berkeley Mono Bold";
