@@ -17,8 +17,9 @@ in
     };
   };
 
-  wayland.windowManager.sway.config.keybindings = {
+  wayland.windowManager.sway.config.keybindings = lib.mkOptionDefault {
     "Mod4+Tab" = lib.mkForce "exec ${lock}";
     "Mod4+Shift+Tab" = lib.mkForce "exec ${lock}";
   };
+
 }
