@@ -44,7 +44,7 @@ in
                 "/root" = btrfs "/";
                 "/nix" = btrfs "/nix";
                 "/persistent" = btrfs "/persistent";
-                "/guest" = btrfs "/home/guest";
+                "/guest" = btrfs "/home/${config.loaner.guest.name}";
               };
             };
           };
