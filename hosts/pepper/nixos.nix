@@ -31,13 +31,7 @@
   networking.hostName = "pepper";
   networking.nameservers = [ "127.0.0.1" ];
 
-  networking.networkmanager = {
-    enable = true;
-    plugins = [
-      pkgs.networkmanager-l2tp
-      pkgs.networkmanager_strongswan
-    ];
-  };
+  networking.networkmanager.enable = true;
 
   time.timeZone = "US/Pacific";
 
@@ -74,7 +68,6 @@
     curl
     libva
     libva-utils
-    networkmanager-l2tp
     networkmanagerapplet
     podman-compose
   ];
