@@ -1,17 +1,16 @@
-{ pkgs, hive, ... }:
+{ lib, ... }:
+{
+  deployment.targetHost = "192.168.42.171";
+  deployment.buildOnTarget = lib.mkForce false;
 
-(import "${hive.nixpkgs.path}/nixos") {
-  system = "x86_64-linux";
-  configuration = {
-    imports = [
-      ./nixos.nix
-      "${hive.sources.home-manager}/nixos"
-    ];
+  imports = [
+    ./hardware-configuration.nix
+    ./platform.nix
+    ../../nixos/loaner
+  ];
 
-    # Use the pkgs with overlays from hive
-    nixpkgs.pkgs = hive.nixpkgs;
+  networking.hostName = "sasha";
+  loaner.disk = "/dev/nvme0n1";
 
-    # Pass hive to the module system
-    _module.args = { inherit hive; };
-  };
+  system.stateVersion = "26.05";
 }

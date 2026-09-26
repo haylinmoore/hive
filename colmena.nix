@@ -23,4 +23,6 @@ in
   zoe = import ./hosts/zoe;
 
   athena = import ./hosts/athena;
+
+  sasha = import ./hosts/sasha;
 }
