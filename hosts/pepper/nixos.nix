@@ -123,9 +123,6 @@
       "wireshark"
     ];
     shell = pkgs.zsh;
-    openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHavg+rhFmR2p9wuWiO4VxKaIXpq1gOm17jCoZ9jMxvL haylin@haytop"
-    ];
   };
   home-manager = {
     useGlobalPkgs = true;

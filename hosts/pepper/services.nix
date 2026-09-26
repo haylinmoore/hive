@@ -1,7 +1,7 @@
 { config, ... }:
 {
   # Services
-  services.openssh.enable = true;
+  services.openssh.enable = false;
   services.upower.enable = true;
   services.power-profiles-daemon.enable = true;
   services.thermald.enable = true;
