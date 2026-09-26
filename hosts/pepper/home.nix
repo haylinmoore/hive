@@ -22,4 +22,7 @@ in
     "Mod4+Shift+Tab" = lib.mkForce "exec ${lock}";
   };
 
+  wayland.windowManager.sway.config.input = lib.mkOptionDefault {
+    "type:touchpad".tap = "enabled";
+  };
 }
