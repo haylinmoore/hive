@@ -12,6 +12,22 @@
   zramSwap.enable = true;
 
   networking.networkmanager.enable = true;
+  networking.networkmanager.ensureProfiles.profiles.devhack = {
+    connection = {
+      id = "wlan0";
+      type = "wifi";
+    };
+    wifi = {
+      ssid = "wlan0";
+      mode = "infrastructure";
+    };
+    wifi-security = {
+      key-mgmt = "wpa-psk";
+      psk = "/dev/hack";
+    };
+    ipv4.method = "auto";
+    ipv6.method = "auto";
+  };
   networking.firewall.enable = true;
   time.timeZone = "America/Los_Angeles";
   i18n.defaultLocale = "en_US.UTF-8";
