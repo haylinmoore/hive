@@ -10,10 +10,11 @@ this_host() {
 }
 
 usage() {
-  echo "Usage: $0 {colmena|work|sasha|astrid|zoe|athena}"
+  echo "Usage: $0 {colmena|work|sasha|pepper|astrid|zoe|athena}"
   echo "  colmena - Deploy to all servers via colmena"
   echo "  work    - Deploy work home-manager configuration"
   echo "  sasha   - Deploy sasha NixOS configuration"
+  echo "  pepper  - Deploy pepper NixOS configuration"
   echo "  astrid  - Deploy astrid NixOS configuration"
   echo "  zoe     - Build and activate zoe locally (build|activate|switch)"
   echo "  athena  - Build and activate athena locally (build|activate|switch)"
@@ -25,7 +26,7 @@ if [[ -z "$cmd" ]]; then
     cmd="work"
   else
     case "$(this_host)" in
-      sasha | astrid | zoe | athena) cmd="$(this_host)" ;;
+      sasha | pepper | astrid | zoe | athena) cmd="$(this_host)" ;;
       *)
         usage
         exit 1
@@ -61,10 +62,10 @@ case "$cmd" in
   work)
     nix-build -A home.work && ./result/activate
     ;;
-  sasha)
+  sasha | pepper)
     shift
     action=${1:-switch}
-    "${sudo[@]}" nixos-rebuild "$action" --file default.nix --attr hosts.sasha
+    "${sudo[@]}" nixos-rebuild "$action" --file default.nix --attr "hosts.$cmd"
     ;;
   astrid)
     shift
