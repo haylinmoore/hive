@@ -37,6 +37,9 @@ fi
 
 # hived runs the activate step as root, where sudo is only an extra dependency.
 sudo=(sudo)
+if [[ "$(this_host)" == pepper ]]; then
+  sudo=(run0 --background=)
+fi
 if [[ $EUID -eq 0 ]]; then
   sudo=()
 fi
@@ -65,7 +68,7 @@ case "$cmd" in
   sasha | pepper)
     shift
     action=${1:-switch}
-    "${sudo[@]}" nixos-rebuild "$action" --file default.nix --attr "hosts.$cmd"
+    "${sudo[@]}" nixos-rebuild "$action" --file "$PWD/default.nix" --attr "hosts.$cmd"
     ;;
   astrid)
     shift
