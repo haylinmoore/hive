@@ -4,7 +4,6 @@
   services.openssh.enable = false;
   services.upower.enable = true;
   services.power-profiles-daemon.enable = true;
-  services.thermald.enable = true;
   services.printing.enable = true;
   services.lldpd.enable = true;
   services.tailscale.enable = true;
