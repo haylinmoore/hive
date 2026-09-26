@@ -7,6 +7,7 @@
   services.lldpd.enable = true;
   services.tailscale.enable = true;
   services.strongswan.enable = true;
+  services.fprintd.enable = true;
 
   # Yggdrasil
   services.yggdrasil = {
