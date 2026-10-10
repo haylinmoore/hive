@@ -199,7 +199,7 @@
             c = 0,
             d = 16777216,
             m = this.colorTab.length;
-          for (var a = 0; a < m; ) {
+          for (var a = 0; a < m;) {
             var e = j - (this.colorTab[a++] & 255),
               f = k - (this.colorTab[a++] & 255),
               g = l - (this.colorTab[a] & 255),

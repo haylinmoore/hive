@@ -189,7 +189,7 @@
             return (this.emit("start"), this.emit("progress", 0));
           }),
           (e.prototype.abort = function () {
-            for (var t; null != (t = this.activeWorkers.shift()); )
+            for (var t; null != (t = this.activeWorkers.shift());)
               (console.log("killing active worker"), t.terminate());
             return ((this.running = !1), this.emit("abort"));
           }),

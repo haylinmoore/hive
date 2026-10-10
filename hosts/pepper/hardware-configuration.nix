@@ -22,7 +22,7 @@
     "xe"
   ];
   boot.extraModulePackages = [ ];
-  boot.kernelPackages = pkgs.linuxPackages_7_1;
+  boot.kernelPackages = pkgs.linuxPackages;
 
   boot.initrd.luks.devices = {
     "luks-febbe92f-bb86-4f38-a981-bf5d86e5c9c0".device =
