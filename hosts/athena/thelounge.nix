@@ -16,6 +16,12 @@
     public = false;
   };
 
+  # crashes if the startup changelog fetch fails, which it does until bgp converges
+  systemd.services.thelounge.serviceConfig = {
+    Restart = "on-failure";
+    RestartSec = 10;
+  };
+
   services.nginx.virtualHosts."irc.hayl.in" = {
     forceSSL = true;
     useACMEHost = "hayl.in";
