@@ -54,6 +54,17 @@
     ];
   };
 
+  # lo never gets an active device unit, so the device trigger doesn't start this
+  systemd.services.network-addresses-lo = {
+    wantedBy = [ "network.target" ];
+    before = [ "network.target" ];
+  };
+
+  systemd.services.bird = {
+    after = [ "network-addresses-lo.service" ];
+    wants = [ "network-addresses-lo.service" ];
+  };
+
   networking.interfaces.bond0 = {
     ipv6.addresses = [
       {
