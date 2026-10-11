@@ -12,6 +12,7 @@
     ./www.nix
     ./hardware-configuration.nix
     ./networking.nix
+    ./power.nix
     ./impermanence.nix
     ./bgp.nix
     ./music
