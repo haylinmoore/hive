@@ -17,6 +17,8 @@
     "vmw_pvscsi"
   ];
   boot.initrd.kernelModules = [ "nvme" ];
+  # cold reboot powers the board off and it stays off
+  boot.kernelParams = [ "reboot=warm" ];
   fileSystems."/" = {
     device = "/dev/sda2";
     fsType = "ext4";
