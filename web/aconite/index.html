@@ -4,106 +4,202 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Aconite Systems</title>
+    <meta
+      name="description"
+      content="ARIN IPv4 and IPv6 leasing with IRR, RPKI, and reverse DNS included. Web hosting and development."
+    />
+    <meta name="theme-color" content="#5566bb" />
     <link rel="stylesheet" href="main.css" />
   </head>
   <body>
-    <table id="page" cellpadding="0" cellspacing="0" width="760" align="center">
-      <tr>
-        <td>
-          <table id="banner" cellpadding="10" cellspacing="0" width="100%">
-            <tr>
-              <td valign="middle">
-                <span id="wordmark">Aconite Systems</span>
-              </td>
-            </tr>
-          </table>
+    <header class="bar">
+      <a class="bar-mark" href="#top">Aconite Systems</a>
+      <nav class="bar-links" aria-label="Sections">
+        <a href="#blocks">Leasing</a>
+        <a href="#hosting">Hosting</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </header>
 
-          <div class="content">
-            <h1>Infrastructure That Just Works</h1>
-            <p>
-              We lease IP space, host the boxes that need hosting, and build the
-              automation nobody else wants to write. Doing it since 2021, no
-              bloat, no upsells, just the boxes and blocks you asked for.
-            </p>
+    <main>
+      <section class="top" id="top">
+        <div class="card top-card">
+          <h1>Infrastructure That Just Works</h1>
+          <p class="lede">
+            We lease IP space, host the boxes that need hosting, and build the
+            automation nobody else wants to write.
+          </p>
+          <p class="top-go">
+            <a href="#blocks">Pricing</a>
+            <a href="mailto:hello@aconite.systems">hello@aconite.systems</a>
+          </p>
+        </div>
+      </section>
 
-            <hr />
+      <section class="blocks" id="blocks">
+        <div class="wrap">
+          <header class="sec-head">
+            <h2>IPv4 / IPv6 Leasing</h2>
+          </header>
 
-            <a name="services"></a>
-            <h2>Our Services</h2>
-
-            <h3>IPv4 / IPv6 Leasing</h3>
-            <p>
-              Dedicated blocks, ready to route. Clean space, with IRR, RPKI, and
-              reverse DNS delegation included.
-            </p>
-            <div class="table-scroll">
-              <table
-                class="pricing-table"
-                cellpadding="4"
-                cellspacing="0"
-                border="1"
-              >
-                <tr>
-                  <th>Block</th>
-                  <th>Region</th>
-                  <th>Monthly</th>
-                  <th>Yearly</th>
-                </tr>
-                <tr>
-                  <td>ipv4 /22 <span class="note">(1 available)</span></td>
-                  <td>ARIN</td>
-                  <td>$450/mo</td>
-                  <td>$4500/yr</td>
-                </tr>
-                <tr>
-                  <td>ipv4 /24 <span class="note">(5 available)</span></td>
-                  <td>ARIN</td>
-                  <td>$130/mo</td>
-                  <td>$1250/yr</td>
-                </tr>
-                <tr>
-                  <td>ipv6 /44 <span class="note">(many available)</span></td>
-                  <td>ARIN</td>
-                  <td>$5/mo</td>
-                  <td>$30/yr</td>
-                </tr>
-              </table>
+          <div class="lease">
+            <div class="lease-field">
+              <canvas
+                id="field"
+                width="640"
+                height="640"
+                aria-label="Map of the selected block"
+              ></canvas>
+              <p class="field-cap mono" id="fieldCap"></p>
             </div>
 
-            <h3>Web Hosting &amp; Development</h3>
-            <p>
-              99.9% uptime hosting that scales with you, plus custom builds,
-              network automation, and testing when you need something made from
-              scratch.
-            </p>
+            <div class="lease-desk">
+              <div class="term" role="group" aria-label="Billing term">
+                <button type="button" class="is-on" data-term="mo">
+                  Monthly
+                </button>
+                <button type="button" data-term="yr">Yearly</button>
+              </div>
+              <div class="table-scroll">
+                <table class="price" id="price">
+                  <thead>
+                    <tr>
+                      <th>Block</th>
+                      <th>Region</th>
+                      <th>Monthly</th>
+                      <th>Yearly</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr data-block="v4-22" tabindex="0">
+                      <td>
+                        <b>ipv4 /22</b> <span class="note">(1 available)</span>
+                      </td>
+                      <td>ARIN</td>
+                      <td>$350/mo</td>
+                      <td>$3500/yr</td>
+                    </tr>
+                    <tr data-block="v4-24" tabindex="0" class="is-on">
+                      <td>
+                        <b>ipv4 /24</b> <span class="note">(5 available)</span>
+                      </td>
+                      <td>ARIN</td>
+                      <td>$100/mo</td>
+                      <td>$1000/yr</td>
+                    </tr>
+                    <tr data-block="v6-44" tabindex="0">
+                      <td>
+                        <b>ipv6 /44</b>
+                        <span class="note">(many available)</span>
+                      </td>
+                      <td>ARIN</td>
+                      <td>$5/mo</td>
+                      <td>$30/yr</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-            <hr />
-
-            <a name="contact"></a>
-            <h2>Get In Touch</h2>
-
-            <p>Need IP space, hosting, or something built? Drop us a line.</p>
-            <p>
-              <a href="mailto:hello@aconite.systems">hello@aconite.systems</a>
-            </p>
+              <div class="slip" aria-live="polite">
+                <p class="slip-big">
+                  <span id="slipCount">256</span>
+                  <span id="slipUnit">addresses</span>
+                </p>
+                <p class="slip-price">
+                  <b id="slipPrice">$100</b> <span id="slipPer">a month</span>
+                  <span class="slip-alt" id="slipAlt"></span>
+                </p>
+                <a
+                  class="slip-go"
+                  id="slipGo"
+                  href="mailto:hello@aconite.systems"
+                  >Request this block</a
+                >
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
 
-          <hr />
+      <section class="included" id="included">
+        <div class="wrap">
+          <header class="sec-head">
+            <h2>Included</h2>
+            <p>
+              Clean space, with IRR, RPKI, and reverse DNS delegation included.
+            </p>
+          </header>
+          <div class="whois">
+            <div class="whois-bar mono">
+              <span>$ whois <span id="wBlock">a.b.c.0/24</span></span
+              ><span class="whois-ex">example</span>
+            </div>
+            <div class="whois-body">
+              <div class="stanza">
+                <h3>IRR</h3>
+                <p>A route object for your ASN.</p>
+                <pre class="mono">
+route:    <span data-p>a.b.c.0/24</span>
+origin:   AS<span class="v">your-asn</span>
+source:   ARIN</pre>
+              </div>
+              <div class="stanza">
+                <h3>RPKI</h3>
+                <p>A signed ROA for your ASN.</p>
+                <pre class="mono">
+prefix:     <span data-p>a.b.c.0/24</span>
+max-length: <span data-l>/24</span>
+origin:     AS<span class="v">your-asn</span></pre>
+              </div>
+              <div class="stanza">
+                <h3>Reverse DNS</h3>
+                <p>The reverse zone, delegated to your nameservers.</p>
+                <pre class="mono">
+zone:  <span data-z>c.b.a.in-addr.arpa</span>
+NS     ns1.<span class="v">your-domain</span>
+NS     ns2.<span class="v">your-domain</span></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-          <p align="center">
-            <img
-              src="aconite.png"
-              width="88"
-              height="31"
-              alt="Aconite Systems"
-            />
+      <section class="hosting" id="hosting">
+        <div class="wrap hosting-grid">
+          <header class="sec-head">
+            <h2>Web Hosting &amp; Development</h2>
+            <p>
+              Web hosting with 99.9% uptime. We also write software, mostly
+              network automation and the tests that go with it.
+            </p>
+          </header>
+          <ul class="made">
+            <li>Web hosting</li>
+            <li>Network automation</li>
+            <li>Software development</li>
+            <li>Testing</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="contact" id="contact">
+        <div class="card contact-card">
+          <h2>Get In Touch</h2>
+          <p class="lede">
+            Need IP space, hosting, or something built? Drop us a line.
           </p>
-
-          <p id="footer-note" align="center">
-            &copy; 2026 Aconite Systems. All rights reserved.
+          <p class="contact-mail">
+            <a href="mailto:hello@aconite.systems">hello@aconite.systems</a>
           </p>
-        </td>
-      </tr>
-    </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <img src="aconite.png" width="88" height="31" alt="Aconite Systems" />
+      <p>&copy; 2026 Aconite Systems. All rights reserved.</p>
+    </footer>
+
+    <script src="site.js" defer></script>
   </body>
 </html>
