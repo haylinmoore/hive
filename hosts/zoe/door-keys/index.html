@@ -63,7 +63,7 @@
             body: new URLSearchParams({ secret }),
           });
           status.textContent = res.ok
-            ? "Unlocked."
+            ? (await new Promise((resolve) => setTimeout(() => resolve("Unlocked."), 4000)))
             : "Failed (" + res.status + ").";
         } catch (err) {
           status.textContent = "Error: " + err.message;
