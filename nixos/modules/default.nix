@@ -8,5 +8,6 @@
     ./proxy-sites.nix
     ./duckdns.nix
     ./ethtool.nix
+    ./dns.nix
   ];
 }

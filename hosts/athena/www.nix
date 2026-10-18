@@ -27,6 +27,9 @@ in
     inherit proxyUri;
   };
 
+  dns.records."v6.hayl.in".AAAA = config.dns.addresses.v6;
+  dns.records."ygg.hayl.in".AAAA = "204:710b:f568:ec5e:1769:f461:9498:cb6d";
+
   proxySites.ygg-haylin = {
     domain = "ygg.hayl.in";
     inherit proxyUri;

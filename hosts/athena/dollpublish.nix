@@ -8,6 +8,9 @@
 rec {
   environment.persistence."/persistent".directories = [ dollpublish.dataDir ];
 
+  dns.records."*.estrogen.coffee" = config.dns.here;
+  dns.records."cname.estrogen.coffee" = config.dns.here;
+
   dollpublish = {
     enable = true;
     dataDir = "/var/lib/dollpublish";

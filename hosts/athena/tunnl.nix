@@ -11,6 +11,10 @@ let
 
   ipv4 = "23.144.156.6";
   ipv6 = "2602:fbf5:3::6";
+  addresses = {
+    A = ipv4;
+    AAAA = ipv6;
+  };
 
   hostAddress = "fd00:1::1";
   localAddress = "fd00:1::2";
@@ -60,6 +64,9 @@ in
   # live tunnels. That also covers first boot, where the service necessarily
   # starts before issuance finishes.
   security.acme.certs.${domain}.group = "tunnl";
+
+  dns.records.${domain} = addresses;
+  dns.records."*.${domain}" = addresses;
 
   # The bind mount below needs the certificate directory to exist before the
   # container starts, which is not guaranteed on a first boot.

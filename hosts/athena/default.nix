@@ -45,6 +45,24 @@
 
   defaultHttp.enable = true;
 
+  dns = {
+    addresses = {
+      v4 = "23.144.156.0";
+      v6 = "2602:fbf5::";
+    };
+    vhosts.enable = true;
+    records = {
+      "athena.infra.hayl.in" = config.dns.here;
+      "v4.athena.infra.hayl.in".A = config.dns.addresses.v4;
+      "v6.athena.infra.hayl.in".AAAA = config.dns.addresses.v6;
+      "404.hayl.in" = config.dns.here;
+      "soft.hayl.in" = config.dns.here;
+      "arr.hayl.in" = config.dns.here;
+      "umaring.cname.hayl.in" = config.dns.here;
+      "startguess.ing" = config.dns.here;
+    };
+  };
+
   users.mutableUsers = false;
   users.users.root.hashedPasswordFile = "/persistent/root.password";
   users.users.root.openssh.authorizedKeys.keys = [

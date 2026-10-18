@@ -6,6 +6,9 @@
 }:
 
 let
+  ipv4 = "23.144.156.5";
+  ipv6 = "2602:fbf5:3::5";
+
   usersConfig = import ./users-config.nix;
 
   # Build user config with host SSH keys for fromHost users
@@ -23,6 +26,11 @@ let
   ) usersConfig.users;
 in
 {
+  dns.records."upload.music.hayl.in" = {
+    A = ipv4;
+    AAAA = ipv6;
+  };
+
   # Create service accounts on host with same UIDs as container users
   # Skip users with fromHost = true
   users.users = lib.mapAttrs (name: userCfg: {
@@ -139,13 +147,13 @@ in
           interfaces.lo = {
             ipv4.addresses = [
               {
-                address = "23.144.156.5";
+                address = ipv4;
                 prefixLength = 32;
               }
             ];
             ipv6.addresses = [
               {
-                address = "2602:fbf5:3::5";
+                address = ipv6;
                 prefixLength = 128;
               }
             ];
@@ -174,14 +182,14 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
       ExecStart = pkgs.writeShellScript "add-music-routes" ''
-        ${pkgs.iproute2}/bin/ip route del 23.144.156.5/32 via inet6 fd00::2 || true
-        ${pkgs.iproute2}/bin/ip -6 route del 2602:fbf5:3::5/128 via inet6 fd00::2 || true
-        ${pkgs.iproute2}/bin/ip route add 23.144.156.5/32 via inet6 fd00::2 || true
-        ${pkgs.iproute2}/bin/ip -6 route add 2602:fbf5:3::5/128 via inet6 fd00::2 || true
+        ${pkgs.iproute2}/bin/ip route del ${ipv4}/32 via inet6 fd00::2 || true
+        ${pkgs.iproute2}/bin/ip -6 route del ${ipv6}/128 via inet6 fd00::2 || true
+        ${pkgs.iproute2}/bin/ip route add ${ipv4}/32 via inet6 fd00::2 || true
+        ${pkgs.iproute2}/bin/ip -6 route add ${ipv6}/128 via inet6 fd00::2 || true
       '';
       ExecStop = pkgs.writeShellScript "del-music-routes" ''
-        ${pkgs.iproute2}/bin/ip route del 23.144.156.5/32 via inet6 fd00::2 || true
-        ${pkgs.iproute2}/bin/ip -6 route del 2602:fbf5:3::5/128 via inet6 fd00::2 || true
+        ${pkgs.iproute2}/bin/ip route del ${ipv4}/32 via inet6 fd00::2 || true
+        ${pkgs.iproute2}/bin/ip -6 route del ${ipv6}/128 via inet6 fd00::2 || true
       '';
     };
   };

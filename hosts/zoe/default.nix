@@ -22,6 +22,12 @@ rec {
 
   defaultHttp.enable = true;
 
+  dns.vhosts = {
+    enable = true;
+    cname = "zoe.infra.hayl.in";
+  };
+  dns.records."zoe.uwu.estate".AAAA = "fd8a:ba9a:aa04::243";
+
   networking.firewall.enable = false;
 
   # Add meshcore-cli for system-wide use

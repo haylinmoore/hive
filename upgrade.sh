@@ -10,9 +10,10 @@ this_host() {
 }
 
 usage() {
-  echo "Usage: $0 {colmena|work|pepper|astrid|zoe|athena}"
+  echo "Usage: $0 {colmena|work|dns|pepper|astrid|zoe|athena}"
   echo "  colmena - Deploy to all servers via colmena"
   echo "  work    - Deploy work home-manager configuration"
+  echo "  dns     - Preview or push DNS records (preview|push)"
   echo "  pepper  - Deploy pepper NixOS configuration"
   echo "  astrid  - Deploy astrid NixOS configuration"
   echo "  zoe     - Build and activate zoe locally (build|activate|switch)"
@@ -65,6 +66,29 @@ case "$cmd" in
     ;;
   work)
     nix-build -A home.work && ./result/activate
+    ;;
+  dns)
+    shift
+    action=${1:-preview}
+    if [[ "$action" != preview && "$action" != push ]]; then
+      echo "Usage: $0 dns {preview|push}" >&2
+      exit 1
+    fi
+
+    out=$(mktemp -d)
+    trap 'rm -rf "$out"' EXIT
+    run_colmena eval --config colmena.nix dns/default.nix > "$out/records.json" || exit 1
+    cp dns/dnsconfig.js dns/creds.json "$out/"
+
+    dnscontrol() {
+      nix-shell --run "sops exec-env secrets/dns.env 'dnscontrol $1 --config $out/dnsconfig.js --creds $out/creds.json'"
+    }
+
+    dnscontrol preview || exit 1
+    if [[ "$action" == push ]]; then
+      read -rp "push these changes? [y/N] " answer
+      [[ "$answer" == y ]] && dnscontrol push
+    fi
     ;;
   pepper)
     shift

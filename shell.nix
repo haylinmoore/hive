@@ -5,6 +5,7 @@ in
 pkgs.mkShell {
   buildInputs = with pkgs; [
     colmena
+    dnscontrol
     sops
     ssh-to-age
     hive.tools.treefmt

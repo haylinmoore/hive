@@ -28,5 +28,7 @@
   };
 
   networking.firewall.allowedUDPPorts = [ 53 ];
+
+  dns.records."lan.uwu.estate".NS = "v4.zoe.infra.hayl.in";
   networking.firewall.allowedTCPPorts = [ 53 ];
 }

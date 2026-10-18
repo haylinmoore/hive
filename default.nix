@@ -29,6 +29,7 @@ let
           (builtins.elem (builtins.head parts) [
             "secrets"
             "npins"
+            "dns"
             ".git"
           ])
         then
