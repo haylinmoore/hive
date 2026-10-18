@@ -34,6 +34,7 @@
   security.acme.acceptTerms = true;
   security.acme.defaults.email = "acme@haylinmoore.com";
   security.acme.defaults.profile = "shortlived";
+  security.acme.defaults.dnsResolver = "kiki.bunny.net:53";
 
   services.openssh.enable = true;
 }
