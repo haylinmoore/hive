@@ -33,6 +33,7 @@
 
   security.acme.acceptTerms = true;
   security.acme.defaults.email = "acme@haylinmoore.com";
+  security.acme.defaults.profile = "shortlived";
 
   services.openssh.enable = true;
 }
