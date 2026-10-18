@@ -36,5 +36,11 @@
   security.acme.defaults.profile = "shortlived";
   security.acme.defaults.dnsResolver = "kiki.bunny.net:53";
 
+  # Re-roll the check time each day so renewals drift apart instead of
+  # staying in lockstep on the same 4-day cycle.
+  systemd.timers = lib.mapAttrs' (
+    cert: _: lib.nameValuePair "acme-renew-${cert}" { timerConfig.FixedRandomDelay = lib.mkForce false; }
+  ) config.security.acme.certs;
+
   services.openssh.enable = true;
 }
