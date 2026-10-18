@@ -34,8 +34,12 @@ in
     };
     nginx = {
       enable = true;
-      enableACME = true;
       host = "auth.hayl.in";
     };
+  };
+
+  services.nginx.virtualHosts."auth.hayl.in" = {
+    useACMEHost = "hayl.in";
+    forceSSL = lib.mkForce true;
   };
 }
