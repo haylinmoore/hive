@@ -71,11 +71,6 @@ rec {
       url
     ];
 
-  dual = name: v4: v6: [
-    (A name v4)
-    (AAAA name v6)
-  ];
-
   migadu = domain: verify: [
     (MX "@" 10 "aspmx1.migadu.com.")
     (MX "@" 20 "aspmx2.migadu.com.")
@@ -92,12 +87,4 @@ rec {
     (SRV "_pop3s._tcp" 0 1 995 "pop.migadu.com.")
   ];
 
-  # Every octet in 1-255 gets a PTR, falling back to the template for any
-  # not listed explicitly.
-  ptrFill =
-    ptrs: template:
-    lib.mapAttrsToList PTR ptrs
-    ++ map (n: PTR (toString n) (lib.replaceStrings [ "#" ] [ (toString n) ] template)) (
-      lib.filter (n: !(ptrs ? ${toString n})) (lib.range 1 255)
-    );
 }

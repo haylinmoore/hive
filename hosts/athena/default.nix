@@ -56,10 +56,6 @@
       "v4.athena.infra.hayl.in".A = config.dns.addresses.v4;
       "v6.athena.infra.hayl.in".AAAA = config.dns.addresses.v6;
       "404.hayl.in" = config.dns.here;
-      "soft.hayl.in" = config.dns.here;
-      "arr.hayl.in" = config.dns.here;
-      "umaring.cname.hayl.in" = config.dns.here;
-      "startguess.ing" = config.dns.here;
     };
   };
 
