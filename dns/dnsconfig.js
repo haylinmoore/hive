@@ -32,6 +32,7 @@ for (var name in zones) {
     REGISTRARS[zone.registrar],
     DnsProvider(PROVIDERS[zone.provider]),
     DefaultTTL(zone.ttl),
+    zone.dnssec ? AUTODNSSEC_ON : [],
     zone.records.map(function (r) {
       return TYPES[r.type].apply(null, r.args);
     }),

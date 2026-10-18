@@ -73,7 +73,48 @@ let
       dns.IGNORE (relative zone fqdn) // { inherit zone; }
   ) (lib.unique (lib.concatMap (n: n.config.dns.ignore) (lib.attrValues nodes)));
 
-  byZone = lib.groupBy (r: r.zone) (hostRecords ++ ignores);
+  reverse =
+    ip:
+    if lib.hasInfix ":" ip then
+      let
+        halves = lib.splitString "::" (lib.toLower ip);
+        groups = s: if s == "" then [ ] else lib.splitString ":" s;
+        front = groups (lib.head halves);
+        back = if lib.length halves > 1 then groups (lib.last halves) else [ ];
+        full = front ++ lib.replicate (8 - lib.length front - lib.length back) "0" ++ back;
+        nibbles = lib.concatMap (g: lib.stringToCharacters (lib.fixedWidthString 4 "0" g)) full;
+      in
+      lib.concatStringsSep "." (lib.reverseList nibbles) + ".ip6.arpa"
+    else
+      lib.concatStringsSep "." (lib.reverseList (lib.splitString "." ip)) + ".in-addr.arpa";
+
+  declaredPtrs = lib.concatMap (
+    n: lib.mapAttrsToList (ip: target: { inherit ip target; }) n.config.dns.ptr
+  ) (lib.attrValues nodes);
+
+  ptrs = lib.mapAttrs (
+    ip: defs:
+    let
+      targets = lib.unique (map (d: d.target) defs);
+    in
+    if lib.length targets > 1 then
+      throw "dns: PTR for ${ip} is declared as ${lib.concatStringsSep ", " targets}"
+    else
+      lib.head targets
+  ) (lib.groupBy (d: d.ip) declaredPtrs);
+
+  ptrRecords = lib.concatLists (
+    lib.mapAttrsToList (
+      ip: target:
+      let
+        fqdn = reverse ip;
+        zone = zoneOf fqdn;
+      in
+      lib.optional (zone != null) (dns.PTR (relative zone fqdn) (absolute target) // { inherit zone; })
+    ) ptrs
+  );
+
+  byZone = lib.groupBy (r: r.zone) (hostRecords ++ ignores ++ ptrRecords);
 in
 {
   zones = lib.mapAttrs (

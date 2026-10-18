@@ -90,6 +90,12 @@ in
       description = "Records keyed by fully qualified name.";
     };
 
+    ptr = mkOption {
+      type = types.attrsOf types.str;
+      default = { };
+      description = "Reverse names keyed by address.";
+    };
+
     ignore = mkOption {
       type = types.listOf types.str;
       default = [ ];

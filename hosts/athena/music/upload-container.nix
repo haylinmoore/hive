@@ -26,6 +26,8 @@ let
   ) usersConfig.users;
 in
 {
+  dns.ptr.${ipv4} = "upload.music.hayl.in";
+  dns.ptr.${ipv6} = "upload.music.hayl.in";
   dns.records."upload.music.hayl.in" = {
     A = ipv4;
     AAAA = ipv6;

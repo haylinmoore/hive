@@ -67,6 +67,8 @@ in
 
   dns.records.${domain} = addresses;
   dns.records."*.${domain}" = addresses;
+  dns.ptr.${ipv4} = domain;
+  dns.ptr.${ipv6} = domain;
 
   # The bind mount below needs the certificate directory to exist before the
   # container starts, which is not guaranteed on a first boot.

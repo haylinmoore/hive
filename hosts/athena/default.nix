@@ -50,6 +50,10 @@
       v4 = "23.144.156.0";
       v6 = "2602:fbf5::";
     };
+    ptr = {
+      ${config.dns.addresses.v4} = "athena.infra.hayl.in";
+      ${config.dns.addresses.v6} = "athena.infra.hayl.in";
+    };
     vhosts.enable = true;
     records = {
       "athena.infra.hayl.in" = config.dns.here;
