@@ -88,9 +88,12 @@ let
     else
       lib.concatStringsSep "." (lib.reverseList (lib.splitString "." ip)) + ".in-addr.arpa";
 
-  declaredPtrs = lib.concatMap (
-    n: lib.mapAttrsToList (ip: target: { inherit ip target; }) n.config.dns.ptr
-  ) (lib.attrValues nodes);
+  # TODO: the v6 /36 has no reverse zone until athena runs its own nameserver.
+  declaredPtrs = lib.filter (d: !lib.hasInfix ":" d.ip) (
+    lib.concatMap (n: lib.mapAttrsToList (ip: target: { inherit ip target; }) n.config.dns.ptr) (
+      lib.attrValues nodes
+    )
+  );
 
   ptrs = lib.mapAttrs (
     ip: defs:
@@ -103,16 +106,17 @@ let
       lib.head targets
   ) (lib.groupBy (d: d.ip) declaredPtrs);
 
-  ptrRecords = lib.concatLists (
-    lib.mapAttrsToList (
-      ip: target:
-      let
-        fqdn = reverse ip;
-        zone = zoneOf fqdn;
-      in
-      lib.optional (zone != null) (dns.PTR (relative zone fqdn) (absolute target) // { inherit zone; })
-    ) ptrs
-  );
+  ptrRecords = lib.mapAttrsToList (
+    ip: target:
+    let
+      fqdn = reverse ip;
+      zone = zoneOf fqdn;
+    in
+    if zone == null then
+      throw "dns: no reverse zone for ${ip}"
+    else
+      dns.PTR (relative zone fqdn) (absolute target) // { inherit zone; }
+  ) ptrs;
 
   byZone = lib.groupBy (r: r.zone) (hostRecords ++ ignores ++ ptrRecords);
 in
