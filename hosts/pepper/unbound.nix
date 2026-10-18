@@ -11,25 +11,6 @@ let
 
   # Define TLD configurations
   altTLDs = {
-    alfis = {
-      tlds = [
-        "ygg"
-        "anon"
-        "btn"
-        "conf"
-        "index"
-        "merch"
-        "mirror"
-        "mob"
-        "screen"
-        "srv"
-      ];
-      nameservers = [
-        "324:71e:281a:9ed3::53"
-        "300:6223::53"
-      ];
-    };
-
     furnic = {
       tlds = [ "fur" ];
       nameservers = [
