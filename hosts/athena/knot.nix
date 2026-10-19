@@ -22,6 +22,15 @@ in
         "${config.dns.addresses.v4}@53"
         "${config.dns.addresses.v6}@53"
       ];
+      remote = [
+        {
+          id = "ns-global-collector";
+          address = [
+            "204.87.183.53"
+            "2607:7c80:54:6::53"
+          ];
+        }
+      ];
       acl = [
         {
           id = "axfr";
@@ -35,6 +44,7 @@ in
       zone = lib.mapAttrsToList (name: zone: {
         domain = name;
         acl = [ "axfr" ];
+        notify = [ "ns-global-collector" ];
         file = pkgs.writeText "${name}.zone" (zonefile zone);
         zonefile-sync = -1;
         zonefile-load = "difference-no-serial";
