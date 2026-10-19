@@ -14,7 +14,6 @@ let
 in
 {
   dns.records."ns1.aconite.systems" = config.dns.here;
-  dns.records."ns2.aconite.systems" = config.dns.here;
 
   services.knot = {
     enable = true;

@@ -3,7 +3,7 @@
 let
   nameservers = [
     "ns1.aconite.systems."
-    "ns2.aconite.systems."
+    "ns-global.kjsl.com."
   ];
 
   line =
