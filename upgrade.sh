@@ -10,10 +10,11 @@ this_host() {
 }
 
 usage() {
-  echo "Usage: $0 {colmena|work|dns|pepper|astrid|zoe|athena}"
+  echo "Usage: $0 {colmena|work|dns|arin|pepper|astrid|zoe|athena}"
   echo "  colmena - Deploy to all servers via colmena"
   echo "  work    - Deploy work home-manager configuration"
   echo "  dns     - Preview or push DNS records (preview|push)"
+  echo "  arin    - Preview or push ARIN rDNS, IRR and RPKI (preview|push)"
   echo "  pepper  - Deploy pepper NixOS configuration"
   echo "  astrid  - Deploy astrid NixOS configuration"
   echo "  zoe     - Build and activate zoe locally (build|activate|switch)"
@@ -66,6 +67,27 @@ case "$cmd" in
     ;;
   work)
     nix-build -A home.work && ./result/activate
+    ;;
+  arin)
+    shift
+    action=${1:-preview}
+    if [[ "$action" != preview && "$action" != push ]]; then
+      echo "Usage: $0 arin {preview|push}" >&2
+      exit 1
+    fi
+
+    state=$(nix-build --no-out-link -A arin.state) || exit 1
+    sync=$(nix-build --no-out-link -A arin.sync) || exit 1
+
+    arin() {
+      nix-shell --run "sops exec-env secrets/arin.env '$sync/bin/arin-sync $1 $state'"
+    }
+
+    arin preview || exit 1
+    if [[ "$action" == push ]]; then
+      read -rp "push these changes? [y/N] " answer
+      [[ "$answer" == y ]] && arin push
+    fi
     ;;
   dns)
     shift
