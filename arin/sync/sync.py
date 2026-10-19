@@ -1,6 +1,7 @@
 import ipaddress
 import json
 import os
+import re
 import socket
 import sys
 import urllib.error
@@ -133,7 +134,7 @@ def plan_roas(state, plan):
                 for r in b["rpki"]
                 if r["origin"] == origin
             )
-            want.add((f"hive {block}", origin, resources))
+            want.add(("hive " + re.sub(r"[^A-Za-z0-9_ -]", "-", block), origin, resources))
 
     def describe(key):
         name, origin, resources = key
@@ -151,24 +152,24 @@ def plan_roas(state, plan):
 
 
 def roa_transaction(org, deletes, adds):
-    root = ET.Element(f"{{{RPKI}}}rpkiTransaction")
+    root = ET.Element("rpkiTransaction", xmlns=RPKI)
     if deletes:
-        d = ET.SubElement(root, f"{{{RPKI}}}roaSpecDelete")
+        d = ET.SubElement(root, "roaSpecDelete")
         for handle in deletes:
-            ET.SubElement(d, f"{{{RPKI}}}roaHandle", autolink="false").text = handle
+            ET.SubElement(d, "roaHandle", autoLink="false").text = handle
     if adds:
-        a = ET.SubElement(root, f"{{{RPKI}}}roaSpecAdd")
+        a = ET.SubElement(root, "roaSpecAdd")
         for name, origin, resources in adds:
-            spec = ET.SubElement(a, f"{{{RPKI}}}roaSpec")
-            ET.SubElement(spec, f"{{{RPKI}}}autoLink").text = "false"
-            ET.SubElement(spec, f"{{{RPKI}}}asNumber").text = str(origin)
-            ET.SubElement(spec, f"{{{RPKI}}}name").text = name
-            res = ET.SubElement(spec, f"{{{RPKI}}}resources")
+            spec = ET.SubElement(a, "roaSpec")
+            ET.SubElement(spec, "autoLink").text = "false"
+            ET.SubElement(spec, "asNumber").text = str(origin)
+            ET.SubElement(spec, "name").text = name
+            res = ET.SubElement(spec, "resources")
             for prefix, max_length in sorted(resources):
-                r = ET.SubElement(res, f"{{{RPKI}}}roaSpecResource")
-                ET.SubElement(r, f"{{{RPKI}}}startAddress").text = str(net(prefix).network_address)
-                ET.SubElement(r, f"{{{RPKI}}}cidrLength").text = str(net(prefix).prefixlen)
-                ET.SubElement(r, f"{{{RPKI}}}maxLength").text = str(max_length)
+                r = ET.SubElement(res, "roaSpecResource")
+                ET.SubElement(r, "startAddress").text = str(net(prefix).network_address)
+                ET.SubElement(r, "cidrLength").text = str(net(prefix).prefixlen)
+                ET.SubElement(r, "maxLength").text = str(max_length)
     request("POST", f"/rpki/{org}", ET.tostring(root, encoding="unicode"))
 
 
