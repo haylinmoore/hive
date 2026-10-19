@@ -7,9 +7,5 @@
   "bunny_dns": {
     "TYPE": "BUNNY_DNS",
     "api_key": "$BUNNY_API_KEY"
-  },
-  "desec": {
-    "TYPE": "DESEC",
-    "auth-token": "$DESEC_TOKEN"
   }
 }

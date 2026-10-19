@@ -6,7 +6,6 @@ var REGISTRARS = {
 
 var PROVIDERS = {
   bunny: NewDnsProvider("bunny_dns"),
-  desec: NewDnsProvider("desec"),
 };
 
 var TYPES = {
