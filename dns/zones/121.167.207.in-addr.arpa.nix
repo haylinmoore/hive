@@ -1,7 +1,7 @@
 { dns }:
 {
   registrar = "none";
-  provider = "desec";
+  provider = "athena";
   ttl = 3600;
   records = [ ];
 }

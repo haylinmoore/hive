@@ -35,6 +35,7 @@
     ./thelounge.nix
     ./dial.nix
     ./tunnl.nix
+    ./knot.nix
 
     ../../nixos/certs/hayl-in.nix
     ../../nixos/certs/host-infra.nix

@@ -88,12 +88,9 @@ let
     else
       lib.concatStringsSep "." (lib.reverseList (lib.splitString "." ip)) + ".in-addr.arpa";
 
-  # TODO: the v6 /36 has no reverse zone until athena runs its own nameserver.
-  declaredPtrs = lib.filter (d: !lib.hasInfix ":" d.ip) (
-    lib.concatMap (n: lib.mapAttrsToList (ip: target: { inherit ip target; }) n.config.dns.ptr) (
-      lib.attrValues nodes
-    )
-  );
+  declaredPtrs = lib.concatMap (
+    n: lib.mapAttrsToList (ip: target: { inherit ip target; }) n.config.dns.ptr
+  ) (lib.attrValues nodes);
 
   ptrs = lib.mapAttrs (
     ip: defs:

@@ -27,6 +27,7 @@ var zones = require("./records.json").zones;
 
 for (var name in zones) {
   var zone = zones[name];
+  if (!PROVIDERS[zone.provider]) continue;
   D(
     name,
     REGISTRARS[zone.registrar],
