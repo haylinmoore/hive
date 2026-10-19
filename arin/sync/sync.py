@@ -7,6 +7,7 @@ import sys
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 
 import dns.dnssec
 import dns.exception
@@ -25,6 +26,15 @@ for prefix, uri in [("messages", "messages"), ("ticket", "shared-ticket"), ("ttl
 RED, GREEN, YELLOW, RESET = "\033[31m", "\033[32m", "\033[33m", "\033[0m"
 
 
+class ArinError(Exception):
+    pass
+
+
+def parallel(fn, items):
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        return list(pool.map(fn, items))
+
+
 def request(method, path, body=None, ctype="application/xml"):
     req = urllib.request.Request(API + path, data=body.encode() if body else None, method=method)
     req.add_header("Authorization", "ApiKey " + os.environ["ARIN_API_KEY"])
@@ -35,7 +45,7 @@ def request(method, path, body=None, ctype="application/xml"):
         with urllib.request.urlopen(req) as r:
             return r.read()
     except urllib.error.HTTPError as e:
-        sys.exit(f"{method} {path}: {e.code}\n{e.read().decode()}")
+        raise ArinError(f"{method} {path}: {e.code}\n{e.read().decode()}")
 
 
 def local(el):
@@ -99,6 +109,11 @@ class Plan:
 
     def error(self, message):
         self.errors.append(message)
+
+    def merge(self, other):
+        self.lines += other.lines
+        self.errors += other.errors
+        self.actions += other.actions
 
 
 def check_blocks(state, plan):
@@ -203,29 +218,35 @@ def create_route(state, prefix, origin):
 
 
 def plan_delegations(state, plan):
-    for block, b in state["blocks"].items():
-        for zone in reverse_zones(block):
-            current = ET.fromstring(request("GET", f"/delegation/{zone}"))
-            have_ns = sorted(n.text.lower().rstrip(".") for n in find(current, "nameserver"))
-            have_ds = {
-                f"{text(k, 'keyTag')} {text(k, 'algorithm')} {text(k, 'digestType')} {text(k, 'digest').upper()}"
-                for k in find(current, "delegationKey")
-            }
-            wanted = b["rdns"].get(zone, {"nameservers": [], "ds": []})
-            want_ns = sorted(n.lower().rstrip(".") for n in wanted["nameservers"])
-            try:
-                want_ds = live_ds(zone, wanted["nameservers"][0]) if wanted["ds"] == "auto" else set(wanted["ds"])
-            except (LookupError, OSError, dns.exception.DNSException) as e:
-                plan.error(f"{zone}: {e}")
-                continue
-            if have_ns == want_ns and have_ds == want_ds:
-                continue
-            changes = []
-            if have_ns != want_ns:
-                changes.append(f"NS {', '.join(have_ns) or 'none'} -> {', '.join(want_ns) or 'none'}")
-            if have_ds != want_ds:
-                changes.append(f"DS {', '.join(sorted(have_ds)) or 'none'} -> {', '.join(sorted(want_ds)) or 'none'}")
-            plan.add("±", f"rDNS {zone}: " + "; ".join(changes), lambda z=zone, c=current, n=want_ns, d=want_ds: put_delegation(z, c, n, d))
+    zones = [(b, zone) for block, b in state["blocks"].items() for zone in reverse_zones(block)]
+    for zone_plan in parallel(lambda bz: plan_delegation(*bz), zones):
+        plan.merge(zone_plan)
+
+
+def plan_delegation(b, zone):
+    plan = Plan()
+    current = ET.fromstring(request("GET", f"/delegation/{zone}"))
+    have_ns = sorted(n.text.lower().rstrip(".") for n in find(current, "nameserver"))
+    have_ds = {
+        f"{text(k, 'keyTag')} {text(k, 'algorithm')} {text(k, 'digestType')} {text(k, 'digest').upper()}"
+        for k in find(current, "delegationKey")
+    }
+    wanted = b["rdns"].get(zone, {"nameservers": [], "ds": []})
+    want_ns = sorted(n.lower().rstrip(".") for n in wanted["nameservers"])
+    try:
+        want_ds = live_ds(zone, wanted["nameservers"][0]) if wanted["ds"] == "auto" else set(wanted["ds"])
+    except (LookupError, OSError, dns.exception.DNSException) as e:
+        plan.error(f"{zone}: {e}")
+        return plan
+    if have_ns == want_ns and have_ds == want_ds:
+        return plan
+    changes = []
+    if have_ns != want_ns:
+        changes.append(f"NS {', '.join(have_ns) or 'none'} -> {', '.join(want_ns) or 'none'}")
+    if have_ds != want_ds:
+        changes.append(f"DS {', '.join(sorted(have_ds)) or 'none'} -> {', '.join(sorted(want_ds)) or 'none'}")
+    plan.add("±", f"rDNS {zone}: " + "; ".join(changes), lambda: put_delegation(zone, current, want_ns, want_ds))
+    return plan
 
 
 def put_delegation(zone, current, nameservers, ds):
@@ -256,8 +277,9 @@ def plan_sets(state, plan):
     for name in have:
         if name not in state["sets"]:
             plan.add("-", f"as-set {name}", lambda n=name: request("DELETE", f"/irr/as-set/{n}"))
-            continue
-        doc = ET.fromstring(request("GET", f"/irr/as-set/{name}"))
+    kept = [name for name in have if name in state["sets"]]
+    docs = parallel(lambda n: ET.fromstring(request("GET", f"/irr/as-set/{n}")), kept)
+    for name, doc in zip(kept, docs):
         members = sorted(m.get("name") for m in find(doc, "member"))
         want = sorted(state["sets"][name])
         if members != want:
@@ -284,19 +306,51 @@ def create_set(state, name):
     request("POST", f"/irr/as-set?orgHandle={state['org']}", rpsl + "\n", "application/rpsl")
 
 
+def plan_all(state):
+    plan = Plan()
+    check_blocks(state, plan)
+    if plan.errors:
+        return plan, Plan()
+
+    def section(planner):
+        part = Plan()
+        planner(state, part)
+        return part
+
+    roas, *rest = parallel(section, [plan_roas, plan_routes, plan_delegations, plan_sets])
+    plan.merge(roas)
+    for part in rest:
+        plan.merge(part)
+    return plan, roas
+
+
+def push(plan, roas):
+    for action in roas.actions:
+        action()
+    others = [a for a in plan.actions if a not in roas.actions]
+
+    def attempt(action):
+        try:
+            action()
+        except ArinError as e:
+            return str(e)
+
+    failures = [f for f in parallel(attempt, others) if f]
+    for f in failures:
+        print(f"{RED}! {f}{RESET}")
+    return not failures
+
+
 def main():
     if len(sys.argv) != 3 or sys.argv[1] not in ("preview", "push"):
         sys.exit("usage: arin-sync {preview|push} STATE.json")
     with open(sys.argv[2]) as f:
         state = json.load(f)
 
-    plan = Plan()
-    check_blocks(state, plan)
-    if not plan.errors:
-        plan_roas(state, plan)
-        plan_routes(state, plan)
-        plan_delegations(state, plan)
-        plan_sets(state, plan)
+    try:
+        plan, roas = plan_all(state)
+    except ArinError as e:
+        sys.exit(str(e))
 
     for line in plan.lines:
         print(line)
@@ -307,8 +361,12 @@ def main():
     if plan.errors:
         sys.exit(1)
     if sys.argv[1] == "push":
-        for action in plan.actions:
-            action()
+        try:
+            ok = push(plan, roas)
+        except ArinError as e:
+            sys.exit(str(e))
+        if not ok:
+            sys.exit(1)
         print("done")
 
 
