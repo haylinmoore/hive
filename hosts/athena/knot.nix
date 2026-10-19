@@ -23,8 +23,19 @@ in
         "${config.dns.addresses.v4}@53"
         "${config.dns.addresses.v6}@53"
       ];
+      acl = [
+        {
+          id = "axfr";
+          address = [
+            "0.0.0.0/0"
+            "::/0"
+          ];
+          action = "transfer";
+        }
+      ];
       zone = lib.mapAttrsToList (name: zone: {
         domain = name;
+        acl = [ "axfr" ];
         file = pkgs.writeText "${name}.zone" (zonefile zone);
         zonefile-sync = -1;
         zonefile-load = "difference-no-serial";
