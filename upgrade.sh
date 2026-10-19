@@ -14,7 +14,7 @@ usage() {
   echo "  colmena - Deploy to all servers via colmena"
   echo "  work    - Deploy work home-manager configuration"
   echo "  dns     - Preview or push DNS records (preview|push)"
-  echo "  arin    - Preview or push ARIN rDNS, IRR and RPKI (preview|push)"
+  echo "  arin    - Show, preview or push ARIN rDNS, IRR and RPKI (status|preview|push)"
   echo "  pepper  - Deploy pepper NixOS configuration"
   echo "  astrid  - Deploy astrid NixOS configuration"
   echo "  zoe     - Build and activate zoe locally (build|activate|switch)"
@@ -71,8 +71,8 @@ case "$cmd" in
   arin)
     shift
     action=${1:-preview}
-    if [[ "$action" != preview && "$action" != push ]]; then
-      echo "Usage: $0 arin {preview|push}" >&2
+    if [[ "$action" != status && "$action" != preview && "$action" != push ]]; then
+      echo "Usage: $0 arin {status|preview|push}" >&2
       exit 1
     fi
 
@@ -82,6 +82,11 @@ case "$cmd" in
     arin() {
       nix-shell --run "sops exec-env secrets/arin.env '$sync/bin/arin-sync $1 $state'"
     }
+
+    if [[ "$action" == status ]]; then
+      arin status
+      exit
+    fi
 
     arin preview || exit 1
     if [[ "$action" == push ]]; then

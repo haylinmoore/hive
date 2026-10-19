@@ -341,11 +341,52 @@ def push(plan, roas):
     return not failures
 
 
+def status(state):
+    org = state["org"]
+    zones = [zone for block in state["blocks"] for zone in reverse_zones(block)]
+    roas, routes, sets = parallel(
+        lambda path: ET.fromstring(request("GET", path)),
+        [f"/roa/{org}", f"/org/{org}/routes", f"/org/{org}/as-sets"],
+    )
+    delegations = parallel(lambda z: ET.fromstring(request("GET", f"/delegation/{z}")), zones)
+    set_names = [ref.get("name") for ref in find(sets, "asSetRef")]
+    set_docs = parallel(lambda n: ET.fromstring(request("GET", f"/irr/as-set/{n}")), set_names)
+
+    print("ROAs")
+    for spec in find(roas, "roaSpec"):
+        prefixes = sorted(
+            f"{address(text(r, 'startAddress'))}/{text(r, 'cidrLength')} max /{text(r, 'maxLength')}"
+            for r in find(spec, "resources")
+        )
+        print(f"  {text(spec, 'name') or '(unnamed)'} (AS{text(spec, 'asNumber')}): {', '.join(prefixes)}")
+
+    print("routes")
+    for prefix, origin in sorted((str(net(text(r, "prefix"))), text(r, "originAS")) for r in find(routes, "routeRef")):
+        print(f"  {prefix} {origin}")
+
+    print("rDNS")
+    for zone, doc in zip(zones, delegations):
+        ns = ", ".join(n.text.lower() for n in find(doc, "nameserver")) or "none"
+        ds = ", ".join(f"{text(k, 'keyTag')} {text(k, 'algorithm')} {text(k, 'digestType')}" for k in find(doc, "delegationKey"))
+        print(f"  {zone}: {ns}" + (f" (DS {ds})" if ds else ""))
+
+    print("as-sets")
+    for name, doc in zip(set_names, set_docs):
+        print(f"  {name}: {', '.join(m.get('name') for m in find(doc, 'member'))}")
+
+
 def main():
-    if len(sys.argv) != 3 or sys.argv[1] not in ("preview", "push"):
-        sys.exit("usage: arin-sync {preview|push} STATE.json")
+    if len(sys.argv) != 3 or sys.argv[1] not in ("status", "preview", "push"):
+        sys.exit("usage: arin-sync {status|preview|push} STATE.json")
     with open(sys.argv[2]) as f:
         state = json.load(f)
+
+    if sys.argv[1] == "status":
+        try:
+            status(state)
+        except ArinError as e:
+            sys.exit(str(e))
+        return
 
     try:
         plan, roas = plan_all(state)
