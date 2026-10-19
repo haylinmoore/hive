@@ -28,7 +28,7 @@ RED, GREEN, YELLOW, RESET = "\033[31m", "\033[32m", "\033[33m", "\033[0m"
 def request(method, path, body=None, ctype="application/xml"):
     req = urllib.request.Request(API + path, data=body.encode() if body else None, method=method)
     req.add_header("Authorization", "ApiKey " + os.environ["ARIN_API_KEY"])
-    req.add_header("Accept", "application/xml")
+    req.add_header("Accept", ctype if body else "application/xml")
     if body:
         req.add_header("Content-Type", ctype)
     try:
