@@ -238,7 +238,6 @@ def put_delegation(zone, current, nameservers, ds):
         key = ET.SubElement(keys, f"{{{CORE}}}delegationKey")
         ET.SubElement(key, f"{{{CORE}}}algorithm").text = algorithm
         ET.SubElement(key, f"{{{CORE}}}digest").text = digest
-        ET.SubElement(key, f"{{{CORE}}}ttl").text = "86400"
         ET.SubElement(key, f"{{{CORE}}}digestType").text = digest_type
         ET.SubElement(key, f"{{{CORE}}}keyTag").text = tag
     servers = ET.Element(f"{{{CORE}}}nameservers")
