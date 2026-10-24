@@ -31,6 +31,7 @@ rec {
       BaseUrl = "/navi";
       MusicFolder = "/bulk/music";
       EnableSharing = true;
+      Plugins.Enabled = false;
     };
   };
 
