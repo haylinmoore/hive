@@ -5,6 +5,7 @@ keys:
   - &server_zoe age1q0auwwj6z0lqk3h2ncjfhtmyc7yl3az7rmwtj859nt7jz0q9avvsffsfgr
   - &server_athena age10c25ar2q5ryqc6nzfe80tey033lalh3dejy5899g7qktsxz0ldeqa83tag
   - &host_pepper age1unl7jyrp29sclyvwzky7u0jq7japtf985zej22y9gvtgvkxkvghsn85pse
+  - &host_astrid age1dxl3jkemfwzpmuyk9c5uxz9spcja4xjz2wu92qg366ddnsn58uzqs2h9kd
 creation_rules:
   - path_regex: secrets/mesh\.yaml$
     key_groups:
@@ -13,6 +14,7 @@ creation_rules:
           - *server_zoe
           - *server_athena
           - *host_pepper
+          - *host_astrid
   - path_regex: secrets/[^/]+\.(yaml|json|env|ini)$
     key_groups:
       - age:
