@@ -21,13 +21,6 @@
   # Work-specific git email
   programs.git.settings.user.email = "hmoore@qumulo.com";
 
-  nixpkgs.config.allowUnfreePredicate =
-    pkg:
-    builtins.elem (lib.getName pkg) [
-      "claude-code"
-      "cursor-cli"
-    ];
-
   home.packages = with pkgs; [
     (python3.withPackages (ps: [
       ps.llm
