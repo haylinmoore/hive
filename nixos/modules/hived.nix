@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  options,
   pkgs,
   hive,
   ...
@@ -10,28 +11,33 @@ let
   cfg = config.services.hived;
   host = config.networking.hostName;
 
+  hosts = import ../mesh/hosts.nix;
+  address = name: hive.tools.yggdrasil.address hosts.${name}.publicKey;
+  isHub = hosts.${host} ? endpoint;
+  hubs = lib.attrNames (lib.filterAttrs (_: h: h ? endpoint) hosts);
+  operators = lib.attrNames (lib.filterAttrs (_: h: h.operator or false) hosts);
+
   environment = {
     HIVED_HOST = host;
-    HIVED_BIND = "127.0.0.1:${toString cfg.port}";
+    HIVED_HUB = if isHub then "1" else "0";
+    HIVED_AUTO_DEPLOY = if cfg.autoDeploy then "1" else "0";
+    HIVED_AGENT_PORT = toString cfg.port;
+    HIVED_AGENT_BIND = "[${address host}]:${toString cfg.port}";
+    HIVED_PUBLIC_BIND = "127.0.0.1:${toString cfg.publicPort}";
+    HIVED_DASH_BIND = "[::1]:${toString cfg.dashPort}";
+    HIVED_NODES = lib.concatStringsSep "," (
+      lib.mapAttrsToList (name: h: "${name}=${address name}=${h.publicKey}") hosts
+    );
+    HIVED_HUBS = lib.concatMapStringsSep "," address hubs;
+    HIVED_OPERATORS = lib.concatMapStringsSep "," address operators;
     HIVED_STATE_DIR = cfg.stateDir;
-    # The console and the GitHub Pages dashboard are the same file.
-    HIVED_DASHBOARD = "${hive.web.hived}/index.html";
     HIVED_REPO_URL = cfg.repoUrl;
     HIVED_BRANCH = cfg.branch;
-    HIVED_AUDIENCE = cfg.audience;
-    HIVED_ALLOWED_REPOSITORY = cfg.allowedClaims.repository;
-    HIVED_ALLOWED_REF = cfg.allowedClaims.reference;
     HIVED_IGNORED_UNITS = lib.concatStringsSep "," cfg.check.ignoredUnits;
     HIVED_SETTLE_SECS = toString cfg.check.settleSeconds;
     HIVED_QUEUED_MAX_AGE_SECS = toString cfg.queuedMaxAgeSeconds;
     HIVED_TIMEOUT_BUILD_SECS = toString cfg.timeouts.build;
     HIVED_TIMEOUT_ACTIVATE_SECS = toString cfg.timeouts.activate;
-  }
-  // lib.optionalAttrs (cfg.allowedClaims.ownerId != null) {
-    HIVED_ALLOWED_OWNER_ID = cfg.allowedClaims.ownerId;
-  }
-  // lib.optionalAttrs (cfg.allowedClaims.workflowRef != null) {
-    HIVED_ALLOWED_WORKFLOW_REF = cfg.allowedClaims.workflowRef;
   };
 
   # The runner needs everything a deploy touches, and nothing else does.
@@ -50,24 +56,42 @@ let
 in
 {
   options.services.hived = {
-    enable = lib.mkEnableOption "the hive deploy daemon";
+    enable = lib.mkEnableOption "the hive deploy agent";
+
+    autoDeploy = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Deploy new commits on arrival, rather than waiting for an approval.";
+    };
 
     domain = lib.mkOption {
       type = lib.types.str;
       default = "hived.${host}.infra.hayl.in";
-      description = "Public name the GitHub Action posts to.";
+      description = "Public name GitHub pokes on a hub.";
     };
 
     useACMEHost = lib.mkOption {
       type = lib.types.nullOr lib.types.str;
       default = "${host}.infra.hayl.in";
-      description = "Certificate to serve the daemon under.";
+      description = "Certificate to serve the poke endpoint under.";
     };
 
     port = lib.mkOption {
       type = lib.types.port;
       default = 15680;
-      description = "Loopback port the listener binds.";
+      description = "Agent port on this node's mesh address.";
+    };
+
+    publicPort = lib.mkOption {
+      type = lib.types.port;
+      default = 15681;
+      description = "Loopback port for the poke endpoint, behind nginx.";
+    };
+
+    dashPort = lib.mkOption {
+      type = lib.types.port;
+      default = 15682;
+      description = "Loopback port for the dashboard, behind nginx.";
     };
 
     stateDir = lib.mkOption {
@@ -86,33 +110,6 @@ in
       type = lib.types.str;
       default = "main";
       description = "Only commits reachable from this branch may deploy.";
-    };
-
-    audience = lib.mkOption {
-      type = lib.types.str;
-      default = "hived";
-      description = "Audience the workflow must request its OIDC token for.";
-    };
-
-    allowedClaims = {
-      repository = lib.mkOption {
-        type = lib.types.str;
-        default = "haylinmoore/hive";
-      };
-      ownerId = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = "8162992";
-        description = "Numeric owner id, which survives a username being reused.";
-      };
-      reference = lib.mkOption {
-        type = lib.types.str;
-        default = "refs/heads/main";
-      };
-      workflowRef = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = "haylinmoore/hive/.github/workflows/deploy.yml@refs/heads/main";
-        description = "Pin to one workflow, so a token from another will not do.";
-      };
     };
 
     check = {
@@ -149,112 +146,159 @@ in
     };
   };
 
-  config = lib.mkIf cfg.enable {
-    users.users.hived = {
-      isSystemUser = true;
-      group = "hived";
-      home = cfg.stateDir;
-    };
-    users.groups.hived = { };
-
-    # Declared next to the thing that generates it. A no-op on hosts without
-    # impermanence, which is why this is unconditional.
-    persist.directories = [
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
       {
-        directory = cfg.stateDir;
-        user = "hived";
-        group = "hived";
-        mode = "0755";
-      }
-    ];
-
-    systemd.tmpfiles.rules = [
-      "d ${cfg.stateDir} 0755 hived hived - -"
-      "d ${cfg.stateDir}/logs 0755 hived hived - -"
-    ];
-
-    # The unprivileged half. It can verify a token, write a record, render the
-    # page, and ask systemd to start one specific unit. Nothing else.
-    systemd.services.hived = {
-      description = "hive deploy listener";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      inherit environment;
-      path = [ pkgs.systemd ];
-
-      serviceConfig = {
-        ExecStart = "${hive.hived}/bin/hived serve";
-        User = "hived";
-        Group = "hived";
-        Restart = "always";
-        RestartSec = 2;
-
-        NoNewPrivileges = true;
-        CapabilityBoundingSet = "";
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        PrivateTmp = true;
-        PrivateDevices = true;
-        ReadWritePaths = [ cfg.stateDir ];
-        RestrictAddressFamilies = [
-          "AF_INET"
-          "AF_INET6"
-          "AF_UNIX"
+        assertions = [
+          {
+            assertion = config.mesh.enable;
+            message = "hived talks over the mesh, enable mesh on ${host}";
+          }
         ];
-        RestrictNamespaces = true;
-        RestrictRealtime = true;
-        LockPersonality = true;
-        MemoryDenyWriteExecute = true;
-        SystemCallArchitectures = "native";
-        SystemCallFilter = [ "@system-service" ];
-      };
-    };
 
-    # The privileged half. A fixed ExecStart with a numeric instance, so the
-    # polkit rule below grants the listener exactly one capability.
-    systemd.services."hived-run@" = {
-      description = "hive deploy runner %i";
-      inherit environment;
-      path = runnerPath;
+        users.users.hived = {
+          isSystemUser = true;
+          group = "hived";
+          home = cfg.stateDir;
+        };
+        users.groups.hived = { };
 
-      # switch-to-configuration restarts the listener mid-deploy by design.
-      # These keep it from stopping the deploy that is doing the restarting.
-      restartIfChanged = false;
-      stopIfChanged = false;
-      unitConfig.X-StopOnReconfiguration = false;
+        systemd.tmpfiles.rules = [
+          "d ${cfg.stateDir} 0755 hived hived - -"
+          "d ${cfg.stateDir}/logs 0755 hived hived - -"
+        ];
 
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = "${hive.hived}/bin/hived run %i";
-        TimeoutStartSec = cfg.timeouts.build + cfg.timeouts.activate + 600;
-        WorkingDirectory = cfg.stateDir;
-      };
-    };
+        # The unprivileged half. It can read the mesh, answer hubs, and ask
+        # systemd to start one specific unit. Nothing else.
+        systemd.services.hived = {
+          description = "hive deploy agent";
+          wantedBy = [ "multi-user.target" ];
+          # It binds the mesh address, which goes away when yggdrasil restarts.
+          after = [
+            "network-online.target"
+            "yggdrasil.service"
+          ];
+          wants = [ "network-online.target" ];
+          partOf = [ "yggdrasil.service" ];
+          inherit environment;
+          path = [
+            pkgs.systemd
+            pkgs.git
+          ];
 
-    # Headless hosts do not enable polkit by default, and without it the rule
-    # below is silently dropped and the listener cannot start its runner.
-    security.polkit.enable = true;
+          serviceConfig = {
+            ExecStart = "${hive.hived}/bin/hived serve";
+            User = "hived";
+            Group = "hived";
+            SupplementaryGroups = [ config.services.yggdrasil.group ];
+            Restart = "always";
+            RestartSec = 2;
 
-    security.polkit.extraConfig = ''
-      // hived may start its own runner and nothing else. The instance is
-      // digits only, so there is no room to smuggle in another unit.
-      polkit.addRule(function(action, subject) {
-        if (subject.user !== "hived") return polkit.Result.NOT_HANDLED;
-        if (action.id !== "org.freedesktop.systemd1.manage-units") return polkit.Result.NOT_HANDLED;
-        var unit = action.lookup("unit");
-        if (/^hived-run@[0-9]+\.service$/.test(unit)) {
-          var verb = action.lookup("verb");
-          if (verb === "start" || verb === "status") return polkit.Result.YES;
+            NoNewPrivileges = true;
+            CapabilityBoundingSet = "";
+            ProtectSystem = "strict";
+            ProtectHome = true;
+            PrivateTmp = true;
+            PrivateDevices = true;
+            ReadWritePaths = [ cfg.stateDir ];
+            RestrictAddressFamilies = [
+              "AF_INET"
+              "AF_INET6"
+              "AF_UNIX"
+            ];
+            RestrictNamespaces = true;
+            RestrictRealtime = true;
+            LockPersonality = true;
+            MemoryDenyWriteExecute = true;
+            SystemCallArchitectures = "native";
+            SystemCallFilter = [ "@system-service" ];
+          };
+        };
+
+        # The privileged half. A fixed ExecStart with a numeric instance, so the
+        # polkit rule below grants the agent exactly one capability.
+        systemd.services."hived-run@" = {
+          description = "hive deploy runner %i";
+          inherit environment;
+          path = runnerPath;
+
+          # switch-to-configuration restarts the agent mid-deploy by design.
+          # These keep it from stopping the deploy that is doing the restarting.
+          restartIfChanged = false;
+          stopIfChanged = false;
+          unitConfig.X-StopOnReconfiguration = false;
+
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${hive.hived}/bin/hived run %i";
+            TimeoutStartSec = cfg.timeouts.build + cfg.timeouts.activate + 600;
+            WorkingDirectory = cfg.stateDir;
+          };
+        };
+
+        # Headless hosts do not enable polkit by default, and without it the rule
+        # below is silently dropped and the agent cannot start its runner.
+        security.polkit.enable = true;
+
+        security.polkit.extraConfig = ''
+          // hived may start its own runner and nothing else. The instance is
+          // digits only, so there is no room to smuggle in another unit.
+          polkit.addRule(function(action, subject) {
+            if (subject.user !== "hived") return polkit.Result.NOT_HANDLED;
+            if (action.id !== "org.freedesktop.systemd1.manage-units") return polkit.Result.NOT_HANDLED;
+            var unit = action.lookup("unit");
+            if (/^hived-run@[0-9]+\.service$/.test(unit)) {
+              var verb = action.lookup("verb");
+              if (verb === "start" || verb === "status") return polkit.Result.YES;
+            }
+            return polkit.Result.NOT_HANDLED;
+          });
+        '';
+
+        networking.firewall.interfaces.ygg0.allowedTCPPorts = [ cfg.port ] ++ lib.optional isHub 80;
+      }
+
+      (lib.optionalAttrs (options ? persist) {
+        persist.directories = [
+          {
+            directory = cfg.stateDir;
+            user = "hived";
+            group = "hived";
+            mode = "0755";
+          }
+        ];
+      })
+
+      (lib.mkIf isHub {
+        # Only the mesh may see the dashboard. Everything on it is a hive
+        # member, and nothing from outside has a 200::/7 source.
+        services.nginx.virtualHosts."dash.hive.hayl.in" = {
+          extraConfig = ''
+            allow 200::/7;
+            deny all;
+          '';
+          locations."/" = {
+            proxyPass = "http://[::1]:${toString cfg.dashPort}";
+            recommendedProxySettings = true;
+          };
+        };
+      })
+
+      (lib.optionalAttrs (options ? proxySites) (
+        lib.mkIf isHub {
+          proxySites.hived = {
+            domain = cfg.domain;
+            proxyUri = "http://127.0.0.1:${toString cfg.publicPort}/";
+            useACMEHost = cfg.useACMEHost;
+          };
         }
-        return polkit.Result.NOT_HANDLED;
-      });
-    '';
+      ))
 
-    proxySites.hived = {
-      domain = cfg.domain;
-      proxyUri = "http://127.0.0.1:${toString cfg.port}/";
-      useACMEHost = cfg.useACMEHost;
-    };
-  };
+      (lib.optionalAttrs (options ? dns) (
+        lib.mkIf isHub {
+          dns.records."dash.hive.hayl.in".AAAA = map address hubs;
+        }
+      ))
+    ]
+  );
 }

@@ -17,6 +17,7 @@
     ./power.nix
     ../../nixos/shared/nix.nix
     ../../nixos/mesh
+    ../../nixos/modules/hived.nix
   ];
 
   # allowUnfree is already set in default.nix when creating pkgs
@@ -34,6 +35,8 @@
 
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
   mesh.enable = true;
+  services.hived.enable = true;
+  services.hived.autoDeploy = false;
 
   networking.nameservers = [ "127.0.0.1" ];
 

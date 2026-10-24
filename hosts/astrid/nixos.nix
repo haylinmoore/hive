@@ -15,6 +15,7 @@
     ./wemux.nix
     ../../nixos/shared/nix.nix
     ../../nixos/mesh
+    ../../nixos/modules/hived.nix
   ];
 
   system.stateVersion = "25.11";
@@ -30,6 +31,7 @@
 
   sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
   mesh.enable = true;
+  services.hived.enable = true;
 
   networking.networkmanager = {
     enable = true;
