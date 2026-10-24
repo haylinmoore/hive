@@ -47,6 +47,23 @@ if [[ $EUID -ne 0 ]] && command -v hive-rebuild > /dev/null 2>&1; then
   rebuild=(pkexec "$(readlink -f "$(command -v hive-rebuild)")")
 fi
 
+# Switch this machine to the closure a build left at $toplevel.
+activate_toplevel() {
+  # This switches the machine it runs on. Activating another host's closure
+  # here would replace this system with that one.
+  if [[ "$(this_host)" != "$cmd" ]]; then
+    echo "refusing to activate $cmd on $(this_host)" >&2
+    echo "run this on $cmd, or from here use '$0 colmena apply --on $cmd'" >&2
+    exit 1
+  fi
+  if [[ ! -L "$toplevel" ]]; then
+    echo "$toplevel is missing, run '$0 $cmd build' first" >&2
+    exit 1
+  fi
+  "${sudo[@]}" nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f "$toplevel")"
+  "${sudo[@]}" /nix/var/nix/profiles/system/bin/switch-to-configuration switch
+}
+
 # Run colmena from the environment if present, otherwise from the dev shell.
 run_colmena() {
   if command -v colmena > /dev/null 2>&1; then
@@ -117,15 +134,23 @@ case "$cmd" in
       [[ "$answer" == y ]] && dnscontrol push
     fi
     ;;
-  pepper)
+  pepper | astrid)
+    # hived builds and activates as two steps, a person usually just switches.
     shift
     action=${1:-switch}
-    "${rebuild[@]}" "$action" --file "$PWD/default.nix" --attr "hosts.$cmd"
-    ;;
-  astrid)
-    shift
-    action=${1:-switch}
-    "${sudo[@]}" nixos-rebuild "$action" --file default.nix --attr hosts.astrid
+    toplevel=".gcroots/node-$cmd"
+
+    case "$action" in
+      build) nix-build default.nix --attr "hosts.$cmd.system" --out-link "$toplevel" ;;
+      activate) activate_toplevel ;;
+      *)
+        if [[ "$cmd" == pepper ]]; then
+          "${rebuild[@]}" "$action" --file "$PWD/default.nix" --attr "hosts.$cmd"
+        else
+          "${sudo[@]}" nixos-rebuild "$action" --file default.nix --attr "hosts.$cmd"
+        fi
+        ;;
+    esac
     ;;
   zoe | athena)
     # Build locally through colmena so the closure matches a colmena deploy
@@ -138,26 +163,10 @@ case "$cmd" in
       run_colmena build --config colmena.nix --on "$cmd" --no-build-on-target --keep-result
     }
 
-    do_activate() {
-      # This switches the machine it runs on. Activating another host's closure
-      # here would replace this system with that one.
-      if [[ "$(this_host)" != "$cmd" ]]; then
-        echo "refusing to activate $cmd on $(this_host)" >&2
-        echo "run this on $cmd, or from here use '$0 colmena apply --on $cmd'" >&2
-        exit 1
-      fi
-      if [[ ! -L "$toplevel" ]]; then
-        echo "$toplevel is missing, run '$0 $cmd build' first" >&2
-        exit 1
-      fi
-      "${sudo[@]}" nix-env -p /nix/var/nix/profiles/system --set "$(readlink -f "$toplevel")"
-      "${sudo[@]}" /nix/var/nix/profiles/system/bin/switch-to-configuration switch
-    }
-
     case "$action" in
       build) do_build ;;
-      activate) do_activate ;;
-      switch) do_build && do_activate ;;
+      activate) activate_toplevel ;;
+      switch) do_build && activate_toplevel ;;
       *)
         echo "Usage: $0 $cmd {build|activate|switch}" >&2
         exit 1
