@@ -5,7 +5,6 @@
     editor = false;
   };
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.initrd.systemd.enable = true;
 
   hardware.enableRedistributableFirmware = true;
   hardware.bluetooth.enable = true;
