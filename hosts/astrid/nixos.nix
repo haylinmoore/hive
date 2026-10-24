@@ -14,6 +14,7 @@
     ./services.nix
     ./wemux.nix
     ../../nixos/shared/nix.nix
+    ../../nixos/mesh
   ];
 
   system.stateVersion = "25.11";
@@ -26,6 +27,9 @@
   security.sudo.wheelNeedsPassword = false;
 
   networking.hostName = "astrid";
+
+  sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  mesh.enable = true;
 
   networking.networkmanager = {
     enable = true;

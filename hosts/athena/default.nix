@@ -116,6 +116,9 @@
 
   services.hived.enable = true;
 
+  mesh.enable = true;
+  mesh.multicastInterfaces = null;
+
   sops.secrets."dns" = {
     sopsFile = ../../secrets/dns.env;
     format = "dotenv";

@@ -16,6 +16,7 @@
     ./rebuild.nix
     ./power.nix
     ../../nixos/shared/nix.nix
+    ../../nixos/mesh
   ];
 
   # allowUnfree is already set in default.nix when creating pkgs
@@ -30,6 +31,10 @@
   security.sudo.wheelNeedsPassword = true;
 
   networking.hostName = "pepper";
+
+  sops.age.sshKeyPaths = [ "/etc/ssh/ssh_host_ed25519_key" ];
+  mesh.enable = true;
+
   networking.nameservers = [ "127.0.0.1" ];
 
   networking.networkmanager.enable = true;

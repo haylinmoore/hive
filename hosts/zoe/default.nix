@@ -47,6 +47,8 @@ rec {
 
   services.hived.enable = true;
 
+  mesh.enable = true;
+
   services.dli-ddns.zoe-infra-hayl-in = {
     provider = "bunny";
     zone = "hayl.in";

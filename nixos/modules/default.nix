@@ -9,5 +9,6 @@
     ./duckdns.nix
     ./ethtool.nix
     ./dns.nix
+    ../mesh
   ];
 }

@@ -6,6 +6,7 @@
     imports = [
       ./nixos.nix
       "${hive.sources.home-manager}/nixos"
+      "${hive.sources.sops}/modules/sops"
     ];
 
     # Use the pkgs with overlays from hive
