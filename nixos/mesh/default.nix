@@ -127,7 +127,7 @@ in
     (lib.optionalAttrs (options ? dns) {
       dns.records = lib.mapAttrs' (
         name: h:
-        lib.nameValuePair "${name}.ygg.hayl.in" { AAAA = hive.tools.yggdrasil.address h.publicKey; }
+        lib.nameValuePair "${name}.hive.hayl.in" { AAAA = hive.tools.yggdrasil.address h.publicKey; }
       ) keyed;
     })
   ];
