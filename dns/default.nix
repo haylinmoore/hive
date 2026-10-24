@@ -21,14 +21,42 @@ let
   relative = zone: fqdn: if fqdn == zone then "@" else lib.removeSuffix ".${zone}" fqdn;
   absolute = name: if lib.hasSuffix "." name then name else "${name}.";
 
-  declared = lib.concatLists (
+  # Names a zone file gives addresses itself, which a vhost does not get to
+  # claim. Other records at a name, like NS or MX at an apex, leave it be.
+  zoneNames = lib.concatLists (
     lib.mapAttrsToList (
-      node: n:
-      lib.mapAttrsToList (fqdn: value: {
-        inherit node fqdn;
-        value = removeAttrs value [ "_module" ];
-      }) n.config.dns.records
-    ) nodes
+      zone: z:
+      map
+        (
+          r:
+          let
+            name = lib.head r.args;
+          in
+          if name == "@" then zone else "${name}.${zone}"
+        )
+        (
+          lib.filter (
+            r:
+            lib.elem r.type [
+              "A"
+              "AAAA"
+              "CNAME"
+            ]
+          ) z.records
+        )
+    ) zones
+  );
+
+  declared = lib.filter (d: !(d.value.fromVhost && lib.elem d.fqdn zoneNames)) (
+    lib.concatLists (
+      lib.mapAttrsToList (
+        node: n:
+        lib.mapAttrsToList (fqdn: value: {
+          inherit node fqdn;
+          value = removeAttrs value [ "_module" ];
+        }) n.config.dns.records
+      ) nodes
+    )
   );
 
   merged = lib.mapAttrs (
