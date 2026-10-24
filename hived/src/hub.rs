@@ -309,7 +309,14 @@ async fn log_proxy(
         return err(404, "no such node");
     };
     let path = format!("/v1/deployments/{id}/logs?offset={}", q.offset.unwrap_or(0));
-    let resp = match hub.client.get(hub.agent_url(address, &path)).send().await {
+    forward_log(&hub, address, &path).await
+}
+
+/// Pass a slice of a log through from an agent. The offsets in the headers
+/// count the agent's bytes, so colour codes can be dropped from the body
+/// without throwing off where the next read starts.
+async fn forward_log(hub: &Hub, address: Ipv6Addr, path: &str) -> Response {
+    let resp = match hub.client.get(hub.agent_url(address, path)).send().await {
         Ok(r) => r,
         Err(e) => return err(502, &e.to_string()),
     };
@@ -324,6 +331,7 @@ async fn log_proxy(
         }
     }
     let body = resp.bytes().await.unwrap_or_default();
+    let body = crate::job::strip_ansi(&String::from_utf8_lossy(&body));
     (
         StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY),
         headers,
@@ -409,6 +417,185 @@ async fn approve(
     Redirect::to(&format!("/node/{name}")).into_response()
 }
 
+/// The node that runs `job`, as its own status reports it.
+fn job_owner(st: &HubState, job: &str) -> Option<(String, Ipv6Addr)> {
+    st.nodes.values().find_map(|v| {
+        let s = v.status.as_ref()?;
+        s.jobs
+            .iter()
+            .any(|j| j == job)
+            .then(|| (v.name.clone(), v.address))
+    })
+}
+
+/// What a waiting preview proposed, for showing beside the approve button.
+async fn preview_text(hub: &Hub, address: Ipv6Addr, id: u64) -> Option<String> {
+    let text = hub
+        .client
+        .get(hub.agent_url(address, &format!("/v1/jobs/{id}/logs")))
+        .send()
+        .await
+        .ok()?
+        .error_for_status()
+        .ok()?
+        .text()
+        .await
+        .ok()?;
+    let text = crate::job::strip_ansi(&text);
+    let after = text
+        .split_once("=== preview ===\n")
+        .map(|(_, rest)| rest)
+        .unwrap_or(&text);
+    Some(after.trim().to_string())
+}
+
+async fn job_page(AxumState(hub): AxumState<SharedHub>, Path(name): Path<String>) -> Response {
+    let st = hub.state.read().await.clone();
+    let owner = job_owner(&st, &name);
+    let runs: Vec<_> = owner
+        .as_ref()
+        .and_then(|(n, _)| st.nodes.get(n))
+        .and_then(|v| v.status.as_ref())
+        .map(|s| {
+            s.job_runs
+                .iter()
+                .filter(|r| r.job == name)
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+    let pending = runs
+        .iter()
+        .find(|r| r.state == crate::state::JobState::Pending);
+    let preview = match (pending, &owner) {
+        (Some(run), Some((_, address))) => preview_text(&hub, *address, run.id).await,
+        _ => None,
+    };
+    Html(dash::job(
+        &hub.app.cfg,
+        &st,
+        &name,
+        owner.as_ref().map(|(n, _)| n.as_str()),
+        &runs,
+        preview.as_deref(),
+        now(),
+    ))
+    .into_response()
+}
+
+async fn job_run_page(
+    AxumState(hub): AxumState<SharedHub>,
+    Path((name, id)): Path<(String, u64)>,
+) -> Response {
+    let st = hub.state.read().await.clone();
+    let run = job_owner(&st, &name)
+        .and_then(|(n, _)| st.nodes.get(&n).cloned())
+        .and_then(|v| v.status)
+        .and_then(|s| s.job_runs.into_iter().find(|r| r.id == id && r.job == name));
+    Html(dash::job_run(
+        &hub.app.cfg,
+        &st,
+        &name,
+        id,
+        run.as_ref(),
+        now(),
+    ))
+    .into_response()
+}
+
+async fn job_log(
+    AxumState(hub): AxumState<SharedHub>,
+    Path((name, id)): Path<(String, u64)>,
+    Query(q): Query<LogQuery>,
+) -> Response {
+    let st = hub.state.read().await.clone();
+    let Some((_, address)) = job_owner(&st, &name) else {
+        return err(404, "nothing runs that job");
+    };
+    let path = format!("/v1/jobs/{id}/logs?offset={}", q.offset.unwrap_or(0));
+    forward_log(&hub, address, &path).await
+}
+
+/// Approve, dismiss and preview all go the same way: checked here as an
+/// operator's click, then handed to the node that runs the job.
+async fn job_action(
+    hub: &Hub,
+    peer: SocketAddr,
+    headers: &HeaderMap,
+    name: &str,
+    path: &str,
+) -> Response {
+    if let Err(why) = may_approve(hub, peer, headers) {
+        return (StatusCode::FORBIDDEN, why).into_response();
+    }
+    let st = hub.state.read().await.clone();
+    let Some((owner, address)) = job_owner(&st, name) else {
+        return (StatusCode::NOT_FOUND, "nothing runs that job").into_response();
+    };
+    let sent = hub.client.post(hub.agent_url(address, path)).send().await;
+    match sent {
+        Ok(r) if r.status().is_success() => {
+            eprintln!("{} asked {owner} for {path}", client_ip(peer, headers));
+            hub.wake.notify_one();
+            Redirect::to(&format!("/job/{name}")).into_response()
+        }
+        Ok(r) => {
+            let status = r.status();
+            let body = r.text().await.unwrap_or_default();
+            (status, format!("{owner} refused: {body}")).into_response()
+        }
+        Err(e) => (StatusCode::BAD_GATEWAY, format!("{owner}: {e}")).into_response(),
+    }
+}
+
+async fn approve_job(
+    AxumState(hub): AxumState<SharedHub>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path((name, id)): Path<(String, u64)>,
+    headers: HeaderMap,
+) -> Response {
+    job_action(
+        &hub,
+        peer,
+        &headers,
+        &name,
+        &format!("/v1/jobs/{id}/approve"),
+    )
+    .await
+}
+
+async fn dismiss_job(
+    AxumState(hub): AxumState<SharedHub>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path((name, id)): Path<(String, u64)>,
+    headers: HeaderMap,
+) -> Response {
+    job_action(
+        &hub,
+        peer,
+        &headers,
+        &name,
+        &format!("/v1/jobs/{id}/dismiss"),
+    )
+    .await
+}
+
+async fn preview_job(
+    AxumState(hub): AxumState<SharedHub>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path(name): Path<String>,
+    headers: HeaderMap,
+) -> Response {
+    job_action(
+        &hub,
+        peer,
+        &headers,
+        &name,
+        &format!("/v1/job/{name}/preview"),
+    )
+    .await
+}
+
 pub fn dash_router(hub: SharedHub) -> Router {
     Router::new()
         .route("/", get(fleet))
@@ -417,6 +604,12 @@ pub fn dash_router(hub: SharedHub) -> Router {
         .route("/node/{name}/approve", post(approve))
         .route("/node/{name}/deploy/{id}", get(deployment))
         .route("/node/{name}/deploy/{id}/log", get(log_proxy))
+        .route("/job/{name}", get(job_page))
+        .route("/job/{name}/preview", post(preview_job))
+        .route("/job/{name}/{id}", get(job_run_page))
+        .route("/job/{name}/{id}/log", get(job_log))
+        .route("/job/{name}/{id}/approve", post(approve_job))
+        .route("/job/{name}/{id}/dismiss", post(dismiss_job))
         .route("/healthz", get(healthz))
         .route(
             "/robots.txt",

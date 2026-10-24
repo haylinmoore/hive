@@ -1,7 +1,7 @@
 use crate::agent::DeploymentView;
 use crate::config::Config;
 use crate::hub::{HubState, NodeView};
-use crate::state::State;
+use crate::state::{JobPhase, JobRun, JobState, State};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
@@ -166,6 +166,19 @@ pub fn unknown_keys(cfg: &Config, st: &HubState) -> BTreeSet<String> {
 }
 
 fn layout(cfg: &Config, st: &HubState, title: &str, refresh: bool, body: &str) -> String {
+    let tabs: String = job_tabs(st)
+        .into_iter()
+        .map(|(job, waiting)| {
+            if waiting > 0 {
+                format!(
+                    r#"<a href="/job/{j}">{j} <span class="need">{waiting}</span></a>"#,
+                    j = esc(&job)
+                )
+            } else {
+                format!(r#"<a href="/job/{j}">{j}</a>"#, j = esc(&job))
+            }
+        })
+        .collect();
     let unknown = unknown_keys(cfg, st);
     let banner = if unknown.is_empty() {
         String::new()
@@ -190,7 +203,7 @@ fn layout(cfg: &Config, st: &HubState, title: &str, refresh: bool, body: &str) -
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} · hive</title>{refresh}<style>{CSS}</style></head>
 <body><header><a class="brand" href="/">hive</a>
-<nav><a href="/">fleet</a><a href="/mesh">mesh</a></nav>
+<nav><a href="/">fleet</a>{tabs}<a href="/mesh">mesh</a></nav>
 <span class="served">served by {host}</span></header>
 {banner}<main>{body}</main></body></html>"#,
         title = esc(title),
@@ -833,6 +846,150 @@ pub fn mesh(cfg: &Config, st: &HubState, _now: i64) -> String {
     layout(cfg, st, "mesh", true, &body)
 }
 
+/// Every job some node reports running, with how many runs wait on someone.
+pub fn job_tabs(st: &HubState) -> BTreeMap<String, usize> {
+    let mut out = BTreeMap::new();
+    for s in st.nodes.values().filter_map(|v| v.status.as_ref()) {
+        for job in &s.jobs {
+            let waiting = s
+                .job_runs
+                .iter()
+                .filter(|r| &r.job == job && r.state == JobState::Pending)
+                .count();
+            *out.entry(job.clone()).or_insert(0) += waiting;
+        }
+    }
+    out
+}
+
+fn job_state_cell(run: &JobRun) -> String {
+    let label = match (run.phase, run.state) {
+        (JobPhase::Push, JobState::Queued) => "push queued",
+        (JobPhase::Push, JobState::Running) => "pushing",
+        (JobPhase::Preview, JobState::Running) => "previewing",
+        (_, s) => s.label(),
+    };
+    match run.state {
+        JobState::Pending | JobState::Failed => {
+            format!(r#"<span class="need">{label}</span>"#)
+        }
+        _ => label.to_string(),
+    }
+}
+
+fn job_button(job: &str, action: &str, label: &str) -> String {
+    format!(
+        r#"<form method="post" action="/job/{j}/{action}"><button>{label}</button></form>"#,
+        j = esc(job),
+        label = esc(label),
+    )
+}
+
+pub fn job(
+    cfg: &Config,
+    st: &HubState,
+    name: &str,
+    owner: Option<&str>,
+    runs: &[JobRun],
+    preview: Option<&str>,
+    now: i64,
+) -> String {
+    let mut body = format!("<h1>{}", esc(name));
+    match owner {
+        Some(o) => {
+            let _ = write!(
+                body,
+                r#" <span class="muted">runs on <a href="/node/{o}">{o}</a></span> {}"#,
+                job_button(name, "preview", "preview main"),
+                o = esc(o),
+            );
+        }
+        None => body.push_str(r#" <span class="need">no node reports running this</span>"#),
+    }
+    body.push_str("</h1>");
+
+    if let Some(run) = runs.iter().find(|r| r.state == JobState::Pending) {
+        let _ = write!(
+            body,
+            r#"<h2>waiting for approval</h2><p>{} would make {} at {}, previewed {}. {} {}</p>"#,
+            esc(name),
+            match run.changes {
+                Some(1) => "1 change".to_string(),
+                Some(n) => format!("{n} changes"),
+                None => "changes".to_string(),
+            },
+            commit(cfg, &run.rev),
+            run.finished_at.map(|t| ago(now, t)).unwrap_or_default(),
+            job_button(name, &format!("{}/approve", run.id), "approve and push"),
+            job_button(name, &format!("{}/dismiss", run.id), "dismiss"),
+        );
+        let _ = write!(body, "<pre>{}</pre>", esc(preview.unwrap_or("")));
+    }
+
+    body.push_str("<h2>history</h2>");
+    if runs.is_empty() {
+        body.push_str(r#"<p class="muted">nothing yet. Runs start when main moves, or with preview main.</p>"#);
+    } else {
+        body.push_str(
+            r#"<div class="scroll"><table><tr><th>#</th><th>commit</th><th>state</th><th>changes</th><th>when</th><th class="wrap">error</th></tr>"#,
+        );
+        for run in runs {
+            let _ = write!(
+                body,
+                r#"<tr><td><a href="/job/{j}/{id}">{id}</a></td><td>{commit}</td><td>{state}</td><td>{changes}</td><td>{when}</td><td class="wrap">{error}</td></tr>"#,
+                j = esc(name),
+                id = run.id,
+                commit = commit(cfg, &run.rev),
+                state = job_state_cell(run),
+                changes = run.changes.map(|n| n.to_string()).unwrap_or_default(),
+                when = ago(
+                    now,
+                    run.finished_at.or(run.started_at).unwrap_or(run.queued_at)
+                ),
+                error = esc(run.error.as_deref().unwrap_or("")),
+            );
+        }
+        body.push_str("</table></div>");
+    }
+    layout(cfg, st, name, true, &body)
+}
+
+pub fn job_run(
+    cfg: &Config,
+    st: &HubState,
+    name: &str,
+    id: u64,
+    run: Option<&JobRun>,
+    now: i64,
+) -> String {
+    let mut body = format!(
+        r#"<h1><a href="/job/{j}">{j}</a> run {id}</h1>"#,
+        j = esc(name)
+    );
+    let mut live = false;
+    if let Some(run) = run {
+        live = run.state.is_active();
+        body.push_str("<dl>");
+        let _ = write!(body, "<dt>commit</dt><dd>{}</dd>", commit(cfg, &run.rev));
+        let _ = write!(body, "<dt>state</dt><dd>{}</dd>", job_state_cell(run));
+        if let Some(n) = run.changes {
+            let _ = write!(body, "<dt>changes</dt><dd>{n}</dd>");
+        }
+        let _ = write!(body, "<dt>queued</dt><dd>{}</dd>", ago(now, run.queued_at));
+        if let Some(e) = &run.error {
+            let _ = write!(body, r#"<dt>error</dt><dd class="need">{}</dd>"#, esc(e));
+        }
+        body.push_str("</dl>");
+    }
+    let _ = write!(
+        body,
+        r#"<h2>log</h2><pre id="log" data-src="/job/{j}/{id}/log" data-live="{live}"></pre><script>{LOG_JS}</script>"#,
+        j = esc(name),
+        live = if live { "1" } else { "0" },
+    );
+    layout(cfg, st, &format!("{name} run {id}"), false, &body)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -865,6 +1022,8 @@ mod tests {
             current_system: None,
             failed_units: vec![],
             mesh: None,
+            jobs: vec![],
+            job_runs: vec![],
         }
     }
 

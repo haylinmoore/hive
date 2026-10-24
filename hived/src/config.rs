@@ -75,6 +75,8 @@ pub struct Config {
     pub repo_url: String,
     pub branch: String,
     pub run_unit_prefix: String,
+    pub job_unit_prefix: String,
+    pub jobs: Vec<String>,
 
     pub poll_every: Duration,
     pub main_every: Duration,
@@ -123,6 +125,8 @@ impl Config {
             repo_url: env_or("HIVED_REPO_URL", "https://github.com/haylinmoore/hive.git"),
             branch: env_or("HIVED_BRANCH", "main"),
             run_unit_prefix: env_or("HIVED_RUN_UNIT_PREFIX", "hived-run@"),
+            job_unit_prefix: env_or("HIVED_JOB_UNIT_PREFIX", "hived-job@"),
+            jobs: env_list("HIVED_JOBS"),
 
             poll_every: env_secs("HIVED_POLL_SECS", 5),
             main_every: env_secs("HIVED_MAIN_SECS", 300),
@@ -152,6 +156,10 @@ impl Config {
 
     pub fn run_unit(&self, id: u64) -> String {
         format!("{}{}.service", self.run_unit_prefix, id)
+    }
+
+    pub fn job_unit(&self, id: u64) -> String {
+        format!("{}{}.service", self.job_unit_prefix, id)
     }
 
     pub fn name_for_key(&self, key: &str) -> Option<&str> {

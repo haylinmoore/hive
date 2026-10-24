@@ -4,6 +4,29 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
+/// Which log file a write or read is about. Deploy logs keep their bare
+/// numeric names so existing logs and log reaping are untouched.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Log {
+    Deploy(u64),
+    Job(u64),
+}
+
+impl Log {
+    fn file(&self) -> String {
+        match self {
+            Log::Deploy(id) => format!("{id}.log"),
+            Log::Job(id) => format!("job-{id}.log"),
+        }
+    }
+}
+
+impl From<u64> for Log {
+    fn from(id: u64) -> Log {
+        Log::Deploy(id)
+    }
+}
+
 /// On-disk home for the deployment records and their logs.
 ///
 /// Both the listener and the root runner write here, so every read-modify-write
@@ -29,8 +52,8 @@ impl StateDir {
         self.root.join("state.lock")
     }
 
-    pub fn log_path(&self, id: u64) -> PathBuf {
-        self.root.join("logs").join(format!("{id}.log"))
+    pub fn log_path(&self, log: impl Into<Log>) -> PathBuf {
+        self.root.join("logs").join(log.into().file())
     }
 
     fn read_unlocked(&self) -> io::Result<Store> {
@@ -82,18 +105,23 @@ impl StateDir {
         result
     }
 
-    pub fn append_log(&self, id: u64, bytes: &[u8]) -> io::Result<u64> {
+    pub fn append_log(&self, log: impl Into<Log>, bytes: &[u8]) -> io::Result<u64> {
         let mut f = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(self.log_path(id))?;
+            .open(self.log_path(log))?;
         f.write_all(bytes)?;
         Ok(f.metadata()?.len())
     }
 
     /// Serve a log by byte offset so a poller can stream it without re-reading.
-    pub fn read_log(&self, id: u64, offset: u64, max: usize) -> io::Result<(Vec<u8>, u64, bool)> {
-        let mut f = File::open(self.log_path(id))?;
+    pub fn read_log(
+        &self,
+        log: impl Into<Log>,
+        offset: u64,
+        max: usize,
+    ) -> io::Result<(Vec<u8>, u64, bool)> {
+        let mut f = File::open(self.log_path(log))?;
         let len = f.metadata()?.len();
         if offset >= len {
             return Ok((Vec::new(), len, true));
@@ -106,8 +134,8 @@ impl StateDir {
         Ok((buf, next, next >= len))
     }
 
-    pub fn log_size(&self, id: u64) -> u64 {
-        fs::metadata(self.log_path(id))
+    pub fn log_size(&self, log: impl Into<Log>) -> u64 {
+        fs::metadata(self.log_path(log))
             .map(|m| m.len())
             .unwrap_or(0)
     }

@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::health;
 use crate::runner;
-use crate::state::{Admission, Deployment, Offer, State, Store, is_hex_sha};
-use crate::store::StateDir;
+use crate::state::{Admission, Deployment, JobRefusal, JobRun, Offer, State, Store, is_hex_sha};
+use crate::store::{Log, StateDir};
 use crate::ygg::{self, Mesh};
 use axum::extract::{ConnectInfo, Path, Query, State as AxumState};
 use axum::http::{HeaderValue, StatusCode, header};
@@ -35,9 +35,9 @@ pub fn err(status: u16, message: &str) -> Response {
 /// `systemctl is-active` only succeeds for ActiveState=active, and a
 /// Type=oneshot unit is "activating" for the whole of its ExecStart. Asking
 /// is-active would call a running deploy dead a second after starting it.
-pub fn is_unit_active(cfg: &Config, id: u64) -> bool {
+pub fn unit_active(unit: &str) -> bool {
     let out = Command::new("systemctl")
-        .args(["show", "-p", "ActiveState", "--value", &cfg.run_unit(id)])
+        .args(["show", "-p", "ActiveState", "--value", unit])
         .output();
     match out {
         Ok(o) => matches!(
@@ -49,18 +49,23 @@ pub fn is_unit_active(cfg: &Config, id: u64) -> bool {
     }
 }
 
-pub fn start_unit(cfg: &Config, id: u64) -> std::io::Result<()> {
+pub fn start(unit: &str) -> std::io::Result<()> {
     let status = Command::new("systemctl")
-        .args(["start", "--no-block", &cfg.run_unit(id)])
+        .args(["start", "--no-block", unit])
         .status()?;
     if status.success() {
         Ok(())
     } else {
-        Err(std::io::Error::other(format!(
-            "failed to start {}",
-            cfg.run_unit(id)
-        )))
+        Err(std::io::Error::other(format!("failed to start {unit}")))
     }
+}
+
+pub fn is_unit_active(cfg: &Config, id: u64) -> bool {
+    unit_active(&cfg.run_unit(id))
+}
+
+pub fn start_unit(cfg: &Config, id: u64) -> std::io::Result<()> {
+    start(&cfg.run_unit(id))
 }
 
 pub fn now() -> i64 {
@@ -99,6 +104,11 @@ pub struct NodeStatus {
     pub current_system: Option<String>,
     pub failed_units: Vec<String>,
     pub mesh: Option<Mesh>,
+    /// Jobs this node runs, and its most recent runs of them.
+    #[serde(default)]
+    pub jobs: Vec<String>,
+    #[serde(default)]
+    pub job_runs: Vec<JobRun>,
 }
 
 pub fn status(app: &App) -> NodeStatus {
@@ -136,6 +146,8 @@ pub fn status(app: &App) -> NodeStatus {
             .filter(|u| !u.starts_with(&app.cfg.run_unit_prefix))
             .collect(),
         mesh: ygg::snapshot(&app.cfg.ygg_socket).ok(),
+        jobs: app.cfg.jobs.clone(),
+        job_runs: store.jobs.iter().take(30).cloned().collect(),
     }
 }
 
@@ -183,10 +195,11 @@ async fn target(
         return err(400, "rev must be a full 40 character sha");
     }
 
-    let offer = match app
-        .dir
-        .update(|s| s.offer(&rev, app.cfg.auto_deploy, now()))
-    {
+    let offer = match app.dir.update(|s| {
+        let offer = s.offer(&rev, app.cfg.auto_deploy, now());
+        s.plan_jobs(&app.cfg.jobs, &rev, now(), false);
+        offer
+    }) {
         Ok(o) => o,
         Err(e) => return err(500, &format!("state write failed: {e}")),
     };
@@ -255,8 +268,11 @@ async fn logs(
     Path(id): Path<u64>,
     Query(q): Query<LogQuery>,
 ) -> Response {
-    let offset = q.offset.unwrap_or(0);
-    match app.dir.read_log(id, offset, 256 * 1024) {
+    log_response(&app, Log::Deploy(id), q.offset.unwrap_or(0))
+}
+
+fn log_response(app: &App, log: Log, offset: u64) -> Response {
+    match app.dir.read_log(log, offset, 256 * 1024) {
         Ok((chunk, next, eof)) => {
             let mut resp = chunk.into_response();
             let h = resp.headers_mut();
@@ -271,11 +287,83 @@ async fn logs(
             );
             resp
         }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            err(404, "no log for that deployment")
-        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => err(404, "no such log"),
         Err(e) => err(500, &format!("log read failed: {e}")),
     }
+}
+
+fn refused(why: JobRefusal) -> Response {
+    match why {
+        JobRefusal::Missing => err(404, "no such job run"),
+        JobRefusal::NotPending => err(409, "that run is not waiting for approval"),
+        JobRefusal::Stale => err(
+            409,
+            "main has moved since that preview, a fresh one is on its way",
+        ),
+    }
+}
+
+async fn approve_job(
+    AxumState(app): AxumState<Shared>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path(id): Path<u64>,
+) -> Response {
+    if !from_hub(&app, peer) {
+        return err(403, "approvals come through a hub");
+    }
+    match app.dir.update(|s| s.approve_job(id, now())) {
+        Ok(Ok(())) => {
+            eprintln!("{peer} approved job {id}");
+            Json(json!({ "id": id })).into_response()
+        }
+        Ok(Err(why)) => refused(why),
+        Err(e) => err(500, &format!("state write failed: {e}")),
+    }
+}
+
+async fn dismiss_job(
+    AxumState(app): AxumState<Shared>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path(id): Path<u64>,
+) -> Response {
+    if !from_hub(&app, peer) {
+        return err(403, "only a hub may dismiss a job");
+    }
+    match app.dir.update(|s| s.dismiss_job(id, now())) {
+        Ok(Ok(())) => Json(json!({ "id": id })).into_response(),
+        Ok(Err(why)) => refused(why),
+        Err(e) => err(500, &format!("state write failed: {e}")),
+    }
+}
+
+async fn preview_job(
+    AxumState(app): AxumState<Shared>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Path(job): Path<String>,
+) -> Response {
+    if !from_hub(&app, peer) {
+        return err(403, "only a hub may ask for a preview");
+    }
+    if !app.cfg.jobs.contains(&job) {
+        return err(404, "that job does not run here");
+    }
+    let queued = app.dir.update(|s| match s.target.clone() {
+        Some(rev) => Ok(s.plan_jobs(std::slice::from_ref(&job), &rev, now(), true)),
+        None => Err(()),
+    });
+    match queued {
+        Ok(Ok(ids)) => Json(json!({ "queued": ids })).into_response(),
+        Ok(Err(())) => err(409, "no hub has said where main is yet"),
+        Err(e) => err(500, &format!("state write failed: {e}")),
+    }
+}
+
+async fn job_logs(
+    AxumState(app): AxumState<Shared>,
+    Path(id): Path<u64>,
+    Query(q): Query<LogQuery>,
+) -> Response {
+    log_response(&app, Log::Job(id), q.offset.unwrap_or(0))
 }
 
 async fn healthz() -> &'static str {
@@ -290,5 +378,9 @@ pub fn router(app: Shared) -> Router {
         .route("/v1/approve", post(approve))
         .route("/v1/deployments", get(list))
         .route("/v1/deployments/{id}/logs", get(logs))
+        .route("/v1/jobs/{id}/logs", get(job_logs))
+        .route("/v1/jobs/{id}/approve", post(approve_job))
+        .route("/v1/jobs/{id}/dismiss", post(dismiss_job))
+        .route("/v1/job/{name}/preview", post(preview_job))
         .with_state(app)
 }

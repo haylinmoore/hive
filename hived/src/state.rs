@@ -184,6 +184,85 @@ pub struct Store {
     /// deploy on their own.
     #[serde(default)]
     pub available: Option<String>,
+    #[serde(default = "first_id")]
+    pub next_job_id: u64,
+    /// Newest first.
+    #[serde(default)]
+    pub jobs: Vec<JobRun>,
+}
+
+fn first_id() -> u64 {
+    1
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JobPhase {
+    Preview,
+    Push,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum JobState {
+    Queued,
+    Running,
+    /// Previewed with changes, waiting for someone to approve the push.
+    Pending,
+    Unchanged,
+    Pushed,
+    Failed,
+    /// main moved on before anyone approved this one.
+    Superseded,
+    Dismissed,
+}
+
+impl JobState {
+    pub fn label(&self) -> &'static str {
+        match self {
+            JobState::Queued => "queued",
+            JobState::Running => "running",
+            JobState::Pending => "waiting for approval",
+            JobState::Unchanged => "no changes",
+            JobState::Pushed => "pushed",
+            JobState::Failed => "failed",
+            JobState::Superseded => "superseded",
+            JobState::Dismissed => "dismissed",
+        }
+    }
+
+    pub fn is_active(&self) -> bool {
+        matches!(self, JobState::Queued | JobState::Running)
+    }
+}
+
+/// One preview of a job at a commit, and the push that may follow it. The
+/// push always runs at the commit that was previewed, never a newer one.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobRun {
+    pub id: u64,
+    pub job: String,
+    pub rev: String,
+    pub phase: JobPhase,
+    pub state: JobState,
+    pub queued_at: i64,
+    #[serde(default)]
+    pub started_at: Option<i64>,
+    #[serde(default)]
+    pub finished_at: Option<i64>,
+    #[serde(default)]
+    pub changes: Option<u64>,
+    #[serde(default)]
+    pub error: Option<String>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum JobRefusal {
+    Missing,
+    NotPending,
+    /// main has moved since this preview, so what it showed is not what a
+    /// push would do any more.
+    Stale,
 }
 
 /// What became of a hub telling us about a commit.
@@ -208,6 +287,160 @@ impl Store {
             deployments: Vec::new(),
             target: None,
             available: None,
+            next_job_id: 1,
+            jobs: Vec::new(),
+        }
+    }
+
+    pub fn job(&self, id: u64) -> Option<&JobRun> {
+        self.jobs.iter().find(|j| j.id == id)
+    }
+
+    pub fn job_mut(&mut self, id: u64) -> Option<&mut JobRun> {
+        self.jobs.iter_mut().find(|j| j.id == id)
+    }
+
+    /// Queue a preview of each job at `rev`, once per job and commit. Older
+    /// runs that have not started are retired, approved pushes included: a
+    /// push of an older commit would undo whatever main has since changed.
+    ///
+    /// `again` is a person asking for a fresh look, which may repeat a commit
+    /// already previewed as long as nothing for it is still in flight.
+    pub fn plan_jobs(&mut self, jobs: &[String], rev: &str, now: i64, again: bool) -> Vec<u64> {
+        let mut queued = Vec::new();
+        for job in jobs {
+            let seen = self.jobs.iter().any(|j| {
+                &j.job == job
+                    && j.rev == rev
+                    && (!again || j.state.is_active() || j.state == JobState::Pending)
+            });
+            if seen {
+                continue;
+            }
+            for old in self.jobs.iter_mut().filter(|j| &j.job == job) {
+                if matches!(old.state, JobState::Pending | JobState::Queued) {
+                    old.state = JobState::Superseded;
+                    old.finished_at = Some(now);
+                }
+            }
+            let id = self.next_job_id;
+            self.next_job_id += 1;
+            self.jobs.insert(
+                0,
+                JobRun {
+                    id,
+                    job: job.clone(),
+                    rev: rev.to_string(),
+                    phase: JobPhase::Preview,
+                    state: JobState::Queued,
+                    queued_at: now,
+                    started_at: None,
+                    finished_at: None,
+                    changes: None,
+                    error: None,
+                },
+            );
+            queued.push(id);
+        }
+        queued
+    }
+
+    /// Jobs share one checkout, so they run one at a time, oldest first.
+    pub fn take_job(&mut self, now: i64) -> Option<u64> {
+        if self.jobs.iter().any(|j| j.state == JobState::Running) {
+            return None;
+        }
+        let next = self
+            .jobs
+            .iter_mut()
+            .rev()
+            .find(|j| j.state == JobState::Queued)?;
+        next.state = JobState::Running;
+        next.started_at = Some(now);
+        Some(next.id)
+    }
+
+    pub fn approve_job(&mut self, id: u64, now: i64) -> Result<(), JobRefusal> {
+        let target = self.target.clone();
+        let run = self.job_mut(id).ok_or(JobRefusal::Missing)?;
+        if run.state != JobState::Pending {
+            return Err(JobRefusal::NotPending);
+        }
+        if target.as_deref() != Some(run.rev.as_str()) {
+            return Err(JobRefusal::Stale);
+        }
+        run.phase = JobPhase::Push;
+        run.state = JobState::Queued;
+        run.queued_at = now;
+        run.started_at = None;
+        run.finished_at = None;
+        Ok(())
+    }
+
+    pub fn dismiss_job(&mut self, id: u64, now: i64) -> Result<(), JobRefusal> {
+        let run = self.job_mut(id).ok_or(JobRefusal::Missing)?;
+        if run.state != JobState::Pending {
+            return Err(JobRefusal::NotPending);
+        }
+        run.state = JobState::Dismissed;
+        run.finished_at = Some(now);
+        Ok(())
+    }
+
+    /// Record how a preview or push ended. A preview that finishes after
+    /// main has moved is retired rather than offered for approval.
+    pub fn finish_job(
+        &mut self,
+        id: u64,
+        ok: bool,
+        changes: Option<u64>,
+        error: Option<String>,
+        now: i64,
+    ) {
+        let target = self.target.clone();
+        let Some(run) = self.job_mut(id) else { return };
+        run.finished_at = Some(now);
+        run.error = error;
+        if !ok {
+            run.state = JobState::Failed;
+            return;
+        }
+        run.state = match run.phase {
+            JobPhase::Push => JobState::Pushed,
+            JobPhase::Preview => {
+                run.changes = changes;
+                match changes {
+                    Some(0) => JobState::Unchanged,
+                    _ if target.as_deref() != Some(run.rev.as_str()) => JobState::Superseded,
+                    _ => JobState::Pending,
+                }
+            }
+        };
+    }
+
+    /// A job whose unit is gone was killed by a reboot or a crash.
+    pub fn reconcile_jobs(
+        &mut self,
+        now: i64,
+        grace: i64,
+        is_active: impl Fn(u64) -> bool,
+    ) -> Vec<u64> {
+        let mut lost = Vec::new();
+        for run in self.jobs.iter_mut() {
+            let settling = run.started_at.map(|t| now - t < grace).unwrap_or(false);
+            if run.state == JobState::Running && !settling && !is_active(run.id) {
+                run.state = JobState::Failed;
+                run.error = Some("interrupted".into());
+                run.finished_at = Some(now);
+                lost.push(run.id);
+            }
+        }
+        lost
+    }
+
+    pub fn prune_jobs(&mut self, max: usize) {
+        if self.jobs.len() > max {
+            self.jobs.truncate(max);
         }
     }
 
@@ -557,6 +790,118 @@ mod tests {
         assert!(is_hex_sha("d6459d9903c9c12e92cdb542018f82d743867963"));
         assert!(!is_hex_sha("d6459d9"));
         assert!(!is_hex_sha("main"));
+    }
+
+    fn jobs() -> Vec<String> {
+        vec!["dns".into(), "arin".into()]
+    }
+
+    #[test]
+    fn each_commit_is_previewed_once_per_job() {
+        let mut s = store();
+        assert_eq!(s.plan_jobs(&jobs(), "aaa", 1, false), vec![1, 2]);
+        assert!(s.plan_jobs(&jobs(), "aaa", 2, false).is_empty());
+        assert_eq!(s.jobs.len(), 2);
+    }
+
+    #[test]
+    fn jobs_run_one_at_a_time_oldest_first() {
+        let mut s = store();
+        s.plan_jobs(&jobs(), "aaa", 1, false);
+        assert_eq!(s.take_job(2), Some(1));
+        assert_eq!(s.take_job(3), None);
+        s.finish_job(1, true, Some(0), None, 4);
+        assert_eq!(s.take_job(5), Some(2));
+    }
+
+    #[test]
+    fn a_preview_with_changes_waits_and_an_approval_pushes_that_commit() {
+        let mut s = store();
+        s.target = Some("aaa".into());
+        s.plan_jobs(&jobs(), "aaa", 1, false);
+        s.take_job(2);
+        s.finish_job(1, true, Some(3), None, 3);
+        assert_eq!(s.job(1).unwrap().state, JobState::Pending);
+
+        assert_eq!(s.approve_job(1, 4), Ok(()));
+        let run = s.job(1).unwrap();
+        assert_eq!(
+            (run.phase, run.state, run.rev.as_str()),
+            (JobPhase::Push, JobState::Queued, "aaa")
+        );
+        assert_eq!(s.approve_job(1, 5), Err(JobRefusal::NotPending));
+    }
+
+    #[test]
+    fn nothing_to_push_needs_no_approval() {
+        let mut s = store();
+        s.target = Some("aaa".into());
+        s.plan_jobs(&jobs(), "aaa", 1, false);
+        s.take_job(2);
+        s.finish_job(1, true, Some(0), None, 3);
+        assert_eq!(s.job(1).unwrap().state, JobState::Unchanged);
+    }
+
+    #[test]
+    fn approving_a_preview_main_has_moved_past_is_refused() {
+        let mut s = store();
+        s.target = Some("aaa".into());
+        s.plan_jobs(&jobs(), "aaa", 1, false);
+        s.take_job(2);
+        s.finish_job(1, true, Some(3), None, 3);
+        s.target = Some("bbb".into());
+        assert_eq!(s.approve_job(1, 4), Err(JobRefusal::Stale));
+    }
+
+    #[test]
+    fn a_new_commit_retires_waiting_previews_and_unstarted_pushes() {
+        let mut s = store();
+        s.target = Some("aaa".into());
+        s.plan_jobs(&jobs(), "aaa", 1, false);
+        s.take_job(2);
+        s.finish_job(1, true, Some(3), None, 3);
+        s.approve_job(1, 4).unwrap();
+
+        s.target = Some("bbb".into());
+        s.plan_jobs(&jobs(), "bbb", 5, false);
+        assert_eq!(s.job(1).unwrap().state, JobState::Superseded);
+        assert_eq!(s.job(2).unwrap().state, JobState::Superseded);
+        assert_eq!(s.jobs.iter().filter(|j| j.rev == "bbb").count(), 2);
+    }
+
+    #[test]
+    fn a_preview_that_lands_after_main_moved_is_not_offered() {
+        let mut s = store();
+        s.target = Some("aaa".into());
+        s.plan_jobs(&jobs(), "aaa", 1, false);
+        s.take_job(2);
+        s.target = Some("bbb".into());
+        s.finish_job(1, true, Some(3), None, 3);
+        assert_eq!(s.job(1).unwrap().state, JobState::Superseded);
+    }
+
+    #[test]
+    fn a_failed_preview_can_be_asked_for_again() {
+        let mut s = store();
+        s.plan_jobs(&jobs()[..1], "aaa", 1, false);
+        s.take_job(2);
+        s.finish_job(1, false, None, Some("boom".into()), 3);
+        assert!(s.plan_jobs(&jobs()[..1], "aaa", 4, false).is_empty());
+        assert_eq!(s.plan_jobs(&jobs()[..1], "aaa", 5, true), vec![2]);
+        assert!(
+            s.plan_jobs(&jobs()[..1], "aaa", 6, true).is_empty(),
+            "one already queued"
+        );
+    }
+
+    #[test]
+    fn a_job_whose_unit_vanished_is_failed() {
+        let mut s = store();
+        s.plan_jobs(&jobs(), "aaa", 0, false);
+        s.take_job(10);
+        assert!(s.reconcile_jobs(15, 30, |_| false).is_empty());
+        assert_eq!(s.reconcile_jobs(60, 30, |_| false), vec![1]);
+        assert_eq!(s.job(1).unwrap().state, JobState::Failed);
     }
 
     #[test]

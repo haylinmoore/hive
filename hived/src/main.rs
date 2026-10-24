@@ -3,12 +3,13 @@ mod config;
 mod dash;
 mod health;
 mod hub;
+mod job;
 mod runner;
 mod state;
 mod store;
 mod ygg;
 
-use crate::agent::{App, is_unit_active, now, start_unit};
+use crate::agent::{App, is_unit_active, now, start, start_unit, unit_active};
 use crate::config::Config;
 use crate::state::State;
 use crate::store::StateDir;
@@ -21,7 +22,7 @@ use std::time::Duration;
 const RECONCILE_GRACE_SECS: i64 = 30;
 
 fn usage() -> ! {
-    eprintln!("usage: hived serve | hived run <id>");
+    eprintln!("usage: hived serve | hived run <id> | hived job <id>");
     std::process::exit(2)
 }
 
@@ -42,6 +43,13 @@ fn main() {
             let id = args.next().and_then(|v| v.parse::<u64>().ok());
             match id {
                 Some(id) => run_one(cfg, dir, id),
+                None => usage(),
+            }
+        }
+        Some("job") => {
+            let id = args.next().and_then(|v| v.parse::<u64>().ok());
+            match id {
+                Some(id) => job_one(cfg, dir, id),
                 None => usage(),
             }
         }
@@ -161,7 +169,40 @@ fn supervise_once(app: &App) {
         let _ = app.dir.update(|s| s.finish(id, State::Failed, now()));
     }
 
+    supervise_jobs(app);
     reap(app);
+}
+
+/// The same reconcile and promote, for jobs. One runs at a time because they
+/// share a checkout.
+fn supervise_jobs(app: &App) {
+    let cfg = &app.cfg;
+    if cfg.jobs.is_empty() {
+        return;
+    }
+
+    let lost = app
+        .dir
+        .update(|s| {
+            s.reconcile_jobs(now(), RECONCILE_GRACE_SECS, |id| {
+                unit_active(&cfg.job_unit(id))
+            })
+        })
+        .unwrap_or_default();
+    for id in lost {
+        eprintln!("job {id} was interrupted");
+    }
+
+    if let Ok(Some(id)) = app.dir.update(|s| s.take_job(now()))
+        && let Err(e) = start(&cfg.job_unit(id))
+    {
+        eprintln!("could not start job {id}: {e}");
+        let _ = app
+            .dir
+            .update(|s| s.finish_job(id, false, None, Some(e.to_string()), now()));
+    }
+
+    let _ = app.dir.update(|s| s.prune_jobs(200));
 }
 
 /// Records are cheap and logs are not, so they are kept to different depths.
@@ -188,4 +229,28 @@ fn reap(app: &App) {
             s.prune(app.cfg.max_records);
         });
     }
+}
+
+/// The privileged half of a job, started like a deploy runner and recorded
+/// the same way: the outcome lives in the record, so the unit exits cleanly.
+fn job_one(cfg: Config, dir: StateDir, id: u64) -> ! {
+    let outcome = job::run(&cfg, &dir, id);
+    let recorded = dir
+        .update(|s| {
+            let existed = s.job(id).is_some();
+            s.finish_job(
+                id,
+                outcome.ok,
+                outcome.changes,
+                outcome.error.clone(),
+                now(),
+            );
+            existed
+        })
+        .unwrap_or(false);
+    if recorded {
+        std::process::exit(0)
+    }
+    eprintln!("no record for job {id}");
+    std::process::exit(1)
 }

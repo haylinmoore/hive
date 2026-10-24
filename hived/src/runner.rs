@@ -1,9 +1,9 @@
 use crate::config::Config;
 use crate::health::{self, Snapshot};
 use crate::state::{DeployError, Phase, State};
-use crate::store::StateDir;
+use crate::store::{Log, StateDir};
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -14,31 +14,48 @@ pub struct Outcome {
     pub error: Option<DeployError>,
 }
 
-struct Run<'a> {
-    cfg: &'a Config,
-    dir: &'a StateDir,
-    id: u64,
+pub struct Run<'a> {
+    pub cfg: &'a Config,
+    pub dir: &'a StateDir,
+    pub id: u64,
+    pub log: Log,
+    pub repo: PathBuf,
 }
 
 impl Run<'_> {
-    fn log(&self, line: &str) {
-        let _ = self.dir.append_log(self.id, line.as_bytes());
+    pub fn log(&self, line: &str) {
+        let _ = self.dir.append_log(self.log, line.as_bytes());
     }
 
-    fn banner(&self, text: &str) {
+    pub fn banner(&self, text: &str) {
         self.log(&format!("\n=== {text} ===\n"));
     }
 
     /// Run a command, streaming combined output into the deploy log and
     /// keeping the tail so a failure can explain itself without the log.
-    fn exec(&self, phase: Phase, cmd: &mut Command, timeout: Duration) -> Result<(), DeployError> {
+    pub fn exec(
+        &self,
+        phase: Phase,
+        cmd: &mut Command,
+        timeout: Duration,
+    ) -> Result<(), DeployError> {
+        self.exec_output(phase, cmd, timeout).map(|_| ())
+    }
+
+    /// As `exec`, handing back the tail of the output for the caller to read.
+    pub fn exec_output(
+        &self,
+        phase: Phase,
+        cmd: &mut Command,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, DeployError> {
         let started = Instant::now();
         cmd.stdin(Stdio::null());
 
         let dir = self.dir.clone();
-        let id = self.id;
+        let log = self.log;
         let sink: Sink = Arc::new(move |chunk: &[u8]| {
-            let _ = dir.append_log(id, chunk);
+            let _ = dir.append_log(log, chunk);
         });
 
         let output = match run_with_timeout(cmd, timeout, sink) {
@@ -73,7 +90,7 @@ impl Run<'_> {
                 message: tail(&output.combined, self.cfg.error_tail_bytes),
             });
         }
-        Ok(())
+        Ok(output.combined)
     }
 
     fn capture(&self, cmd: &mut Command) -> io::Result<String> {
@@ -205,7 +222,13 @@ fn current_generation() -> Option<u64> {
 /// same failure. Split, a build failure is reported with the running system
 /// provably untouched.
 pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
-    let run = Run { cfg, dir, id };
+    let run = Run {
+        cfg,
+        dir,
+        id,
+        log: Log::Deploy(id),
+        repo: cfg.repo_dir.clone(),
+    };
 
     let rev = match dir
         .load()
@@ -235,7 +258,7 @@ pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
         run.banner(phase.label());
 
         let result = match phase {
-            Phase::Fetch => fetch(&run, &rev),
+            Phase::Fetch => fetch(&run, &rev).map(|subject| record_subject(dir, id, subject)),
             Phase::Verify => verify(&run, &rev),
             Phase::Build => build(&run),
             Phase::Activate => {
@@ -299,14 +322,16 @@ fn record_pre_failed(dir: &StateDir, id: u64, before: &Snapshot) {
     });
 }
 
-fn git(repo: &Path, args: &[&str]) -> Command {
+pub fn git(repo: &Path, args: &[&str]) -> Command {
     let mut cmd = Command::new("git");
     cmd.arg("-C").arg(repo).args(args);
     cmd
 }
 
-fn fetch(run: &Run, rev: &str) -> Result<(), DeployError> {
-    let repo = &run.cfg.repo_dir;
+/// Bring the checkout up to date, returning the subject of `rev` so a record
+/// can show what it is at a glance.
+pub fn fetch(run: &Run, rev: &str) -> Result<Option<String>, DeployError> {
+    let repo = &run.repo;
     if !repo.join(".git").is_dir() {
         run.log("cloning\n");
         let mut cmd = Command::new("git");
@@ -320,23 +345,24 @@ fn fetch(run: &Run, rev: &str) -> Result<(), DeployError> {
         run.cfg.timeout_fetch,
     )?;
 
-    // The commit subject makes the history table readable at a glance.
-    if let Ok(subject) = run.capture(&mut git(repo, &["log", "-1", "--format=%s", rev]))
-        && !subject.is_empty()
-    {
-        let _ = run.dir.update(|s| {
-            if let Some(d) = s.get_mut(run.id) {
-                d.subject = Some(subject.clone());
-            }
-        });
-    }
-    Ok(())
+    Ok(run
+        .capture(&mut git(repo, &["log", "-1", "--format=%s", rev]))
+        .ok()
+        .filter(|s| !s.is_empty()))
+}
+
+fn record_subject(dir: &StateDir, id: u64, subject: Option<String>) {
+    let _ = dir.update(|s| {
+        if let Some(d) = s.get_mut(id) {
+            d.subject = subject.clone();
+        }
+    });
 }
 
 /// A hub only names a commit. This proves it is one we are allowed to deploy:
 /// a commit that is actually on the branch we deploy.
-fn verify(run: &Run, rev: &str) -> Result<(), DeployError> {
-    let repo = &run.cfg.repo_dir;
+pub fn verify(run: &Run, rev: &str) -> Result<(), DeployError> {
+    let repo = &run.repo;
     let upstream = format!("origin/{}", run.cfg.branch);
 
     run.exec(
@@ -365,9 +391,7 @@ fn verify(run: &Run, rev: &str) -> Result<(), DeployError> {
 
 fn upgrade(run: &Run, action: &str) -> Command {
     let mut cmd = Command::new("./upgrade.sh");
-    cmd.current_dir(&run.cfg.repo_dir)
-        .arg(&run.cfg.host)
-        .arg(action);
+    cmd.current_dir(&run.repo).arg(&run.cfg.host).arg(action);
     cmd
 }
 
