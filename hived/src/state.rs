@@ -143,14 +143,6 @@ impl Deployment {
         }
     }
 
-    /// The phase that took longest, used to pick out the dominant cost.
-    pub fn longest_phase(&self) -> Option<Phase> {
-        self.durations
-            .iter()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
-            .map(|(p, _)| *p)
-    }
-
     fn finish(&mut self, state: State, now: i64) {
         self.state = state;
         self.phase = None;
@@ -185,6 +177,27 @@ pub struct Store {
     pub next_id: u64,
     /// Newest first.
     pub deployments: Vec<Deployment>,
+    /// The newest commit a hub has told us about.
+    #[serde(default)]
+    pub target: Option<String>,
+    /// A commit waiting for someone to approve it, on nodes that do not
+    /// deploy on their own.
+    #[serde(default)]
+    pub available: Option<String>,
+}
+
+/// What became of a hub telling us about a commit.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Offer {
+    /// Already deployed or already tried, nothing to do.
+    Known,
+    Admitted(Admission),
+    /// Recorded as available, waiting for an approval.
+    Waiting,
+}
+
+pub fn is_hex_sha(rev: &str) -> bool {
+    rev.len() == 40 && rev.chars().all(|c| c.is_ascii_hexdigit())
 }
 
 impl Store {
@@ -193,7 +206,50 @@ impl Store {
             epoch,
             next_id: 1,
             deployments: Vec::new(),
+            target: None,
+            available: None,
         }
+    }
+
+    /// Whether `rev` has had its chance here. A failure counts: both hubs
+    /// repeat the target every few seconds, and retrying a broken commit on
+    /// each of those would loop forever. A retry is an explicit approval.
+    fn attempted(&self, rev: &str) -> bool {
+        self.deployments.iter().any(|d| {
+            d.rev == rev
+                && !matches!(
+                    d.state,
+                    State::Superseded | State::Cancelled | State::Interrupted
+                )
+        })
+    }
+
+    /// A hub says `rev` is the newest commit. Both hubs say so independently,
+    /// so this has to be idempotent.
+    pub fn offer(&mut self, rev: &str, auto: bool, now: i64) -> Offer {
+        self.target = Some(rev.to_string());
+        if self.attempted(rev) {
+            return Offer::Known;
+        }
+        if auto {
+            Offer::Admitted(self.admit(rev, now))
+        } else {
+            self.available = Some(rev.to_string());
+            Offer::Waiting
+        }
+    }
+
+    /// Someone asked for `rev` by hand, either an update waiting on a node
+    /// that does not deploy itself or a retry of one that failed.
+    pub fn approve(&mut self, rev: &str, now: i64) -> Admission {
+        if self.available.as_deref() == Some(rev) {
+            self.available = None;
+        }
+        self.admit(rev, now)
+    }
+
+    pub fn latest(&self) -> Option<&Deployment> {
+        self.deployments.first()
     }
 
     pub fn get(&self, id: u64) -> Option<&Deployment> {
@@ -280,16 +336,6 @@ impl Store {
             .find(|d| d.state == State::Queued && now - d.queued_at >= max_age)?;
         waiting.finish(State::Superseded, now);
         Some(waiting.id)
-    }
-
-    pub fn cancel(&mut self, id: u64, now: i64) -> bool {
-        match self.get_mut(id) {
-            Some(d) if d.state == State::Queued => {
-                d.finish(State::Cancelled, now);
-                true
-            }
-            _ => false,
-        }
     }
 
     pub fn finish(&mut self, id: u64, state: State, now: i64) {
@@ -433,17 +479,6 @@ mod tests {
     }
 
     #[test]
-    fn only_queued_requests_can_be_cancelled() {
-        let mut s = store();
-        s.admit("aaa", 10);
-        s.admit("bbb", 11);
-
-        assert!(!s.cancel(1, 12), "running is never cancelled");
-        assert!(s.cancel(2, 12));
-        assert_eq!(s.get(2).unwrap().state, State::Cancelled);
-    }
-
-    #[test]
     fn ids_keep_climbing_across_supersedes() {
         let mut s = store();
         s.admit("aaa", 0);
@@ -470,14 +505,66 @@ mod tests {
     }
 
     #[test]
-    fn longest_phase_picks_the_dominant_cost() {
+    fn the_same_offer_from_both_hubs_deploys_once() {
         let mut s = store();
-        s.admit("aaa", 0);
-        let d = s.get_mut(1).unwrap();
-        d.durations.insert(Phase::Fetch, 3.0);
-        d.durations.insert(Phase::Build, 220.0);
-        d.durations.insert(Phase::Activate, 22.0);
-        assert_eq!(d.longest_phase(), Some(Phase::Build));
+        assert_eq!(
+            s.offer("aaa", true, 1),
+            Offer::Admitted(Admission::Started(1))
+        );
+        assert_eq!(s.offer("aaa", true, 2), Offer::Known);
+        s.finish(1, State::Succeeded, 3);
+        assert_eq!(s.offer("aaa", true, 4), Offer::Known);
+        assert_eq!(s.deployments.len(), 1);
+    }
+
+    #[test]
+    fn a_failed_commit_is_not_retried_on_its_own() {
+        let mut s = store();
+        s.offer("aaa", true, 1);
+        s.finish(1, State::Failed, 2);
+        assert_eq!(s.offer("aaa", true, 3), Offer::Known);
+        assert_eq!(s.approve("aaa", 4), Admission::Started(2));
+    }
+
+    #[test]
+    fn an_interrupted_commit_gets_another_go() {
+        let mut s = store();
+        s.offer("aaa", true, 1);
+        s.finish(1, State::Interrupted, 2);
+        assert_eq!(
+            s.offer("aaa", true, 3),
+            Offer::Admitted(Admission::Started(2))
+        );
+    }
+
+    #[test]
+    fn a_manual_node_waits_for_approval() {
+        let mut s = store();
+        assert_eq!(s.offer("aaa", false, 1), Offer::Waiting);
+        assert!(s.deployments.is_empty());
+        assert_eq!(s.available.as_deref(), Some("aaa"));
+
+        assert_eq!(s.offer("bbb", false, 2), Offer::Waiting);
+        assert_eq!(s.available.as_deref(), Some("bbb"));
+
+        assert_eq!(s.approve("bbb", 3), Admission::Started(1));
+        assert_eq!(s.available, None);
+        assert_eq!(s.target.as_deref(), Some("bbb"));
+    }
+
+    #[test]
+    fn revs_must_look_like_revs() {
+        assert!(is_hex_sha("d6459d9903c9c12e92cdb542018f82d743867963"));
+        assert!(!is_hex_sha("d6459d9"));
+        assert!(!is_hex_sha("main"));
+    }
+
+    #[test]
+    fn an_old_state_file_still_loads() {
+        let raw = r#"{"epoch":"x","next_id":3,"deployments":[]}"#;
+        let s: Store = serde_json::from_str(raw).unwrap();
+        assert_eq!(s.target, None);
+        assert_eq!(s.available, None);
     }
 
     #[test]

@@ -1,3 +1,4 @@
+use std::net::Ipv6Addr;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -24,29 +25,59 @@ fn env_list(key: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Claims a GitHub OIDC token must carry to be allowed to deploy.
+fn env_addrs(key: &str) -> Vec<Ipv6Addr> {
+    env_list(key)
+        .iter()
+        .filter_map(|a| a.parse().ok())
+        .collect()
+}
+
+/// A mesh member as the registry in nixos/mesh/hosts.nix describes it.
 #[derive(Debug, Clone)]
-pub struct AllowedClaims {
-    pub audience: String,
-    pub repository: String,
-    pub repository_owner_id: Option<String>,
-    pub reference: String,
-    pub workflow_ref: Option<String>,
+pub struct Node {
+    pub name: String,
+    pub address: Ipv6Addr,
+    pub key: String,
+}
+
+/// `name=address=key`, comma separated.
+fn parse_nodes(raw: &[String]) -> Vec<Node> {
+    raw.iter()
+        .filter_map(|entry| {
+            let mut parts = entry.splitn(3, '=');
+            Some(Node {
+                name: parts.next()?.to_string(),
+                address: parts.next()?.parse().ok()?,
+                key: parts.next()?.to_string(),
+            })
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone)]
 pub struct Config {
     pub host: String,
-    pub bind: String,
+    pub hub: bool,
+    pub auto_deploy: bool,
+
+    pub agent_bind: String,
+    pub agent_port: u16,
+    pub public_bind: String,
+    pub dash_bind: String,
+
+    pub nodes: Vec<Node>,
+    pub hubs: Vec<Ipv6Addr>,
+    pub operators: Vec<Ipv6Addr>,
+    pub ygg_socket: PathBuf,
+
     pub state_dir: PathBuf,
     pub repo_dir: PathBuf,
-    pub dashboard: Option<PathBuf>,
     pub repo_url: String,
     pub branch: String,
     pub run_unit_prefix: String,
-    pub claims: AllowedClaims,
-    pub jwks_url: String,
-    pub issuer: String,
+
+    pub poll_every: Duration,
+    pub main_every: Duration,
 
     pub ignored_units: Vec<String>,
     pub settle: Duration,
@@ -68,32 +99,33 @@ impl Config {
         let repo_dir = env("HIVED_REPO_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| state_dir.join("repo"));
+        let agent_port = env("HIVED_AGENT_PORT")
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(15680);
 
         Config {
             host: env_or("HIVED_HOST", "unknown"),
-            bind: env_or("HIVED_BIND", "127.0.0.1:15680"),
+            hub: env("HIVED_HUB").as_deref() == Some("1"),
+            auto_deploy: env("HIVED_AUTO_DEPLOY").as_deref() != Some("0"),
+
+            agent_bind: env_or("HIVED_AGENT_BIND", &format!("[::1]:{agent_port}")),
+            agent_port,
+            public_bind: env_or("HIVED_PUBLIC_BIND", "127.0.0.1:15681"),
+            dash_bind: env_or("HIVED_DASH_BIND", "[::1]:15682"),
+
+            nodes: parse_nodes(&env_list("HIVED_NODES")),
+            hubs: env_addrs("HIVED_HUBS"),
+            operators: env_addrs("HIVED_OPERATORS"),
+            ygg_socket: PathBuf::from(env_or("HIVED_YGG_SOCKET", "/run/yggdrasil/yggdrasil.sock")),
+
             state_dir,
             repo_dir,
-            dashboard: env("HIVED_DASHBOARD").map(PathBuf::from),
             repo_url: env_or("HIVED_REPO_URL", "https://github.com/haylinmoore/hive.git"),
             branch: env_or("HIVED_BRANCH", "main"),
             run_unit_prefix: env_or("HIVED_RUN_UNIT_PREFIX", "hived-run@"),
 
-            claims: AllowedClaims {
-                audience: env_or("HIVED_AUDIENCE", "hived"),
-                repository: env_or("HIVED_ALLOWED_REPOSITORY", "haylinmoore/hive"),
-                repository_owner_id: env("HIVED_ALLOWED_OWNER_ID"),
-                reference: env_or("HIVED_ALLOWED_REF", "refs/heads/main"),
-                workflow_ref: env("HIVED_ALLOWED_WORKFLOW_REF"),
-            },
-            jwks_url: env_or(
-                "HIVED_JWKS_URL",
-                "https://token.actions.githubusercontent.com/.well-known/jwks",
-            ),
-            issuer: env_or(
-                "HIVED_ISSUER",
-                "https://token.actions.githubusercontent.com",
-            ),
+            poll_every: env_secs("HIVED_POLL_SECS", 5),
+            main_every: env_secs("HIVED_MAIN_SECS", 300),
 
             ignored_units: env_list("HIVED_IGNORED_UNITS"),
             settle: env_secs("HIVED_SETTLE_SECS", 30),
@@ -120,5 +152,40 @@ impl Config {
 
     pub fn run_unit(&self, id: u64) -> String {
         format!("{}{}.service", self.run_unit_prefix, id)
+    }
+
+    pub fn name_for_key(&self, key: &str) -> Option<&str> {
+        self.nodes
+            .iter()
+            .find(|n| n.key == key)
+            .map(|n| n.name.as_str())
+    }
+
+    /// Commit links on the dashboard point at the same place we clone from.
+    pub fn commit_url(&self, rev: &str) -> String {
+        format!("{}/commit/{rev}", self.repo_url.trim_end_matches(".git"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nodes_parse_from_the_registry_string() {
+        let raw = vec![
+            "athena=200:cd3c:bbf8:d20a:93db:c98a:b39a:a955=9961".to_string(),
+            "broken".to_string(),
+        ];
+        let nodes = parse_nodes(&raw);
+        assert_eq!(nodes.len(), 1);
+        assert_eq!(nodes[0].name, "athena");
+        assert_eq!(nodes[0].key, "9961");
+        assert_eq!(
+            nodes[0].address,
+            "200:cd3c:bbf8:d20a:93db:c98a:b39a:a955"
+                .parse::<Ipv6Addr>()
+                .unwrap()
+        );
     }
 }

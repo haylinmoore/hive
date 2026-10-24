@@ -333,8 +333,8 @@ fn fetch(run: &Run, rev: &str) -> Result<(), DeployError> {
     Ok(())
 }
 
-/// The token proves who is asking. This proves what they are allowed to ask
-/// for: a commit that is actually on the branch we deploy.
+/// A hub only names a commit. This proves it is one we are allowed to deploy:
+/// a commit that is actually on the branch we deploy.
 fn verify(run: &Run, rev: &str) -> Result<(), DeployError> {
     let repo = &run.cfg.repo_dir;
     let upstream = format!("origin/{}", run.cfg.branch);

@@ -1,16 +1,19 @@
-mod api;
-mod auth;
+mod agent;
 mod config;
+mod dash;
 mod health;
-mod page;
+mod hub;
 mod runner;
 mod state;
 mod store;
+mod ygg;
 
-use crate::api::{App, is_unit_active, now, start_unit};
+use crate::agent::{App, is_unit_active, now, start_unit};
 use crate::config::Config;
 use crate::state::State;
 use crate::store::StateDir;
+use axum::Router;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -79,10 +82,29 @@ fn run_one(cfg: Config, dir: StateDir, id: u64) -> ! {
     std::process::exit(1)
 }
 
+/// The mesh address only exists once yggdrasil is up, so a failed bind exits
+/// and lets systemd try again rather than retrying in here.
+async fn listen(addr: &str, router: Router) -> tokio::task::JoinHandle<()> {
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("cannot bind {addr}: {e}");
+            std::process::exit(1)
+        }
+    };
+    eprintln!("listening on {addr}");
+    tokio::spawn(async move {
+        let service = router.into_make_service_with_connect_info::<SocketAddr>();
+        if let Err(e) = axum::serve(listener, service).await {
+            eprintln!("server failed: {e}");
+            std::process::exit(1)
+        }
+    })
+}
+
 fn serve(cfg: Config, dir: StateDir) -> ! {
     let runtime = tokio::runtime::Runtime::new().expect("tokio runtime");
-    let jwks = auth::Jwks::new(cfg.jwks_url.clone(), cfg.state_dir.join("jwks.json"));
-    let app = Arc::new(App { cfg, dir, jwks });
+    let app = Arc::new(App { cfg, dir });
 
     runtime.block_on(async move {
         supervise_once(&app);
@@ -94,13 +116,16 @@ fn serve(cfg: Config, dir: StateDir) -> ! {
             }
         });
 
-        let listener = tokio::net::TcpListener::bind(&app.cfg.bind)
-            .await
-            .unwrap_or_else(|e| panic!("cannot bind {}: {e}", app.cfg.bind));
-        eprintln!("hived listening on {}", app.cfg.bind);
-        axum::serve(listener, api::router(app.clone()))
-            .await
-            .expect("serve");
+        let mut servers = vec![listen(&app.cfg.agent_bind, agent::router(app.clone())).await];
+        if app.cfg.hub {
+            let hub = hub::Hub::new(app.clone());
+            hub::spawn(hub.clone());
+            servers.push(listen(&app.cfg.public_bind, hub::public_router(hub.clone())).await);
+            servers.push(listen(&app.cfg.dash_bind, hub::dash_router(hub)).await);
+        }
+        for s in servers {
+            let _ = s.await;
+        }
     });
     std::process::exit(0)
 }
