@@ -45,6 +45,26 @@ button { font: inherit; background: none; color: var(--accent); border: 1px soli
 button:hover { background: var(--accent); color: var(--bg); }
 pre { background: var(--panel); border: 1px solid var(--line); padding: 12px; overflow-x: auto;
   white-space: pre-wrap; word-break: break-word; margin: 0; }
+.graph { display: block; width: 100%; max-width: 760px; height: auto; margin: 4px 0 8px; }
+.graph text { fill: var(--fg); font: 13px ui-monospace, "Berkeley Mono", Menlo, monospace;
+  text-anchor: middle; }
+.graph .small { fill: var(--muted); font-size: 11px; }
+.graph .lbl { paint-order: stroke; stroke: var(--bg); stroke-width: 5px; stroke-linejoin: round; }
+.graph .hull { fill: var(--panel); stroke: var(--line); }
+.graph .pill { fill: var(--bg); stroke: var(--line); }
+.graph .edge { stroke-width: 2.5; }
+.graph .edge.lan { stroke: var(--fg); }
+.graph .edge.net { stroke: var(--muted); stroke-dasharray: 7 6; }
+.graph .node { fill: var(--bg); stroke: var(--fg); stroke-width: 2; }
+.graph .node.off { stroke: var(--muted); stroke-dasharray: 3 3; }
+.graph .node.unknown { stroke: var(--accent); stroke-width: 3; }
+.graph .ring { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.graph .hit { fill: transparent; }
+.legend .key { display: inline-block; width: 26px; height: 0; vertical-align: middle;
+  margin: 0 6px 0 14px; border-top: 2.5px solid var(--fg); }
+.legend .key:first-child { margin-left: 0; }
+.legend .key.net { border-top: 2.5px dashed var(--muted); }
+.legend .key.ring { width: 12px; height: 12px; border: 1.5px solid var(--muted); border-radius: 50%; }
 dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 20px; margin: 0; }
 dt { color: var(--muted); }
 dd { margin: 0; }
@@ -530,55 +550,245 @@ pub fn deployment(
     layout(cfg, st, &format!("{name} deploy {id}"), false, &body)
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Link {
-    pub a: String,
-    pub b: String,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Edge {
     pub lan: bool,
+    pub cost: u64,
+    pub rtt: u64,
 }
 
-/// Each side of a peering reports it, once per direction it was dialled,
-/// so the same link shows up to four times. Folded into one per pair and
-/// kind, keeping the best latency either side measured.
-pub fn links(cfg: &Config, st: &HubState) -> BTreeMap<Link, u64> {
-    let mut out: BTreeMap<Link, u64> = BTreeMap::new();
+type Pair = (String, String);
+
+fn pair(a: &str, b: &str) -> Pair {
+    if a <= b {
+        (a.to_string(), b.to_string())
+    } else {
+        (b.to_string(), a.to_string())
+    }
+}
+
+/// Every live peering, as both ends report it. One link shows up once per
+/// side and once per direction it was dialled.
+fn peerings(cfg: &Config, st: &HubState) -> Vec<(Pair, Edge)> {
+    let mut out = Vec::new();
     for view in st.nodes.values() {
         let Some(mesh) = view.status.as_ref().and_then(|s| s.mesh.as_ref()) else {
             continue;
         };
         for p in mesh.peers.iter().filter(|p| p.up) {
-            let other = name_of(cfg, &p.key);
-            let (a, b) = if view.name <= other {
-                (view.name.clone(), other)
-            } else {
-                (other, view.name.clone())
-            };
-            let link = Link {
-                a,
-                b,
-                lan: p.lan_interface().is_some(),
-            };
-            let rtt = p.latency / 1_000_000;
-            out.entry(link)
-                .and_modify(|r| *r = (*r).min(rtt))
-                .or_insert(rtt);
+            out.push((
+                pair(&view.name, &name_of(cfg, &p.key)),
+                Edge {
+                    lan: p.lan_interface().is_some(),
+                    cost: p.cost,
+                    rtt: p.latency / 1_000_000,
+                },
+            ));
         }
     }
     out
 }
 
-pub fn mesh(cfg: &Config, st: &HubState, _now: i64) -> String {
-    let mut body = String::from("<h1>mesh</h1><h2>links</h2>");
-    body.push_str(
-        r#"<div class="scroll"><table><tr><th>between</th><th>via</th><th>rtt</th></tr>"#,
+/// The cheapest way each pair is connected, which is the one yggdrasil
+/// prefers to route over.
+pub fn best_links(cfg: &Config, st: &HubState) -> BTreeMap<Pair, Edge> {
+    let peerings = peerings(cfg, st);
+    let mut out: BTreeMap<Pair, Edge> = BTreeMap::new();
+    for (pair, edge) in &peerings {
+        let better = match out.get(pair) {
+            Some(old) => (edge.cost, edge.rtt) < (old.cost, old.rtt),
+            None => true,
+        };
+        if better {
+            out.insert(pair.clone(), edge.clone());
+        }
+    }
+    // A home node dialling zoe by name reaches its global address on the same
+    // segment, so that link never leaves the house even though it was not
+    // found by multicast. Having found each other by multicast at all is what
+    // says two nodes share a LAN.
+    for (pair, edge) in &peerings {
+        if edge.lan
+            && let Some(best) = out.get_mut(pair)
+        {
+            best.lan = true;
+        }
+    }
+    out
+}
+
+/// Nodes that found each other by multicast share a network segment, so
+/// they are grouped together whatever the cheapest link between them is.
+pub fn lan_groups(cfg: &Config, st: &HubState, names: &[String]) -> Vec<Vec<String>> {
+    let mut group: BTreeMap<String, usize> = names
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (n.clone(), i))
+        .collect();
+    for ((a, b), edge) in peerings(cfg, st) {
+        if !edge.lan {
+            continue;
+        }
+        let (Some(&ga), Some(&gb)) = (group.get(&a), group.get(&b)) else {
+            continue;
+        };
+        if ga != gb {
+            for g in group.values_mut() {
+                if *g == gb {
+                    *g = ga;
+                }
+            }
+        }
+    }
+    let mut out: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+    for name in names {
+        out.entry(group[name]).or_default().push(name.clone());
+    }
+    let mut groups: Vec<_> = out.into_values().collect();
+    groups.sort_by_key(|g| std::cmp::Reverse(g.len()));
+    groups
+}
+
+fn graph(cfg: &Config, st: &HubState) -> String {
+    let links = best_links(cfg, st);
+    let mut names: Vec<String> = st.nodes.keys().cloned().collect();
+    for (a, b) in links.keys() {
+        for n in [a, b] {
+            if !names.contains(n) {
+                names.push(n.clone());
+            }
+        }
+    }
+    let groups = lan_groups(cfg, st, &names);
+
+    use std::f64::consts::{FRAC_PI_2, PI, TAU};
+    let spread = if groups.len() > 1 { 190.0 } else { 0.0 };
+
+    let mut pos: BTreeMap<String, (f64, f64)> = BTreeMap::new();
+    let mut hulls = String::new();
+    let mut bounds = (f64::MAX, f64::MAX, f64::MIN, f64::MIN);
+    let mut grow = |x: f64, y: f64, r: f64| {
+        bounds.0 = bounds.0.min(x - r);
+        bounds.1 = bounds.1.min(y - r);
+        bounds.2 = bounds.2.max(x + r);
+        bounds.3 = bounds.3.max(y + r);
+    };
+    for (gi, members) in groups.iter().enumerate() {
+        let angle = PI + TAU * gi as f64 / groups.len() as f64;
+        let (gx, gy) = (spread * angle.cos(), spread * 0.7 * angle.sin());
+        let radius = if members.len() > 1 {
+            38.0 + 14.0 * members.len() as f64
+        } else {
+            0.0
+        };
+        // Turned so one member faces the other groups head on and the rest
+        // sit either side of it. Lines out of the group then fan past each
+        // other instead of crossing the links inside it.
+        let start = if groups.len() > 1 {
+            angle + PI / members.len() as f64
+        } else {
+            -FRAC_PI_2
+        };
+        for (i, name) in members.iter().enumerate() {
+            let a = start + TAU * i as f64 / members.len() as f64;
+            let (x, y) = (gx + radius * a.cos(), gy + radius * a.sin());
+            pos.insert(name.clone(), (x, y));
+            grow(x, y, 50.0);
+        }
+        if members.len() > 1 {
+            let r = radius + 46.0;
+            grow(gx, gy, r);
+            let _ = write!(
+                hulls,
+                r#"<circle class="hull" cx="{gx:.0}" cy="{gy:.0}" r="{r:.0}"/><text class="small" x="{gx:.0}" y="{:.0}">same lan</text>"#,
+                gy - r + 16.0,
+            );
+        }
+    }
+    let pad = 16.0;
+    let (x0, y0) = (bounds.0 - pad, bounds.1 - pad);
+    let (w, h) = (
+        bounds.2 - bounds.0 + 2.0 * pad,
+        bounds.3 - bounds.1 + 2.0 * pad,
     );
-    for (link, rtt) in links(cfg, st) {
+
+    let mut edges = String::new();
+    let mut labels = String::new();
+    for ((a, b), edge) in &links {
+        let (Some(&(x1, y1)), Some(&(x2, y2))) = (pos.get(a), pos.get(b)) else {
+            continue;
+        };
+        let _ = write!(
+            edges,
+            r#"<line class="edge {}" x1="{x1:.0}" y1="{y1:.0}" x2="{x2:.0}" y2="{y2:.0}"/>"#,
+            if edge.lan { "lan" } else { "net" },
+        );
+        let text = format!("{} · {}ms", edge.cost, edge.rtt);
+        let (mx, my) = ((x1 + x2) / 2.0, (y1 + y2) / 2.0);
+        let width = text.chars().count() as f64 * 6.7 + 12.0;
+        let _ = write!(
+            labels,
+            r#"<rect class="pill" x="{:.0}" y="{:.0}" width="{width:.0}" height="17" rx="8.5"/><text class="small" x="{mx:.0}" y="{:.0}">{text}</text>"#,
+            mx - width / 2.0,
+            my - 9.0,
+            my + 4.0,
+        );
+    }
+
+    let mut nodes = String::new();
+    for name in &names {
+        let (x, y) = pos[name];
+        let view = st.nodes.get(name);
+        let hub = view.map(|v| cfg.hubs.contains(&v.address)).unwrap_or(false);
+        let class = match view {
+            None => "node unknown",
+            Some(v) if v.status.is_none() || v.error.is_some() => "node off",
+            Some(_) => "node",
+        };
+        if hub {
+            let _ = write!(
+                nodes,
+                r#"<circle class="ring" cx="{x:.0}" cy="{y:.0}" r="27"/>"#
+            );
+        }
+        let _ = write!(
+            nodes,
+            r#"<circle class="{class}" cx="{x:.0}" cy="{y:.0}" r="21"/><text class="lbl" x="{x:.0}" y="{:.0}">{}</text>"#,
+            y + 44.0,
+            esc(name),
+        );
+        if view.is_some() {
+            let _ = write!(
+                nodes,
+                r#"<a href="/node/{n}"><circle class="hit" cx="{x:.0}" cy="{y:.0}" r="27"/></a>"#,
+                n = esc(name),
+            );
+        }
+    }
+
+    format!(
+        r#"<svg class="graph" viewBox="{x0:.0} {y0:.0} {w:.0} {h:.0}" role="img" aria-label="mesh links">{hulls}{edges}{labels}{nodes}</svg>
+<p class="muted legend"><span class="key lan"></span>same lan, found by multicast <span class="key net"></span>over the internet, through a hub <span class="key ring"></span>hub. Each line is the cheapest link between two nodes, labelled with its cost and round trip.</p>"#
+    )
+}
+
+pub fn mesh(cfg: &Config, st: &HubState, _now: i64) -> String {
+    let mut body = String::from("<h1>mesh</h1>");
+    body.push_str(&graph(cfg, st));
+
+    body.push_str("<h2>links</h2>");
+    body.push_str(
+        r#"<div class="scroll"><table><tr><th>between</th><th>via</th><th>cost</th><th>rtt</th></tr>"#,
+    );
+    for ((a, b), edge) in best_links(cfg, st) {
         let _ = write!(
             body,
-            "<tr><td>{} and {}</td><td>{}</td><td>{rtt}ms</td></tr>",
-            esc(&link.a),
-            esc(&link.b),
-            if link.lan { "lan" } else { "internet" },
+            "<tr><td>{} and {}</td><td>{}</td><td>{}</td><td>{}ms</td></tr>",
+            esc(&a),
+            esc(&b),
+            if edge.lan { "lan" } else { "internet" },
+            edge.cost,
+            edge.rtt,
         );
     }
     body.push_str("</table></div>");
@@ -729,5 +939,110 @@ mod tests {
         assert_eq!(ago(100, 90), "10s ago");
         assert_eq!(ago(4000, 0), "1h ago");
         assert_eq!(ago(0, 10), "0s ago");
+    }
+
+    fn hive() -> (Config, HubState) {
+        let mut cfg = Config::from_env();
+        let mut st = HubState::default();
+        for (i, name) in ["athena", "astrid", "pepper", "zoe"].iter().enumerate() {
+            let address: std::net::Ipv6Addr = format!("200::{}", i + 1).parse().unwrap();
+            cfg.nodes.push(crate::config::Node {
+                name: name.to_string(),
+                address,
+                key: format!("{name}-key"),
+            });
+            let mut s = status();
+            s.mesh = Some(crate::ygg::Mesh::default());
+            st.nodes.insert(
+                name.to_string(),
+                NodeView {
+                    name: name.to_string(),
+                    address,
+                    status: Some(s),
+                    seen: None,
+                    error: None,
+                },
+            );
+        }
+        (cfg, st)
+    }
+
+    fn peer(st: &mut HubState, from: &str, to: &str, remote: &str, cost: u64) {
+        let mesh = st
+            .nodes
+            .get_mut(from)
+            .unwrap()
+            .status
+            .as_mut()
+            .unwrap()
+            .mesh
+            .as_mut()
+            .unwrap();
+        mesh.peers.push(crate::ygg::Peer {
+            key: format!("{to}-key"),
+            address: String::new(),
+            remote: remote.into(),
+            up: true,
+            inbound: false,
+            uptime: 0.0,
+            latency: 5_000_000,
+            cost,
+            last_error: None,
+        });
+    }
+
+    const LAN: &str = "tls://[fe80::1%25wlp0s20f3]:9445";
+
+    #[test]
+    fn the_cheapest_link_between_a_pair_wins() {
+        let (cfg, mut st) = hive();
+        peer(&mut st, "pepper", "zoe", "tls://zoe.infra.hayl.in:9444", 12);
+        peer(&mut st, "pepper", "zoe", LAN, 4);
+        peer(&mut st, "zoe", "pepper", LAN, 3);
+
+        let links = best_links(&cfg, &st);
+        let edge = &links[&("pepper".to_string(), "zoe".to_string())];
+        assert!(edge.lan);
+        assert_eq!(edge.cost, 3);
+        assert_eq!(links.len(), 1);
+    }
+
+    #[test]
+    fn dialling_a_hub_on_the_same_lan_is_still_lan() {
+        let (cfg, mut st) = hive();
+        peer(&mut st, "astrid", "zoe", "tls://zoe.infra.hayl.in:9444", 2);
+        peer(&mut st, "astrid", "zoe", LAN, 3);
+
+        let edge = &best_links(&cfg, &st)[&("astrid".to_string(), "zoe".to_string())];
+        assert_eq!(edge.cost, 2);
+        assert!(edge.lan);
+    }
+
+    #[test]
+    fn multicast_peers_are_grouped_and_hubs_over_the_internet_are_not() {
+        let (cfg, mut st) = hive();
+        peer(&mut st, "pepper", "zoe", LAN, 3);
+        peer(&mut st, "astrid", "pepper", LAN, 3);
+        peer(
+            &mut st,
+            "pepper",
+            "athena",
+            "tls://athena.infra.hayl.in:9444",
+            25,
+        );
+
+        let names: Vec<String> = st.nodes.keys().cloned().collect();
+        let groups = lan_groups(&cfg, &st, &names);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(groups[0], vec!["astrid", "pepper", "zoe"]);
+        assert_eq!(groups[1], vec!["athena"]);
+    }
+
+    #[test]
+    fn a_stranger_on_the_mesh_shows_up_in_the_graph() {
+        let (cfg, mut st) = hive();
+        peer(&mut st, "pepper", "evil", LAN, 3);
+        let svg = graph(&cfg, &st);
+        assert!(svg.contains("node unknown"), "{svg}");
     }
 }
