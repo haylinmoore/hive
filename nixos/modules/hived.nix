@@ -255,6 +255,9 @@ in
           description = "hive job %i";
           environment = environment // {
             SOPS_AGE_KEY_CMD = "${lib.getExe pkgs.ssh-to-age} -private-key -i /etc/ssh/ssh_host_ed25519_key";
+            # upgrade.sh runs dnscontrol and sops through nix-shell, which wants a
+            # nixpkgs for its own bash.
+            NIX_PATH = "nixpkgs=${pkgs.path}";
           };
           path = runnerPath;
           restartIfChanged = false;
