@@ -344,12 +344,6 @@ in
           };
         }
       ))
-
-      (lib.optionalAttrs (options ? dns) (
-        lib.mkIf isHub {
-          dns.records."dash.hive.hayl.in".AAAA = map address hubs;
-        }
-      ))
     ]
   );
 }

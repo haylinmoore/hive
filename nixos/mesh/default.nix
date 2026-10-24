@@ -177,12 +177,5 @@ in
     })
 
     (lib.optionalAttrs (options ? persist) (lib.mkIf cfg.enable { persist.directories = [ keyDir ]; }))
-
-    (lib.optionalAttrs (options ? dns) {
-      dns.records = lib.mapAttrs' (
-        name: h:
-        lib.nameValuePair "${name}.hive.hayl.in" { AAAA = hive.tools.yggdrasil.address h.publicKey; }
-      ) keyed;
-    })
   ];
 }
