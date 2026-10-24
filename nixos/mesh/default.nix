@@ -26,6 +26,10 @@ let
 
   isHub = hosts.${self} ? endpoint;
 
+  yggctl = pkgs.writeShellScriptBin "yggctl" ''
+    exec ${lib.getExe' ygg.package "yggdrasilctl"} -endpoint=unix:///run/yggdrasil/yggdrasil.sock "$@"
+  '';
+
   template = pkgs.writers.writeJSON "yggdrasil.conf" (
     lib.filterAttrs (_: v: v != null) ygg.settings
     // {
@@ -113,9 +117,59 @@ in
       };
 
       environment.systemPackages = [
-        (pkgs.writeShellScriptBin "yggctl" ''
-          exec ${lib.getExe' ygg.package "yggdrasilctl"} -endpoint=unix:///run/yggdrasil/yggdrasil.sock "$@"
-        '')
+        yggctl
+        (pkgs.writeShellApplication {
+          name = "ygg";
+          excludeShellChecks = [ "SC2016" ];
+          runtimeInputs = [
+            yggctl
+            pkgs.jq
+            pkgs.util-linux
+          ];
+          text = ''
+            names=${
+              lib.escapeShellArg (
+                builtins.toJSON (lib.mapAttrs' (name: h: lib.nameValuePair h.publicKey name) keyed)
+              )
+            }
+            defs='
+              def name: $names[.] // ("? " + .[0:16]);
+              def dur: floor | if . < 60 then "\(.)s" elif . < 3600 then "\(. / 60 | floor)m" elif . < 86400 then "\(. / 3600 | floor)h" else "\(. / 86400 | floor)d" end;
+              def size: if . < 1024 then "\(.)B" elif . < 1048576 then "\(. / 1024 | floor)K" else "\(. / 1048576 | floor)M" end;
+            '
+
+            case "''${1:-}" in
+              peers)
+                yggctl -json getPeers | jq -r --argjson names "$names" "$defs"'
+                  ["PEER", "DIR", "VIA", "STATE", "UPTIME", "RTT", "RX", "TX", "COST", "ERROR"],
+                  (.peers | sort_by(.key // "") | .[] | [
+                    (.key // "" | name),
+                    (if .inbound then "in" else "out" end),
+                    (.remote | if test("%25") then "lan " + capture("%25(?<i>[^\\]]+)").i else capture("://(?<h>[^/]+)").h end),
+                    (if .up then "up" else "down" end),
+                    (.uptime // 0 | dur),
+                    (if .latency then "\(.latency / 1e6 | floor)ms" else "-" end),
+                    (.bytes_recvd // 0 | size),
+                    (.bytes_sent // 0 | size),
+                    (.cost // "-"),
+                    (.last_error // "-")
+                  ]) | @tsv' | column -t -s $'\t'
+                ;;
+              tree)
+                yggctl -json getTree | jq -r --argjson names "$names" "$defs"'
+                  ["NODE", "PARENT", "ADDRESS"],
+                  (.tree | sort_by(.key | name) | .[] | [
+                    (.key | name),
+                    (if .parent == .key then "(root)" else .parent | name end),
+                    .address
+                  ]) | @tsv' | column -t -s $'\t'
+                ;;
+              *)
+                exec yggctl "$@"
+                ;;
+            esac
+          '';
+        })
       ];
 
       networking.firewall.allowedTCPPorts =
