@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 	"strings"
 	"time"
 
@@ -49,23 +50,29 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestStart := time.Now()
 	sw := &statusCaptureWriter{ResponseWriter: w}
 
-	proxy := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = tun.Listener.Addr().String()
-			req.Host = r.Host
+	newProxy(tun.Listener.Addr().String(), tun.Transport(), sub).ServeHTTP(sw, r)
+
+	if logger := tun.Logger(); logger != nil {
+		logger.LogRequest(r.Method, r.URL.Path, sw.status, time.Since(requestStart))
+	}
+}
+
+// newProxy forwards to a tunnel's local listener. The X-Forwarded headers tell
+// the app it is being reached over HTTPS at its tunnl name; without them it
+// sees plain HTTP from localhost, which fails Origin and CSRF checks on POSTs
+// and keeps Secure cookies from being set.
+func newProxy(target string, transport http.RoundTripper, sub string) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(&url.URL{Scheme: "http", Host: target})
+			pr.Out.Host = pr.In.Host
+			pr.SetXForwarded()
 		},
-		Transport: tun.Transport(),
+		Transport: transport,
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
 			log.Printf("Proxy error for %s: %v", sub, err)
 			http.Error(w, "Bad Gateway", http.StatusBadGateway)
 		},
-	}
-
-	proxy.ServeHTTP(sw, r)
-
-	if logger := tun.Logger(); logger != nil {
-		logger.LogRequest(r.Method, r.URL.Path, sw.status, time.Since(requestStart))
 	}
 }
 
@@ -94,6 +101,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request, tun *tu
 	}
 	defer clientConn.Close()
 
+	setForwarded(r)
 	if err := r.Write(backendConn); err != nil {
 		log.Printf("WebSocket request write error for %s: %v", sub, err)
 		return
@@ -149,6 +157,18 @@ func copyIdleTimeout(dst, src net.Conn, idleTimeout time.Duration) (int64, error
 			return written, readErr
 		}
 	}
+}
+
+// setForwarded gives a WebSocket upgrade the same X-Forwarded headers the
+// reverse proxy adds, since it is written to the backend by hand. Like the
+// proxy, it replaces whatever the client sent rather than trusting it.
+func setForwarded(r *http.Request) {
+	r.Header.Del("X-Forwarded-For")
+	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		r.Header.Set("X-Forwarded-For", ip)
+	}
+	r.Header.Set("X-Forwarded-Host", r.Host)
+	r.Header.Set("X-Forwarded-Proto", "https")
 }
 
 func setSecurityHeaders(w http.ResponseWriter) {

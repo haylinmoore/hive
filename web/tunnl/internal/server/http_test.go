@@ -240,3 +240,78 @@ func TestCopyIdleTimeout(t *testing.T) {
 		}
 	})
 }
+
+func TestProxyTellsTheAppItIsBehindHTTPS(t *testing.T) {
+	var got *http.Request
+	var body string
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r
+		b, _ := io.ReadAll(r.Body)
+		body = string(b)
+		http.SetCookie(w, &http.Cookie{Name: "session", Value: "new", Secure: true})
+	}))
+	defer backend.Close()
+
+	target := strings.TrimPrefix(backend.URL, "http://")
+	req := httptest.NewRequest("POST", "https://crucible.tunnl.hayl.in/login", strings.NewReader("user=haylin"))
+	req.RemoteAddr = "203.0.113.7:51000"
+	req.Header.Set("Cookie", "session=old")
+	req.Header.Set("Origin", "https://crucible.tunnl.hayl.in")
+	req.Header.Set("X-Forwarded-For", "10.9.9.9")
+	req.Header.Set("X-Forwarded-Proto", "http")
+	rec := httptest.NewRecorder()
+
+	newProxy(target, http.DefaultTransport, "crucible").ServeHTTP(rec, req)
+
+	if got == nil {
+		t.Fatalf("backend never saw the request, status %d", rec.Code)
+	}
+	checks := map[string]string{
+		"Host":              got.Host,
+		"Cookie":            got.Header.Get("Cookie"),
+		"Origin":            got.Header.Get("Origin"),
+		"X-Forwarded-Proto": got.Header.Get("X-Forwarded-Proto"),
+		"X-Forwarded-Host":  got.Header.Get("X-Forwarded-Host"),
+		"X-Forwarded-For":   got.Header.Get("X-Forwarded-For"),
+		"body":              body,
+		"method":            got.Method,
+		"path":              got.URL.Path,
+	}
+	want := map[string]string{
+		"Host":              "crucible.tunnl.hayl.in",
+		"Cookie":            "session=old",
+		"Origin":            "https://crucible.tunnl.hayl.in",
+		"X-Forwarded-Proto": "https",
+		"X-Forwarded-Host":  "crucible.tunnl.hayl.in",
+		"X-Forwarded-For":   "203.0.113.7",
+		"body":              "user=haylin",
+		"method":            "POST",
+		"path":              "/login",
+	}
+	for k, w := range want {
+		if checks[k] != w {
+			t.Errorf("%s = %q, want %q", k, checks[k], w)
+		}
+	}
+	if sc := rec.Header().Get("Set-Cookie"); !strings.Contains(sc, "session=new") {
+		t.Errorf("Set-Cookie did not come back to the client: %q", sc)
+	}
+}
+
+func TestSetForwardedReplacesWhatTheClientClaimed(t *testing.T) {
+	r := httptest.NewRequest("GET", "https://crucible.tunnl.hayl.in/socket", nil)
+	r.RemoteAddr = "[2001:db8::1]:4000"
+	r.Header.Set("X-Forwarded-For", "10.9.9.9")
+	r.Header.Set("X-Forwarded-Proto", "http")
+	setForwarded(r)
+
+	if v := r.Header.Get("X-Forwarded-For"); v != "2001:db8::1" {
+		t.Errorf("X-Forwarded-For = %q", v)
+	}
+	if v := r.Header.Get("X-Forwarded-Proto"); v != "https" {
+		t.Errorf("X-Forwarded-Proto = %q", v)
+	}
+	if v := r.Header.Get("X-Forwarded-Host"); v != "crucible.tunnl.hayl.in" {
+		t.Errorf("X-Forwarded-Host = %q", v)
+	}
+}
