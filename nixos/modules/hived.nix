@@ -38,6 +38,7 @@ let
     HIVED_QUEUED_MAX_AGE_SECS = toString cfg.queuedMaxAgeSeconds;
     HIVED_TIMEOUT_BUILD_SECS = toString cfg.timeouts.build;
     HIVED_TIMEOUT_ACTIVATE_SECS = toString cfg.timeouts.activate;
+    HIVED_JOBS = lib.concatStringsSep "," cfg.jobs;
   };
 
   # The runner needs everything a deploy touches, and nothing else does.
@@ -57,6 +58,17 @@ in
 {
   options.services.hived = {
     enable = lib.mkEnableOption "the hive deploy agent";
+
+    jobs = lib.mkOption {
+      type = lib.types.listOf (
+        lib.types.enum [
+          "dns"
+          "arin"
+        ]
+      );
+      default = [ ];
+      description = "Pushes this node previews on every commit and runs once approved.";
+    };
 
     autoDeploy = lib.mkOption {
       type = lib.types.bool;
@@ -236,18 +248,39 @@ in
           };
         };
 
+        # Jobs push from the repo's own secrets. sops-nix decrypts with the
+        # host key converted to an age key, so sops is handed the same
+        # conversion rather than the raw SSH key, which age would not match.
+        systemd.services."hived-job@" = lib.mkIf (cfg.jobs != [ ]) {
+          description = "hive job %i";
+          environment = environment // {
+            SOPS_AGE_KEY_CMD = "${lib.getExe pkgs.ssh-to-age} -private-key -i /etc/ssh/ssh_host_ed25519_key";
+          };
+          path = runnerPath;
+          restartIfChanged = false;
+          stopIfChanged = false;
+          unitConfig.X-StopOnReconfiguration = false;
+
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${hive.hived}/bin/hived job %i";
+            TimeoutStartSec = cfg.timeouts.build + 600;
+            WorkingDirectory = cfg.stateDir;
+          };
+        };
+
         # Headless hosts do not enable polkit by default, and without it the rule
         # below is silently dropped and the agent cannot start its runner.
         security.polkit.enable = true;
 
         security.polkit.extraConfig = ''
-          // hived may start its own runner and nothing else. The instance is
-          // digits only, so there is no room to smuggle in another unit.
+          // hived may start its own runner and jobs and nothing else. The
+          // instance is digits only, so there is no room to smuggle in another unit.
           polkit.addRule(function(action, subject) {
             if (subject.user !== "hived") return polkit.Result.NOT_HANDLED;
             if (action.id !== "org.freedesktop.systemd1.manage-units") return polkit.Result.NOT_HANDLED;
             var unit = action.lookup("unit");
-            if (/^hived-run@[0-9]+\.service$/.test(unit)) {
+            if (/^hived-(run|job)@[0-9]+\.service$/.test(unit)) {
               var verb = action.lookup("verb");
               if (verb === "start" || verb === "status") return polkit.Result.YES;
             }

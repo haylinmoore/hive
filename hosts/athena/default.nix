@@ -114,6 +114,10 @@
   ];
 
   services.hived.enable = true;
+  services.hived.jobs = [
+    "dns"
+    "arin"
+  ];
 
   mesh.enable = true;
   mesh.multicastInterfaces = null;
