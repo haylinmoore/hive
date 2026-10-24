@@ -255,7 +255,13 @@ in
           });
         '';
 
-        networking.firewall.interfaces.ygg0.allowedTCPPorts = [ cfg.port ] ++ lib.optional isHub 80;
+        networking.firewall.interfaces.ygg0.allowedTCPPorts = [
+          cfg.port
+        ]
+        ++ lib.optionals isHub [
+          80
+          443
+        ];
       }
 
       (lib.optionalAttrs (options ? persist) {
@@ -270,9 +276,18 @@ in
       })
 
       (lib.mkIf isHub {
+        # Let's Encrypt cannot reach a mesh address, so this has to be DNS-01.
+        security.acme.certs."dash.hive.hayl.in" = {
+          dnsProvider = "bunny";
+          dnsPropagationCheck = true;
+          environmentFile = "/run/secrets/dns";
+        };
+
         # Only the mesh may see the dashboard. Everything on it is a hive
         # member, and nothing from outside has a 200::/7 source.
         services.nginx.virtualHosts."dash.hive.hayl.in" = {
+          forceSSL = true;
+          useACMEHost = "dash.hive.hayl.in";
           extraConfig = ''
             allow 200::/7;
             deny all;
