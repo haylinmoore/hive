@@ -23,7 +23,6 @@
     ./88x31.nix
     ./256.nix
     ./dollpublish.nix
-    ./umaring.nix
     ./authentik.nix
     ./jellyfin.nix
     ./aconite.nix
