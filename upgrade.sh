@@ -13,7 +13,7 @@ usage() {
   echo "Usage: $0 {colmena|work|dns|arin|pepper|astrid|zoe|athena}"
   echo "  colmena - Deploy to all servers via colmena"
   echo "  work    - Deploy work home-manager configuration"
-  echo "  dns     - Preview or push DNS records (preview|push)"
+  echo "  dns     - Preview or push DNS records (preview|push [-y])"
   echo "  arin    - Show, preview or push ARIN rDNS, IRR and RPKI (status|preview|push)"
   echo "  pepper  - Deploy pepper NixOS configuration"
   echo "  astrid  - Deploy astrid NixOS configuration"
@@ -89,7 +89,7 @@ case "$cmd" in
     shift
     action=${1:-preview}
     if [[ "$action" != status && "$action" != preview && "$action" != push ]]; then
-      echo "Usage: $0 arin {status|preview|push}" >&2
+      echo "Usage: $0 arin {status|preview|push [-y]}" >&2
       exit 1
     fi
 
@@ -107,7 +107,11 @@ case "$cmd" in
 
     arin preview || exit 1
     if [[ "$action" == push ]]; then
-      read -rp "push these changes? [y/N] " answer
+      if [[ "${2:-}" == -y ]]; then
+        answer=y
+      else
+        read -rp "push these changes? [y/N] " answer
+      fi
       [[ "$answer" == y ]] && arin push
     fi
     ;;
@@ -115,7 +119,7 @@ case "$cmd" in
     shift
     action=${1:-preview}
     if [[ "$action" != preview && "$action" != push ]]; then
-      echo "Usage: $0 dns {preview|push}" >&2
+      echo "Usage: $0 dns {preview|push [-y]}" >&2
       exit 1
     fi
 
@@ -130,7 +134,11 @@ case "$cmd" in
 
     dnscontrol preview || exit 1
     if [[ "$action" == push ]]; then
-      read -rp "push these changes? [y/N] " answer
+      if [[ "${2:-}" == -y ]]; then
+        answer=y
+      else
+        read -rp "push these changes? [y/N] " answer
+      fi
       [[ "$answer" == y ]] && dnscontrol push
     fi
     ;;
