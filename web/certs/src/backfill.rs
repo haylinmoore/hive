@@ -176,20 +176,20 @@ async fn sslmate(
     Ok(out)
 }
 
-async fn crtsh(client: &reqwest::Client, zone: &str) -> Vec<Record> {
+async fn crtsh(client: &reqwest::Client, zone: &str) -> Option<Vec<Record>> {
     let url = format!("https://crt.sh/?q={zone}&output=json");
-    for attempt in 0..4 {
+    for attempt in 0..2 {
         match client.get(&url).send().await {
             Ok(r) if r.status().is_success() => {
                 let rows: Vec<Logged> = r.json().await.unwrap_or_default();
-                return rows.into_iter().map(|l| from_crtsh(zone, l)).collect();
+                return Some(rows.into_iter().map(|l| from_crtsh(zone, l)).collect());
             }
             Ok(r) => eprintln!("crt.sh {zone}: {}", r.status()),
             Err(e) => eprintln!("crt.sh {zone}: {e}"),
         }
         tokio::time::sleep(Duration::from_secs(10 * (attempt + 1))).await;
     }
-    Vec::new()
+    None
 }
 
 pub fn run(dir: &Path, zones: &[String], since: i64, key: Option<String>) {
@@ -201,6 +201,7 @@ pub fn run(dir: &Path, zones: &[String], since: i64, key: Option<String>) {
     tokio::runtime::Runtime::new()
         .expect("tokio runtime")
         .block_on(async {
+            let mut crtsh_up = true;
             'zones: for zone in zones {
                 let done = dir.join(format!(".backfilled-{zone}"));
                 if done.exists() {
@@ -219,7 +220,15 @@ pub fn run(dir: &Path, zones: &[String], since: i64, key: Option<String>) {
                         }
                     }
                 };
-                found.extend(crtsh(&client, zone).await);
+                if crtsh_up {
+                    match crtsh(&client, zone).await {
+                        Some(more) => found.extend(more),
+                        None => {
+                            eprintln!("crt.sh is down, skipping it for the rest of this run");
+                            crtsh_up = false;
+                        }
+                    }
+                }
                 let existing = record::load(dir);
                 let fresh = merge_new(&existing, found, since);
                 for r in &fresh {
