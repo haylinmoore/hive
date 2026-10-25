@@ -1041,6 +1041,13 @@ fn date(t: i64) -> String {
         .unwrap_or_default()
 }
 
+pub fn crt_sh(e: &crate::certs::CertEvent) -> String {
+    match &e.serial {
+        Some(serial) => format!("https://crt.sh/?serial={serial}"),
+        None => format!("https://crt.sh/?sha256={}", e.detail.replace(':', "")),
+    }
+}
+
 const RENEW_GRACE: i64 = 26 * 3600;
 
 fn overdue(c: &crate::certs::Cert, now: i64) -> bool {
@@ -1123,9 +1130,14 @@ pub fn certs(cfg: &Config, st: &HubState, now: i64) -> String {
     );
     for (node, e) in &events {
         let (event, detail) = match e.kind {
-            crate::certs::EventKind::Issued => {
-                ("issued".to_string(), e.detail.chars().take(23).collect())
-            }
+            crate::certs::EventKind::Issued => (
+                "issued".to_string(),
+                format!(
+                    r#"<a href="{}">{}</a>"#,
+                    esc(&crt_sh(e)),
+                    esc(&e.detail.chars().take(23).collect::<String>()),
+                ),
+            ),
             crate::certs::EventKind::Failed => (
                 r#"<span class="need">renewal failed</span>"#.to_string(),
                 String::new(),
@@ -1138,7 +1150,7 @@ pub fn certs(cfg: &Config, st: &HubState, now: i64) -> String {
             date = date(e.at),
             name = esc(&e.name),
             node = esc(node),
-            detail = esc(&detail),
+            detail = detail,
         );
     }
     body.push_str("</table></div>");
@@ -1298,6 +1310,20 @@ mod tests {
             ..c
         };
         assert!(cert_trouble(&failed, day));
+    }
+
+    #[test]
+    fn crt_sh_links_by_serial_so_the_precertificate_matches() {
+        let mut e = crate::certs::CertEvent {
+            at: 0,
+            name: "zoe".into(),
+            kind: crate::certs::EventKind::Issued,
+            detail: "24:E1:4D".into(),
+            serial: Some("0681ab".into()),
+        };
+        assert_eq!(crt_sh(&e), "https://crt.sh/?serial=0681ab");
+        e.serial = None;
+        assert_eq!(crt_sh(&e), "https://crt.sh/?sha256=24E14D");
     }
 
     #[test]

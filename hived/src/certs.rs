@@ -9,6 +9,8 @@ pub struct Cert {
     pub name: String,
     pub domains: Vec<String>,
     pub issuer: Option<String>,
+    #[serde(default)]
+    pub serial: Option<String>,
     pub not_before: Option<i64>,
     pub not_after: Option<i64>,
     pub fingerprint: Option<String>,
@@ -31,6 +33,8 @@ pub struct CertEvent {
     pub name: String,
     pub kind: EventKind,
     pub detail: String,
+    #[serde(default)]
+    pub serial: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -44,6 +48,7 @@ pub struct CertFile {
 pub struct X509 {
     pub domains: Vec<String>,
     pub issuer: Option<String>,
+    pub serial: Option<String>,
     pub not_before: Option<i64>,
     pub not_after: Option<i64>,
     pub fingerprint: Option<String>,
@@ -67,6 +72,8 @@ pub fn parse_x509(text: &str) -> X509 {
                 .map(|part| part.replace(' ', ""))
                 .find_map(|part| part.strip_prefix("CN=").map(str::to_string))
                 .or_else(|| Some(v.trim().to_string()));
+        } else if let Some(v) = line.strip_prefix("serial=") {
+            out.serial = Some(v.trim().to_lowercase());
         } else if let Some(v) = line.strip_prefix("notBefore=") {
             out.not_before = openssl_time(v);
         } else if let Some(v) = line.strip_prefix("notAfter=") {
@@ -87,7 +94,14 @@ pub fn parse_x509(text: &str) -> X509 {
 
 fn read_cert(path: &Path) -> Option<X509> {
     let out = Command::new("openssl")
-        .args(["x509", "-noout", "-issuer", "-startdate", "-enddate"])
+        .args([
+            "x509",
+            "-noout",
+            "-issuer",
+            "-serial",
+            "-startdate",
+            "-enddate",
+        ])
         .args(["-fingerprint", "-sha256", "-ext", "subjectAltName", "-in"])
         .arg(path)
         .output()
@@ -198,15 +212,21 @@ pub fn merge(
             continue;
         };
         let known = history
-            .iter()
-            .any(|e| e.kind == EventKind::Issued && e.name == cert.name && &e.detail == fp);
-        if !known {
-            history.push(CertEvent {
+            .iter_mut()
+            .find(|e| e.kind == EventKind::Issued && e.name == cert.name && &e.detail == fp);
+        match known {
+            Some(e) => {
+                if e.serial.is_none() {
+                    e.serial = cert.serial.clone();
+                }
+            }
+            None => history.push(CertEvent {
                 at: cert.not_before.unwrap_or(now),
                 name: cert.name.clone(),
                 kind: EventKind::Issued,
                 detail: fp.clone(),
-            });
+                serial: cert.serial.clone(),
+            }),
         }
     }
     for (name, at) in failures {
@@ -219,6 +239,7 @@ pub fn merge(
                 name,
                 kind: EventKind::Failed,
                 detail: "renewal failed".into(),
+                serial: None,
             });
         }
     }
@@ -247,6 +268,7 @@ pub fn collect(cfg: &Config, previous: &CertFile, now: i64) -> CertFile {
             name,
             domains: x509.domains,
             issuer: x509.issuer,
+            serial: x509.serial,
             not_before: x509.not_before,
             not_after: x509.not_after,
             fingerprint: x509.fingerprint,
@@ -266,6 +288,7 @@ mod tests {
     const OPENSSL: &str = "issuer=C=US, O=Let's Encrypt, CN=R11
 notBefore=Oct 10 12:00:00 2026 GMT
 notAfter=Jan  8 12:00:00 2027 GMT
+serial=06818FFB53210C
 sha256 Fingerprint=AB:CD:EF
 X509v3 Subject Alternative Name:
     DNS:zoe.infra.hayl.in, DNS:*.zoe.infra.hayl.in
@@ -277,6 +300,7 @@ X509v3 Subject Alternative Name:
         assert_eq!(x.issuer.as_deref(), Some("R11"));
         assert_eq!(x.domains, vec!["zoe.infra.hayl.in", "*.zoe.infra.hayl.in"]);
         assert_eq!(x.fingerprint.as_deref(), Some("AB:CD:EF"));
+        assert_eq!(x.serial.as_deref(), Some("06818ffb53210c"));
         assert_eq!(x.not_after, Some(1799409600));
         assert_eq!(x.not_after.unwrap() - x.not_before.unwrap(), 90 * 86400);
     }
@@ -313,6 +337,25 @@ X509v3 Subject Alternative Name:
         let renewed = merge(&again, vec![cert("zoe", "bb", 5000)], vec![], 6000);
         assert_eq!(renewed.history.len(), 2);
         assert_eq!(renewed.history[0].detail, "bb");
+    }
+
+    #[test]
+    fn an_issue_recorded_before_serials_gets_one_later() {
+        let mut old = merge(
+            &CertFile::default(),
+            vec![cert("zoe", "aa", 100)],
+            vec![],
+            1000,
+        );
+        assert_eq!(old.history[0].serial, None);
+        old.history[0].serial = None;
+        let with = Cert {
+            serial: Some("0681".into()),
+            ..cert("zoe", "aa", 100)
+        };
+        let now = merge(&old, vec![with], vec![], 2000);
+        assert_eq!(now.history.len(), 1);
+        assert_eq!(now.history[0].serial.as_deref(), Some("0681"));
     }
 
     #[test]
