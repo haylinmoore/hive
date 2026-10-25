@@ -48,6 +48,8 @@ let
     "slonk.ing"
     "zptr.cc"
     "lina.sh"
+    "cuiiliste.de"
+    "damcraft.de"
     "miaow.ing"
     "vidbuchanan.co.uk"
     "samranda.com"
@@ -56,6 +58,8 @@ let
     "d14.pet"
     "devhack.net"
     "devhack2.net"
+    "yui.dev"
+    "exampleusercontent.com"
   ];
 
   certs = hive.web.certs;
