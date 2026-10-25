@@ -10,7 +10,7 @@ use axum::Router;
 use axum::extract::{Path, Query, State};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::sse::{Event, KeepAlive, Sse};
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::get;
 use std::convert::Infallible;
 use std::path::PathBuf;
@@ -102,6 +102,17 @@ fn chains(app: &App, records: &[record::Record]) -> Vec<Vec<chain::Link>> {
         .collect()
 }
 
+async fn by_serial(State(app): State<Arc<App>>, Path(serial): Path<String>) -> Response {
+    let serial = serial.to_lowercase().replace(':', "");
+    match record::load(&app.dir)
+        .into_iter()
+        .find(|r| r.serial.as_deref() == Some(serial.as_str()))
+    {
+        Some(r) => Redirect::to(&format!("/cert/{}", r.cert_sha256)).into_response(),
+        None => (StatusCode::NOT_FOUND, "no certificate with that serial").into_response(),
+    }
+}
+
 async fn cert(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response {
     let records = record::load(&app.dir);
     let chains = chains(&app, &records);
@@ -177,6 +188,7 @@ fn serve() {
         .route("/", get(index))
         .route("/live", get(live))
         .route("/cert/{sha}", get(cert))
+        .route("/serial/{serial}", get(by_serial))
         .route("/ca/{sha}", get(ca))
         .route("/tree", get(tree_page))
         .route("/d/{name}", get(domain))
