@@ -4,7 +4,7 @@ mod pages;
 mod record;
 
 use axum::Router;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::{HeaderValue, StatusCode};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse, Response};
@@ -16,6 +16,27 @@ use std::time::Duration;
 
 struct App {
     dir: PathBuf,
+    hive: Vec<String>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct Filter {
+    #[serde(default)]
+    only: Option<String>,
+}
+
+impl Filter {
+    fn hive(&self) -> bool {
+        self.only.as_deref() == Some("hive")
+    }
+}
+
+fn records(app: &App, filter: &Filter) -> Vec<record::Record> {
+    let mut all = record::load(&app.dir);
+    if filter.hive() {
+        all.retain(|r| app.hive.contains(&r.zone));
+    }
+    all
 }
 
 fn now() -> i64 {
@@ -30,23 +51,26 @@ fn dir() -> PathBuf {
     PathBuf::from(env("CERTS_DIR").unwrap_or_else(|| "/var/lib/certspotter/records".into()))
 }
 
-async fn index(State(app): State<Arc<App>>) -> Html<String> {
-    Html(pages::index(&record::load(&app.dir), now()).into_string())
+async fn index(State(app): State<Arc<App>>, Query(filter): Query<Filter>) -> Html<String> {
+    Html(pages::index(&records(&app, &filter), filter.hive(), now()).into_string())
 }
 
-async fn live(State(app): State<Arc<App>>) -> Response {
-    let render = |app: &App| pages::tables(&record::load(&app.dir), now()).into_string();
-    let seed = render(&app);
-    let stream = futures_util::stream::unfold((app, seed), move |(app, last)| async move {
-        loop {
-            tokio::time::sleep(Duration::from_secs(5)).await;
-            let html = render(&app);
-            if html != last {
-                let event = Event::default().data(html.clone());
-                return Some((Ok::<_, Infallible>(event), (app, html)));
+async fn live(State(app): State<Arc<App>>, Query(filter): Query<Filter>) -> Response {
+    let filter = Arc::new(filter);
+    let render =
+        move |app: &App, f: &Filter| pages::tables(&records(app, f), f.hive(), now()).into_string();
+    let seed = render(&app, &filter);
+    let stream =
+        futures_util::stream::unfold((app, filter, seed), move |(app, filter, last)| async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                let html = render(&app, &filter);
+                if html != last {
+                    let event = Event::default().data(html.clone());
+                    return Some((Ok::<_, Infallible>(event), (app, filter, html)));
+                }
             }
-        }
-    });
+        });
     let mut resp = Sse::new(stream)
         .keep_alive(KeepAlive::default())
         .into_response();
@@ -55,22 +79,36 @@ async fn live(State(app): State<Arc<App>>) -> Response {
     resp
 }
 
+fn chains(records: &[record::Record]) -> Vec<Vec<chain::Link>> {
+    let pool = chain::pool(records.iter().filter_map(|r| r.pem.as_deref()));
+    records
+        .iter()
+        .map(|r| {
+            r.pem
+                .as_deref()
+                .map(|p| chain::full_chain(p, &pool))
+                .unwrap_or_default()
+        })
+        .collect()
+}
+
 async fn cert(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response {
-    match record::load(&app.dir)
-        .into_iter()
-        .find(|r| r.cert_sha256 == sha)
+    let records = record::load(&app.dir);
+    let chains = chains(&records);
+    match records
+        .iter()
+        .zip(&chains)
+        .find(|(r, _)| r.cert_sha256 == sha)
     {
-        Some(r) => Html(pages::cert(&r, now()).into_string()).into_response(),
+        Some((r, links)) => Html(pages::cert(r, links, now()).into_string()).into_response(),
         None => (StatusCode::NOT_FOUND, "no such certificate").into_response(),
     }
 }
 
 async fn ca(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response {
     let records = record::load(&app.dir);
-    let chains: Vec<(&record::Record, Vec<chain::Link>)> = records
-        .iter()
-        .map(|r| (r, r.pem.as_deref().map(chain::parse).unwrap_or_default()))
-        .collect();
+    let chains: Vec<(&record::Record, Vec<chain::Link>)> =
+        records.iter().zip(chains(&records)).collect();
     let found = chains.iter().find_map(|(_, links)| {
         let at = links.iter().skip(1).position(|l| l.sha256 == sha)? + 1;
         Some((links[at].clone(), links[at + 1..].to_vec()))
@@ -88,7 +126,12 @@ async fn ca(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response {
 
 fn serve() {
     let bind = env("CERTS_BIND").unwrap_or_else(|| "127.0.0.1:15700".into());
-    let app = Arc::new(App { dir: dir() });
+    let app = Arc::new(App {
+        dir: dir(),
+        hive: env("CERTS_HIVE")
+            .map(|v| v.split(',').map(str::to_string).collect())
+            .unwrap_or_default(),
+    });
     let router = Router::new()
         .route("/", get(index))
         .route("/live", get(live))

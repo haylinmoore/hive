@@ -72,6 +72,34 @@ pub fn parse(pem: &str) -> Vec<Link> {
         .collect()
 }
 
+pub type Pool = std::collections::HashMap<String, Link>;
+
+pub fn pool<'a>(pems: impl Iterator<Item = &'a str>) -> Pool {
+    let mut out = Pool::new();
+    for pem in pems {
+        for link in parse(pem).into_iter().skip(1) {
+            out.entry(link.subject.clone()).or_insert(link);
+        }
+    }
+    out
+}
+
+pub fn full_chain(pem: &str, pool: &Pool) -> Vec<Link> {
+    let mut links = parse(pem);
+    while let Some(last) = links.last() {
+        if last.self_signed() || links.len() > 8 {
+            break;
+        }
+        match pool.get(&last.issuer) {
+            Some(next) if !links.iter().any(|l| l.sha256 == next.sha256) => {
+                links.push(next.clone())
+            }
+            _ => break,
+        }
+    }
+    links
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -99,6 +127,19 @@ mod tests {
             parse(&chain[1].pem)[0].sha256 == chain[1].sha256,
             "re-armoured pem is the same cert"
         );
+    }
+
+    #[test]
+    fn a_bare_leaf_gets_the_chain_its_issuer_is_known_by() {
+        let full = include_str!("../tests/chain.pem");
+        let links = parse(full);
+        let leaf = links[0].pem.clone();
+        let pool = pool(std::iter::once(full));
+        let rebuilt = full_chain(&leaf, &pool);
+        let got: Vec<&str> = rebuilt.iter().map(|l| l.sha256.as_str()).collect();
+        let want: Vec<&str> = links.iter().map(|l| l.sha256.as_str()).collect();
+        assert_eq!(got, want);
+        assert_eq!(full_chain(&leaf, &Pool::new()).len(), 1);
     }
 
     #[test]

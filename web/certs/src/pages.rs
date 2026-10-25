@@ -1,4 +1,4 @@
-use crate::chain::{self, Link};
+use crate::chain::Link;
 use crate::record::Record;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 use std::collections::BTreeSet;
@@ -20,6 +20,10 @@ h2:first-child { margin-top: 0; }
 p { margin: 0 0 12px; }
 .muted { color: var(--muted); }
 .new { color: var(--accent); }
+.filter { margin: 0 0 12px; }
+.filter a { margin-right: 12px; }
+.filter .on { font-weight: 700; text-decoration: none; }
+tr.expired td { color: var(--muted); }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 6px 14px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
@@ -46,7 +50,7 @@ const apply = (html) => {
 document.addEventListener('selectionchange', () => {
   if (held !== null && !selecting()) apply(held);
 });
-new EventSource('/live').onmessage = (e) => apply(e.data);
+new EventSource('/live' + location.search).onmessage = (e) => apply(e.data);
 "#;
 
 fn layout(title: &str, live: bool, body: Markup) -> Markup {
@@ -67,16 +71,6 @@ fn layout(title: &str, live: bool, body: Markup) -> Markup {
                 }
             }
         }
-    }
-}
-
-pub fn ago(now: i64, then: i64) -> String {
-    let d = (now - then).max(0);
-    match d {
-        0..60 => format!("{d}s ago"),
-        60..3600 => format!("{}m ago", d / 60),
-        3600..86400 => format!("{}h ago", d / 3600),
-        _ => format!("{}d ago", d / 86400),
     }
 }
 
@@ -117,39 +111,20 @@ pub fn firsts(records: &[Record]) -> Vec<bool> {
     out
 }
 
-pub fn tables(records: &[Record], now: i64) -> Markup {
-    let mut live: Vec<&Record> = records.iter().filter(|r| r.active(now)).collect();
-    live.sort_by(|a, b| {
-        a.dns_names
-            .cmp(&b.dns_names)
-            .then(b.issued().cmp(&a.issued()))
-    });
+pub fn tables(records: &[Record], hive_only: bool, now: i64) -> Markup {
     let first = firsts(records);
     html! {
-        h2 { "live" }
-        @if live.is_empty() {
-            p.muted { "none yet" }
-        } @else {
-            div.scroll { table {
-                tr { th { "names" } th { "issuer" } th { "issued" } th { "expires" } }
-                @for r in &live {
-                    tr {
-                        td.wrap { a href={ "/cert/" (r.cert_sha256) } { (names(r)) } }
-                        td { (r.issuer_cn()) }
-                        td { (ago(now, r.issued())) }
-                        td { (r.not_after.map(|t| until(now, t)).unwrap_or_default()) }
-                    }
-                }
-            } }
+        p.filter {
+            a.on[!hive_only] href="/" { "all" }
+            a.on[hive_only] href="/?only=hive" { "hive" }
         }
-        h2 { "log" }
         @if records.is_empty() {
             p.muted { "none yet" }
         } @else {
             div.scroll { table {
                 tr { th { "issued" } th { "" } th { "names" } th { "issuer" } th { "valid until" } }
-                @for (r, new) in records.iter().zip(&first) {
-                    tr {
+                @for (r, new) in records.iter().zip(&first).take(500) {
+                    tr.expired[!r.active(now)] {
                         td { a href={ "/cert/" (r.cert_sha256) } { (date(r.issued())) } }
                         td { @if *new { span.new { "new" } } @else { span.muted { "renewed" } } }
                         td.wrap { (names(r)) }
@@ -162,11 +137,11 @@ pub fn tables(records: &[Record], now: i64) -> Markup {
     }
 }
 
-pub fn index(records: &[Record], now: i64) -> Markup {
-    layout("certificates", true, tables(records, now))
+pub fn index(records: &[Record], hive_only: bool, now: i64) -> Markup {
+    layout("certificates", true, tables(records, hive_only, now))
 }
 
-pub fn cert(r: &Record, now: i64) -> Markup {
+pub fn cert(r: &Record, links: &[Link], now: i64) -> Markup {
     let title = r
         .dns_names
         .first()
@@ -191,10 +166,9 @@ pub fn cert(r: &Record, now: i64) -> Markup {
                 @if !r.tbs_sha256.is_empty() { dt { "tbs sha-256" } dd { (r.tbs_sha256) } }
                 dt { "elsewhere" } dd { a href=(r.crt_sh()) { "crt.sh" } }
             }
-            @let links = r.pem.as_deref().map(chain::parse).unwrap_or_default();
             @if links.len() > 1 {
                 h2 { "chain" }
-                (chain_table(&links, now))
+                (chain_table(links, now))
             }
             @if let Some(pem) = &r.pem {
                 h2 { "certificate" }
@@ -300,7 +274,7 @@ mod tests {
 
     #[test]
     fn pages_escape_what_the_ca_put_in_the_cert() {
-        let page = cert(&record("a", &["<b>x</b>"], 0, 1), 10).into_string();
+        let page = cert(&record("a", &["<b>x</b>"], 0, 1), &[], 10).into_string();
         assert!(!page.contains("<script>"));
         assert!(!page.contains("<b>x</b>"));
     }
@@ -316,15 +290,13 @@ mod tests {
     }
 
     #[test]
-    fn only_unexpired_certs_are_live() {
+    fn expired_certs_stay_in_the_log_but_greyed() {
         let records = vec![
             record("live", &["live.hayl.in"], 100, 1000),
             record("gone", &["gone.hayl.in"], 100, 200),
         ];
-        let html = tables(&records, 500).into_string();
-        let live = html.split("<h2>log</h2>").next().unwrap();
-        assert!(live.contains("live.hayl.in"));
-        assert!(!live.contains("gone.hayl.in"));
-        assert!(html.contains("gone.hayl.in"), "the log still lists it");
+        let html = tables(&records, false, 500).into_string();
+        assert!(html.contains("live.hayl.in") && html.contains("gone.hayl.in"));
+        assert_eq!(html.matches("class=\"expired\"").count(), 1);
     }
 }

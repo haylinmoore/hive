@@ -125,7 +125,7 @@ pub fn merge_new(existing: &[Record], found: Vec<Record>, since: i64) -> Vec<Rec
     out
 }
 
-async fn sslmate(client: &reqwest::Client, zone: &str) -> Vec<Record> {
+async fn sslmate(client: &reqwest::Client, zone: &str) -> Result<Vec<Record>, String> {
     let mut out = Vec::new();
     let mut after: Option<String> = None;
     for _ in 0..20 {
@@ -136,15 +136,9 @@ async fn sslmate(client: &reqwest::Client, zone: &str) -> Vec<Record> {
             url.push_str(&format!("&after={a}"));
         }
         let page: Vec<Issuance> = match client.get(&url).send().await {
-            Ok(r) if r.status().is_success() => r.json().await.unwrap_or_default(),
-            Ok(r) => {
-                eprintln!("sslmate {zone}: {}", r.status());
-                break;
-            }
-            Err(e) => {
-                eprintln!("sslmate {zone}: {e}");
-                break;
-            }
+            Ok(r) if r.status().is_success() => r.json().await.map_err(|e| e.to_string())?,
+            Ok(r) => return Err(r.status().to_string()),
+            Err(e) => return Err(e.to_string()),
         };
         let Some(last) = page.last().map(|i| i.id.clone()) else {
             break;
@@ -152,7 +146,7 @@ async fn sslmate(client: &reqwest::Client, zone: &str) -> Vec<Record> {
         out.extend(page.into_iter().map(|i| from_sslmate(zone, i)));
         after = Some(last);
     }
-    out
+    Ok(out)
 }
 
 async fn crtsh(client: &reqwest::Client, zone: &str) -> Vec<Record> {
@@ -181,7 +175,17 @@ pub fn run(dir: &Path, zones: &[String], since: i64) {
         .expect("tokio runtime")
         .block_on(async {
             for zone in zones {
-                let mut found = sslmate(&client, zone).await;
+                let done = dir.join(format!(".backfilled-{zone}"));
+                if done.exists() {
+                    continue;
+                }
+                let mut found = match sslmate(&client, zone).await {
+                    Ok(found) => found,
+                    Err(e) => {
+                        eprintln!("sslmate {zone}: {e}, leaving the rest for the next run");
+                        break;
+                    }
+                };
                 found.extend(crtsh(&client, zone).await);
                 let existing = record::load(dir);
                 let fresh = merge_new(&existing, found, since);
@@ -191,6 +195,7 @@ pub fn run(dir: &Path, zones: &[String], since: i64) {
                     }
                 }
                 eprintln!("{zone}: {} added", fresh.len());
+                let _ = std::fs::write(&done, "");
             }
         });
 }
