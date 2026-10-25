@@ -1,0 +1,30 @@
+[package]
+name = "honeypot"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.9"
+bytes = "1.12.1"
+chrono = "0.4.45"
+hickory-proto = "0.26.3"
+hmac = "0.12.1"
+http-body-util = "0.1.5"
+hyper = { version = "1.12.0", features = ["server", "http1", "http2"] }
+hyper-util = { version = "0.1.21", features = ["tokio", "server-auto"] }
+instant-acme = { version = "0.8.5", default-features = false, features = ["ring", "hyper-rustls", "rcgen"] }
+maud = { version = "0.27.0", features = ["axum"] }
+nix = { version = "0.31.3", features = ["socket", "uio", "net"] }
+rand = "0.10.3"
+rcgen = { version = "0.14.10", default-features = false, features = ["ring", "pem"] }
+rusqlite = { version = "0.41.0", features = ["bundled"] }
+russh = { version = "0.64.1", default-features = false, features = ["ring", "rsa", "flate2"] }
+rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+rustls-pemfile = "2.2.0"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+sha2 = "0.10.9"
+socket2 = { version = "0.6.5", features = ["all"] }
+tokio = { version = "1.54.1", features = ["full"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12", "logging"] }
+x509-parser = "0.18.1"
