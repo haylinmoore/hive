@@ -389,6 +389,7 @@ mod tests {
             dns_names: names.iter().map(|s| s.to_string()).collect(),
             discovered_at: issued,
             pem: Some("<script>".into()),
+            chain: Vec::new(),
             source: None,
         }
     }

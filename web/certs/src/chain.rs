@@ -1,4 +1,6 @@
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::path::Path;
 use x509_parser::pem::Pem;
 
 #[derive(Debug, Clone)]
@@ -70,32 +72,77 @@ pub fn parse(pem: &str) -> Vec<Link> {
         .collect()
 }
 
-pub type Pool = std::collections::HashMap<String, Link>;
-
-pub fn pool<'a>(pems: impl Iterator<Item = &'a str>) -> Pool {
-    let mut out = Pool::new();
-    for pem in pems {
-        for link in parse(pem).into_iter().skip(1) {
-            out.entry(link.subject.clone()).or_insert(link);
-        }
-    }
-    out
+#[derive(Default)]
+pub struct Store {
+    by_sha: HashMap<String, Link>,
+    by_subject: HashMap<String, Link>,
 }
 
-pub fn full_chain(pem: &str, pool: &Pool) -> Vec<Link> {
-    let mut links = parse(pem);
-    while let Some(last) = links.last() {
-        if last.self_signed() || links.len() > 8 {
-            break;
-        }
-        match pool.get(&last.issuer) {
-            Some(next) if !links.iter().any(|l| l.sha256 == next.sha256) => {
-                links.push(next.clone())
-            }
-            _ => break,
-        }
+impl Store {
+    pub fn add(&mut self, link: Link) {
+        self.by_subject
+            .entry(link.subject.clone())
+            .or_insert_with(|| link.clone());
+        self.by_sha.entry(link.sha256.clone()).or_insert(link);
     }
-    links
+
+    pub fn load(dir: &Path) -> Store {
+        let mut store = Store::default();
+        let mut paths: Vec<_> = std::fs::read_dir(dir.join("issuers"))
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|x| x == "pem"))
+            .collect();
+        paths.sort();
+        for path in paths {
+            if let Ok(pem) = std::fs::read_to_string(&path) {
+                parse(&pem).into_iter().for_each(|l| store.add(l));
+            }
+        }
+        store
+    }
+
+    pub fn full_chain(&self, leaf: &str, logged: &[String]) -> Vec<Link> {
+        let mut links: Vec<Link> = parse(leaf).into_iter().take(1).collect();
+        if links.is_empty() {
+            return links;
+        }
+        links.extend(logged.iter().map_while(|sha| self.by_sha.get(sha).cloned()));
+        while let Some(last) = links.last() {
+            if last.self_signed() || links.len() > 8 {
+                break;
+            }
+            match self.by_subject.get(&last.issuer) {
+                Some(next) if !links.iter().any(|l| l.sha256 == next.sha256) => {
+                    links.push(next.clone())
+                }
+                _ => break,
+            }
+        }
+        links
+    }
+}
+
+pub fn split(dir: &Path, pem: &str) -> std::io::Result<Option<(String, Vec<String>)>> {
+    let mut links = parse(pem).into_iter();
+    let Some(leaf) = links.next() else {
+        return Ok(None);
+    };
+    let issuers = dir.join("issuers");
+    std::fs::create_dir_all(&issuers)?;
+    let mut chain = Vec::new();
+    for link in links {
+        let path = issuers.join(format!("{}.pem", link.sha256));
+        if !path.exists() {
+            let tmp = issuers.join(format!(".{}.pem", link.sha256));
+            std::fs::write(&tmp, &link.pem)?;
+            std::fs::rename(tmp, path)?;
+        }
+        chain.push(link.sha256);
+    }
+    Ok(Some((leaf.pem, chain)))
 }
 
 #[cfg(test)]
@@ -127,17 +174,40 @@ mod tests {
         );
     }
 
+    fn tmp(name: &str) -> std::path::PathBuf {
+        let p = std::env::temp_dir().join(format!("certs-chain-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&p);
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    fn shas(links: &[Link]) -> Vec<&str> {
+        links.iter().map(|l| l.sha256.as_str()).collect()
+    }
+
     #[test]
-    fn a_bare_leaf_gets_the_chain_its_issuer_is_known_by() {
+    fn a_split_chain_is_stored_once_and_rebuilt_exactly() {
+        let dir = tmp("split");
         let full = include_str!("../tests/chain.pem");
         let links = parse(full);
-        let leaf = links[0].pem.clone();
-        let pool = pool(std::iter::once(full));
-        let rebuilt = full_chain(&leaf, &pool);
-        let got: Vec<&str> = rebuilt.iter().map(|l| l.sha256.as_str()).collect();
-        let want: Vec<&str> = links.iter().map(|l| l.sha256.as_str()).collect();
-        assert_eq!(got, want);
-        assert_eq!(full_chain(&leaf, &Pool::new()).len(), 1);
+        let (leaf, logged) = split(&dir, full).unwrap().unwrap();
+        assert_eq!(parse(&leaf).len(), 1);
+        assert_eq!(logged.len(), 4);
+        split(&dir, full).unwrap();
+        assert_eq!(std::fs::read_dir(dir.join("issuers")).unwrap().count(), 4);
+        let store = Store::load(&dir);
+        assert_eq!(shas(&store.full_chain(&leaf, &logged)), shas(&links));
+    }
+
+    #[test]
+    fn a_bare_leaf_gets_the_chain_its_issuer_is_known_by() {
+        let dir = tmp("bare");
+        let full = include_str!("../tests/chain.pem");
+        let links = parse(full);
+        split(&dir, full).unwrap();
+        let store = Store::load(&dir);
+        assert_eq!(shas(&store.full_chain(&links[0].pem, &[])), shas(&links));
+        assert_eq!(Store::default().full_chain(&links[0].pem, &[]).len(), 1);
     }
 
     #[test]

@@ -87,14 +87,14 @@ async fn live(State(app): State<Arc<App>>, Query(filter): Query<Filter>) -> Resp
     resp
 }
 
-fn chains(records: &[record::Record]) -> Vec<Vec<chain::Link>> {
-    let pool = chain::pool(records.iter().filter_map(|r| r.pem.as_deref()));
+fn chains(app: &App, records: &[record::Record]) -> Vec<Vec<chain::Link>> {
+    let store = chain::Store::load(&app.dir);
     records
         .iter()
         .map(|r| {
             r.pem
                 .as_deref()
-                .map(|p| chain::full_chain(p, &pool))
+                .map(|p| store.full_chain(p, &r.chain))
                 .unwrap_or_default()
         })
         .collect()
@@ -102,7 +102,7 @@ fn chains(records: &[record::Record]) -> Vec<Vec<chain::Link>> {
 
 async fn cert(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response {
     let records = record::load(&app.dir);
-    let chains = chains(&records);
+    let chains = chains(&app, &records);
     match records
         .iter()
         .zip(&chains)
@@ -116,7 +116,7 @@ async fn cert(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response 
 async fn ca(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response {
     let records = record::load(&app.dir);
     let chains: Vec<(&record::Record, Vec<chain::Link>)> =
-        records.iter().zip(chains(&records)).collect();
+        records.iter().zip(chains(&app, &records)).collect();
     let found = chains.iter().find_map(|(_, links)| {
         let at = links.iter().skip(1).position(|l| l.sha256 == sha)? + 1;
         Some((links[at].clone(), links[at + 1..].to_vec()))
@@ -203,6 +203,14 @@ fn main() {
     match std::env::args().nth(1).as_deref() {
         Some("serve") => serve(),
         Some("record") => record(),
+        Some("dedupe") => {
+            let dir = dir();
+            for r in record::load(&dir) {
+                if let Err(e) = record::save(&dir, &r) {
+                    eprintln!("cannot rewrite {}: {e}", r.cert_sha256);
+                }
+            }
+        }
         Some("backfill") => {
             let zones: Vec<String> = env("CERTS_ZONES")
                 .map(|v| v.split(',').map(str::to_string).collect())
@@ -218,7 +226,7 @@ fn main() {
             );
         }
         _ => {
-            eprintln!("usage: certs serve | certs record | certs backfill");
+            eprintln!("usage: certs serve | certs record | certs backfill | certs dedupe");
             std::process::exit(2);
         }
     }

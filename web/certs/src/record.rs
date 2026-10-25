@@ -22,6 +22,8 @@ pub struct Record {
     #[serde(default)]
     pub pem: Option<String>,
     #[serde(default)]
+    pub chain: Vec<String>,
+    #[serde(default)]
     pub source: Option<String>,
 }
 
@@ -89,17 +91,27 @@ pub fn from_env(env: impl Fn(&str) -> Option<String>, now: i64) -> Option<Record
             .unwrap_or_default(),
         discovered_at: now,
         pem: read("CERT_FILENAME"),
+        chain: Vec::new(),
         source: None,
     })
 }
 
 pub fn save(dir: &Path, record: &Record) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
+    let mut record = record.clone();
+    if let Some(pem) = &record.pem
+        && let Some((leaf, chain)) = crate::chain::split(dir, pem)?
+    {
+        record.pem = Some(leaf);
+        if !chain.is_empty() {
+            record.chain = chain;
+        }
+    }
     let path = dir.join(format!("{}.json", record.cert_sha256));
     let tmp = dir.join(format!(".{}.json", record.cert_sha256));
     std::fs::write(
         &tmp,
-        serde_json::to_vec(record).map_err(std::io::Error::other)?,
+        serde_json::to_vec(&record).map_err(std::io::Error::other)?,
     )?;
     std::fs::rename(tmp, path)
 }
@@ -187,6 +199,7 @@ mod tests {
                 dns_names: vec![],
                 discovered_at: at,
                 pem: None,
+                chain: Vec::new(),
                 source: None,
             };
             save(&dir, &r).unwrap();

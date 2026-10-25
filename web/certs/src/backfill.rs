@@ -72,6 +72,7 @@ fn from_sslmate(zone: &str, i: Issuance) -> Record {
         dns_names: i.dns_names,
         discovered_at: rfc3339(&i.not_before).unwrap_or(0),
         pem: i.cert_der.as_deref().map(pem),
+        chain: Vec::new(),
         source: Some("sslmate".into()),
     }
 }
@@ -93,6 +94,7 @@ fn from_crtsh(zone: &str, l: Logged) -> Record {
         dns_names: names,
         discovered_at: naive(&l.not_before).unwrap_or(0),
         pem: None,
+        chain: Vec::new(),
         source: Some("crt.sh".into()),
     }
 }
@@ -260,6 +262,7 @@ mod tests {
             dns_names: names.iter().map(|s| s.to_string()).collect(),
             discovered_at: nb,
             pem: None,
+            chain: Vec::new(),
             source: None,
         }
     }
