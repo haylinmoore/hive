@@ -9,43 +9,16 @@ static WORDS: LazyLock<Vec<&'static str>> =
 const NAME_SPACE: u64 = 2048 * 2048 * 2048;
 const NAME_HALF_BITS: u32 = 17;
 const ROTATION: u64 = 29;
+const ORDER_WINDOW: u64 = 20 * 3600;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Kind {
-    Bait,
-    Control,
+// Days sit at even indices because odd ones once belonged to a retired
+// second name per day. Renumbering would change every name already issued.
+fn index(day: i64) -> u64 {
+    day as u64 * 2
 }
 
-impl Kind {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Kind::Bait => "bait",
-            Kind::Control => "control",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Slot {
-    pub day: i64,
-    pub kind: Kind,
-}
-
-impl Slot {
-    fn index(self) -> u64 {
-        self.day as u64 * 2 + matches!(self.kind, Kind::Control) as u64
-    }
-
-    fn from_index(n: u64) -> Slot {
-        Slot {
-            day: (n / 2) as i64,
-            kind: if n.is_multiple_of(2) {
-                Kind::Bait
-            } else {
-                Kind::Control
-            },
-        }
-    }
+fn day(n: u64) -> Option<i64> {
+    (n < NAME_SPACE && n.is_multiple_of(2)).then_some((n / 2) as i64)
 }
 
 #[derive(Clone)]
@@ -100,8 +73,8 @@ impl Key {
         x
     }
 
-    pub fn name(&self, slot: Slot) -> String {
-        let x = self.walk(slot.index(), false);
+    pub fn name(&self, day: i64) -> String {
+        let x = self.walk(index(day), false);
         let w = WORDS.len() as u64;
         [x / (w * w), (x / w) % w, x % w]
             .iter()
@@ -110,7 +83,7 @@ impl Key {
             .join("-")
     }
 
-    pub fn decode_name(&self, label: &str) -> Option<Slot> {
+    pub fn decode_name(&self, label: &str) -> Option<i64> {
         let mut x = 0u64;
         let mut parts = 0;
         for part in label.to_ascii_lowercase().split('-') {
@@ -121,18 +94,20 @@ impl Key {
         if parts != 3 {
             return None;
         }
-        let n = self.walk(x, true);
-        (n < NAME_SPACE).then(|| Slot::from_index(n))
+        day(self.walk(x, true))
     }
 
-    pub fn v6(&self, prefix: Ipv6Addr, slot: Slot) -> Ipv6Addr {
-        let iid = self.feistel(b"v6", slot.index(), 32, false);
+    pub fn order_offset(&self, day: i64) -> i64 {
+        (self.round(b"order", 0, day as u64, 32) % ORDER_WINDOW) as i64
+    }
+
+    pub fn v6(&self, prefix: Ipv6Addr, day: i64) -> Ipv6Addr {
+        let iid = self.feistel(b"v6", index(day), 32, false);
         Ipv6Addr::from((u128::from(prefix) & !(u64::MAX as u128)) | iid as u128)
     }
 
-    pub fn decode_v6(&self, addr: Ipv6Addr) -> Option<Slot> {
-        let n = self.feistel(b"v6", u128::from(addr) as u64, 32, true);
-        (n < NAME_SPACE).then(|| Slot::from_index(n))
+    pub fn decode_v6(&self, addr: Ipv6Addr) -> Option<i64> {
+        day(self.feistel(b"v6", u128::from(addr) as u64, 32, true))
     }
 }
 
@@ -171,42 +146,40 @@ mod tests {
     }
 
     #[test]
+    fn names_and_addresses_never_change_for_a_given_key() {
+        let k = key();
+        assert_eq!(k.name(20751), "sentence-destroy-adult");
+        assert_eq!(
+            k.v6("2602:fbf5:3:c7::".parse().unwrap(), 20751),
+            "2602:fbf5:3:c7:caec:5f75:86dc:871"
+                .parse::<Ipv6Addr>()
+                .unwrap()
+        );
+    }
+
+    #[test]
     fn names_are_unique_and_decode_back() {
         let k = key();
         let mut seen = std::collections::HashSet::new();
         for day in 20000..21500 {
-            for kind in [Kind::Bait, Kind::Control] {
-                let slot = Slot { day, kind };
-                let name = k.name(slot);
-                assert_eq!(name.split('-').count(), 3);
-                assert!(seen.insert(name.clone()), "{name} repeated");
-                assert_eq!(k.decode_name(&name), Some(slot));
-            }
+            let name = k.name(day);
+            assert_eq!(name.split('-').count(), 3);
+            assert!(seen.insert(name.clone()), "{name} repeated");
+            assert_eq!(k.decode_name(&name), Some(day));
         }
     }
 
     #[test]
     fn a_different_key_gives_unrelated_names() {
-        let slot = Slot {
-            day: 20751,
-            kind: Kind::Bait,
-        };
         let other = Key::new([8; 32]);
-        assert_ne!(key().name(slot), other.name(slot));
-        assert_ne!(other.decode_name(&key().name(slot)), Some(slot));
+        assert_ne!(key().name(20751), other.name(20751));
+        assert_ne!(other.decode_name(&key().name(20751)), Some(20751));
     }
 
     #[test]
     fn neighbouring_days_share_nothing_visible() {
         let k = key();
-        let a = k.name(Slot {
-            day: 20751,
-            kind: Kind::Bait,
-        });
-        let b = k.name(Slot {
-            day: 20752,
-            kind: Kind::Bait,
-        });
+        let (a, b) = (k.name(20751), k.name(20752));
         assert!(a.split('-').zip(b.split('-')).all(|(x, y)| x != y));
     }
 
@@ -223,19 +196,11 @@ mod tests {
     fn v6_addresses_are_unique_keyed_and_decode_back() {
         let k = key();
         let prefix: Ipv6Addr = "2602:fbf5:3:c7::".parse().unwrap();
-        let a = Slot {
-            day: 20751,
-            kind: Kind::Bait,
-        };
-        let b = Slot {
-            day: 20751,
-            kind: Kind::Control,
-        };
-        let (va, vb) = (k.v6(prefix, a), k.v6(prefix, b));
-        assert_ne!(va, vb);
-        assert_eq!(va.segments()[..4], prefix.segments()[..4]);
-        assert_eq!(k.decode_v6(va), Some(a));
-        assert_eq!(k.decode_v6(vb), Some(b));
+        let (a, b) = (k.v6(prefix, 20751), k.v6(prefix, 20752));
+        assert_ne!(a, b);
+        assert_eq!(a.segments()[..4], prefix.segments()[..4]);
+        assert_eq!(k.decode_v6(a), Some(20751));
+        assert_eq!(k.decode_v6(b), Some(20752));
         assert_eq!(k.decode_v6("2602:fbf5:3:c7::1".parse().unwrap()), None);
     }
 
