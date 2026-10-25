@@ -36,6 +36,7 @@ dl { display: grid; grid-template-columns: max-content 1fr; gap: 1px 20px; margi
 dt { color: var(--muted); }
 dd { margin: 0; word-break: break-all; }
 pre { overflow-x: auto; margin: 0; }
+details.raw > summary { cursor: pointer; color: var(--muted); margin: 20px 0 6px; }
 "#;
 
 const LIVE_JS: &str = r#"
@@ -210,11 +211,24 @@ pub fn cert(r: &Record, links: &[Link], now: i64) -> Markup {
                 h2 { "chain" }
                 (chain_table(links, now))
             }
-            @if let Some(pem) = &r.pem {
-                h2 { "certificate" }
-                pre { (pem) }
-            }
+            @if let Some(pem) = &r.pem { (decoded(pem)) }
         }))
+    }
+}
+
+fn decoded(pem: &str) -> Markup {
+    html! {
+        h2 { "certificate" }
+        dl {
+            @for (label, values) in crate::decode::fields(pem) {
+                dt { (label) }
+                dd { @for v in &values { div { (v) } } }
+            }
+        }
+        details.raw {
+            summary { "pem" }
+            pre { (pem) }
+        }
     }
 }
 
@@ -278,8 +292,7 @@ pub fn ca(link: &Link, above: &[Link], issued: &[&Record], now: i64) -> Markup {
                     }
                 } }
             }
-            h2 { "certificate" }
-            pre { (link.pem) }
+            (decoded(&link.pem))
         },
     )
 }

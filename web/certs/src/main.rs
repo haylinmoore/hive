@@ -1,5 +1,6 @@
 mod backfill;
 mod chain;
+mod decode;
 mod issuers;
 mod pages;
 mod record;

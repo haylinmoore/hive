@@ -36,8 +36,7 @@ fn cn(name: &x509_parser::x509::X509Name) -> String {
         .to_string()
 }
 
-fn armor(der: &[u8]) -> String {
-    use std::fmt::Write;
+pub fn base64(der: &[u8]) -> String {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut b64 = String::new();
     for chunk in der.chunks(3) {
@@ -50,6 +49,12 @@ fn armor(der: &[u8]) -> String {
             }
         }
     }
+    b64
+}
+
+fn armor(der: &[u8]) -> String {
+    use std::fmt::Write;
+    let b64 = base64(der);
     let mut out = String::from("-----BEGIN CERTIFICATE-----\n");
     for line in b64.as_bytes().chunks(64) {
         let _ = writeln!(out, "{}", String::from_utf8_lossy(line));
