@@ -125,7 +125,25 @@ pub fn merge_new(existing: &[Record], found: Vec<Record>, since: i64) -> Vec<Rec
     out
 }
 
-async fn sslmate(client: &reqwest::Client, zone: &str) -> Result<Vec<Record>, String> {
+pub enum Fetch {
+    Limited(Duration),
+    Failed(String),
+}
+
+pub fn retry_after(headers: &reqwest::header::HeaderMap) -> Duration {
+    let secs = headers
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(60);
+    Duration::from_secs(secs.clamp(1, 3600))
+}
+
+async fn sslmate(
+    client: &reqwest::Client,
+    key: Option<&str>,
+    zone: &str,
+) -> Result<Vec<Record>, Fetch> {
     let mut out = Vec::new();
     let mut after: Option<String> = None;
     for _ in 0..20 {
@@ -135,10 +153,19 @@ async fn sslmate(client: &reqwest::Client, zone: &str) -> Result<Vec<Record>, St
         if let Some(a) = &after {
             url.push_str(&format!("&after={a}"));
         }
-        let page: Vec<Issuance> = match client.get(&url).send().await {
-            Ok(r) if r.status().is_success() => r.json().await.map_err(|e| e.to_string())?,
-            Ok(r) => return Err(r.status().to_string()),
-            Err(e) => return Err(e.to_string()),
+        let mut req = client.get(&url);
+        if let Some(key) = key {
+            req = req.bearer_auth(key);
+        }
+        let page: Vec<Issuance> = match req.send().await {
+            Ok(r) if r.status().is_success() => {
+                r.json().await.map_err(|e| Fetch::Failed(e.to_string()))?
+            }
+            Ok(r) if r.status() == reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                return Err(Fetch::Limited(retry_after(r.headers())));
+            }
+            Ok(r) => return Err(Fetch::Failed(r.status().to_string())),
+            Err(e) => return Err(Fetch::Failed(e.to_string())),
         };
         let Some(last) = page.last().map(|i| i.id.clone()) else {
             break;
@@ -165,7 +192,7 @@ async fn crtsh(client: &reqwest::Client, zone: &str) -> Vec<Record> {
     Vec::new()
 }
 
-pub fn run(dir: &Path, zones: &[String], since: i64) {
+pub fn run(dir: &Path, zones: &[String], since: i64, key: Option<String>) {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(120))
         .user_agent("certs.hayl.in backfill")
@@ -174,16 +201,22 @@ pub fn run(dir: &Path, zones: &[String], since: i64) {
     tokio::runtime::Runtime::new()
         .expect("tokio runtime")
         .block_on(async {
-            for zone in zones {
+            'zones: for zone in zones {
                 let done = dir.join(format!(".backfilled-{zone}"));
                 if done.exists() {
                     continue;
                 }
-                let mut found = match sslmate(&client, zone).await {
-                    Ok(found) => found,
-                    Err(e) => {
-                        eprintln!("sslmate {zone}: {e}, leaving the rest for the next run");
-                        break;
+                let mut found = loop {
+                    match sslmate(&client, key.as_deref(), zone).await {
+                        Ok(found) => break found,
+                        Err(Fetch::Limited(wait)) => {
+                            eprintln!("sslmate {zone}: rate limited, waiting {}s", wait.as_secs());
+                            tokio::time::sleep(wait).await;
+                        }
+                        Err(Fetch::Failed(e)) => {
+                            eprintln!("sslmate {zone}: {e}, trying it again next run");
+                            continue 'zones;
+                        }
                     }
                 };
                 found.extend(crtsh(&client, zone).await);
@@ -252,6 +285,16 @@ mod tests {
         assert_eq!(r.serial.as_deref(), Some("06e684a5"));
         assert_eq!(r.issuer_name(), "Let's Encrypt YE2");
         assert_eq!(r.not_after.unwrap() - r.not_before.unwrap(), 90 * 86400 - 1);
+    }
+
+    #[test]
+    fn retry_after_is_honoured_within_reason() {
+        let mut h = reqwest::header::HeaderMap::new();
+        assert_eq!(retry_after(&h), Duration::from_secs(60));
+        h.insert(reqwest::header::RETRY_AFTER, "120".parse().unwrap());
+        assert_eq!(retry_after(&h), Duration::from_secs(120));
+        h.insert(reqwest::header::RETRY_AFTER, "99999".parse().unwrap());
+        assert_eq!(retry_after(&h), Duration::from_secs(3600));
     }
 
     #[test]

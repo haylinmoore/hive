@@ -176,7 +176,12 @@ fn main() {
             let days: i64 = env("CERTS_BACKFILL_DAYS")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(90);
-            backfill::run(&dir(), &zones, now() - days * 86400);
+            backfill::run(
+                &dir(),
+                &zones,
+                now() - days * 86400,
+                env("CERTS_SSLMATE_KEY"),
+            );
         }
         _ => {
             eprintln!("usage: certs serve | certs record | certs backfill");
