@@ -35,6 +35,7 @@
     ./dial.nix
     ./certs.nix
     ./tunnl.nix
+    ./honeypot.nix
     ./knot.nix
 
     ../../nixos/certs/hayl-in.nix
