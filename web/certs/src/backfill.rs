@@ -241,6 +241,8 @@ pub fn run(dir: &Path, zones: &[String], since: i64, key: Option<String>) {
                 eprintln!("{zone}: {} added", fresh.len());
                 let _ = std::fs::write(&done, "");
             }
+            let fetched = crate::issuers::complete(&client, dir, &record::load(dir)).await;
+            eprintln!("issuers: {fetched} fetched");
         });
 }
 

@@ -1,7 +1,10 @@
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::Path;
+use x509_parser::extensions::{GeneralName, ParsedExtension};
+use x509_parser::oid_registry::OID_PKIX_ACCESS_DESCRIPTOR_CA_ISSUERS;
 use x509_parser::pem::Pem;
+use x509_parser::prelude::{FromDer, X509Certificate};
 
 #[derive(Debug, Clone)]
 pub struct Link {
@@ -12,6 +15,7 @@ pub struct Link {
     pub not_before: i64,
     pub not_after: i64,
     pub pem: String,
+    pub aia: Option<String>,
 }
 
 impl Link {
@@ -54,22 +58,65 @@ fn armor(der: &[u8]) -> String {
     out
 }
 
+fn ca_issuers(cert: &X509Certificate) -> Option<String> {
+    cert.extensions().iter().find_map(|ext| {
+        let ParsedExtension::AuthorityInfoAccess(aia) = ext.parsed_extension() else {
+            return None;
+        };
+        aia.accessdescs
+            .iter()
+            .find_map(|d| match &d.access_location {
+                GeneralName::URI(uri)
+                    if d.access_method == OID_PKIX_ACCESS_DESCRIPTOR_CA_ISSUERS =>
+                {
+                    Some(uri.to_string())
+                }
+                _ => None,
+            })
+    })
+}
+
+pub fn from_der(der: &[u8]) -> Option<Link> {
+    let (_, cert) = X509Certificate::from_der(der).ok()?;
+    Some(Link {
+        sha256: hex(&Sha256::digest(der)),
+        subject: cert.subject().to_string(),
+        subject_cn: cn(cert.subject()),
+        issuer: cert.issuer().to_string(),
+        not_before: cert.validity().not_before.timestamp(),
+        not_after: cert.validity().not_after.timestamp(),
+        pem: armor(der),
+        aia: ca_issuers(&cert),
+    })
+}
+
 pub fn parse(pem: &str) -> Vec<Link> {
     Pem::iter_from_buffer(pem.as_bytes())
         .flatten()
-        .filter_map(|block| {
-            let cert = block.parse_x509().ok()?;
-            Some(Link {
-                sha256: hex(&Sha256::digest(&block.contents)),
-                subject: cert.subject().to_string(),
-                subject_cn: cn(cert.subject()),
-                issuer: cert.issuer().to_string(),
-                not_before: cert.validity().not_before.timestamp(),
-                not_after: cert.validity().not_after.timestamp(),
-                pem: armor(&block.contents),
-            })
-        })
+        .filter_map(|block| from_der(&block.contents))
         .collect()
+}
+
+// Some CAs serve a PKCS#7 bundle, so pick certificates out of whatever came back.
+pub fn from_download(body: &[u8]) -> Vec<Link> {
+    if body.starts_with(b"-----BEGIN") {
+        return parse(&String::from_utf8_lossy(body));
+    }
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i + 4 < body.len() {
+        if body[i] == 0x30
+            && body[i + 1] == 0x82
+            && let Ok((rest, _)) = X509Certificate::from_der(&body[i..])
+        {
+            let end = body.len() - rest.len();
+            out.extend(from_der(&body[i..end]));
+            i = end;
+        } else {
+            i += 1;
+        }
+    }
+    out
 }
 
 #[derive(Default)]
@@ -80,9 +127,12 @@ pub struct Store {
 
 impl Store {
     pub fn add(&mut self, link: Link) {
-        self.by_subject
-            .entry(link.subject.clone())
-            .or_insert_with(|| link.clone());
+        match self.by_subject.get(&link.subject) {
+            Some(have) if have.self_signed() || !link.self_signed() => {}
+            _ => {
+                self.by_subject.insert(link.subject.clone(), link.clone());
+            }
+        }
         self.by_sha.entry(link.sha256.clone()).or_insert(link);
     }
 
@@ -123,6 +173,28 @@ impl Store {
         }
         links
     }
+
+    pub fn wanted(&self, leaf: &str, logged: &[String]) -> Option<String> {
+        let chain = self.full_chain(leaf, logged);
+        let last = chain.last()?;
+        if last.self_signed() {
+            return None;
+        }
+        last.aia.clone()
+    }
+}
+
+pub fn keep(dir: &Path, link: &Link) -> std::io::Result<bool> {
+    let issuers = dir.join("issuers");
+    std::fs::create_dir_all(&issuers)?;
+    let path = issuers.join(format!("{}.pem", link.sha256));
+    if !path.exists() {
+        let tmp = issuers.join(format!(".{}.pem", link.sha256));
+        std::fs::write(&tmp, &link.pem)?;
+        std::fs::rename(tmp, path)?;
+        return Ok(true);
+    }
+    Ok(false)
 }
 
 pub fn split(dir: &Path, pem: &str) -> std::io::Result<Option<(String, Vec<String>)>> {
@@ -130,16 +202,9 @@ pub fn split(dir: &Path, pem: &str) -> std::io::Result<Option<(String, Vec<Strin
     let Some(leaf) = links.next() else {
         return Ok(None);
     };
-    let issuers = dir.join("issuers");
-    std::fs::create_dir_all(&issuers)?;
     let mut chain = Vec::new();
     for link in links {
-        let path = issuers.join(format!("{}.pem", link.sha256));
-        if !path.exists() {
-            let tmp = issuers.join(format!(".{}.pem", link.sha256));
-            std::fs::write(&tmp, &link.pem)?;
-            std::fs::rename(tmp, path)?;
-        }
+        keep(dir, &link)?;
         chain.push(link.sha256);
     }
     Ok(Some((leaf.pem, chain)))
@@ -208,6 +273,46 @@ mod tests {
         let store = Store::load(&dir);
         assert_eq!(shas(&store.full_chain(&links[0].pem, &[])), shas(&links));
         assert_eq!(Store::default().full_chain(&links[0].pem, &[]).len(), 1);
+    }
+
+    #[test]
+    fn a_leaf_says_where_its_issuer_lives() {
+        let links = parse(include_str!("../tests/chain.pem"));
+        assert_eq!(links[0].aia.as_deref(), Some("http://ye2.i.lencr.org/"));
+        let store = Store::default();
+        assert_eq!(
+            store.wanted(&links[0].pem, &[]).as_deref(),
+            Some("http://ye2.i.lencr.org/")
+        );
+        let mut store = Store::default();
+        links.iter().skip(1).for_each(|l| store.add(l.clone()));
+        assert_eq!(store.wanted(&links[0].pem, &[]), None);
+    }
+
+    #[test]
+    fn downloads_come_as_der_pem_or_a_bundle() {
+        let links = parse(include_str!("../tests/chain.pem"));
+        let der = |l: &Link| {
+            Pem::iter_from_buffer(l.pem.as_bytes())
+                .next()
+                .unwrap()
+                .unwrap()
+                .contents
+        };
+        assert_eq!(shas(&from_download(&der(&links[1]))), shas(&links[1..2]));
+        assert_eq!(
+            shas(&from_download(links[2].pem.as_bytes())),
+            shas(&links[2..3])
+        );
+        let mut bundle = vec![0x30, 0x80, 0x06, 0x09, 0xa0];
+        bundle.extend(der(&links[1]));
+        bundle.extend([0x31, 0x00]);
+        bundle.extend(der(&links[3]));
+        bundle.extend([0x00, 0x00]);
+        assert_eq!(
+            shas(&from_download(&bundle)),
+            vec![links[1].sha256.as_str(), links[3].sha256.as_str()]
+        );
     }
 
     #[test]
