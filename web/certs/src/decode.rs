@@ -141,6 +141,17 @@ fn extension(parsed: &ParsedExtension) -> Option<(&'static str, Vec<String>)> {
     })
 }
 
+pub fn serial(pem: &str) -> Option<String> {
+    let block = Pem::iter_from_buffer(pem.as_bytes()).next()?.ok()?;
+    let (_, cert) = X509Certificate::from_der(&block.contents).ok()?;
+    Some(
+        cert.raw_serial()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect(),
+    )
+}
+
 pub fn fields(pem: &str) -> Vec<Field> {
     let Some(Ok(block)) = Pem::iter_from_buffer(pem.as_bytes()).next() else {
         return vec![];
@@ -214,5 +225,9 @@ mod tests {
         );
         assert_eq!(get("subject"), vec!["(empty)"]);
         assert!(fields("garbage").is_empty());
+        assert_eq!(
+            serial(&links[0].pem).as_deref(),
+            Some("06b057d1275a95305026c3901d37e37bb20f")
+        );
     }
 }

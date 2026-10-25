@@ -106,6 +106,9 @@ pub fn save(dir: &Path, record: &Record) -> std::io::Result<()> {
         if !chain.is_empty() {
             record.chain = chain;
         }
+        if let Some(serial) = crate::decode::serial(record.pem.as_deref().unwrap_or("")) {
+            record.serial = Some(serial);
+        }
     }
     let path = dir.join(format!("{}.json", record.cert_sha256));
     let tmp = dir.join(format!(".{}.json", record.cert_sha256));
