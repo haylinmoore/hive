@@ -1041,9 +1041,9 @@ fn date(t: i64) -> String {
         .unwrap_or_default()
 }
 
-pub fn crt_sh(e: &crate::certs::CertEvent) -> String {
+pub fn cert_link(e: &crate::certs::CertEvent) -> String {
     match &e.serial {
-        Some(serial) => format!("https://crt.sh/?serial={serial}"),
+        Some(serial) => format!("https://certs.hayl.in/serial/{serial}"),
         None => format!("https://crt.sh/?sha256={}", e.detail.replace(':', "")),
     }
 }
@@ -1134,7 +1134,7 @@ pub fn certs(cfg: &Config, st: &HubState, now: i64) -> String {
                 "issued".to_string(),
                 format!(
                     r#"<a href="{}">{}</a>"#,
-                    esc(&crt_sh(e)),
+                    esc(&cert_link(e)),
                     esc(&e.detail.chars().take(23).collect::<String>()),
                 ),
             ),
@@ -1313,7 +1313,7 @@ mod tests {
     }
 
     #[test]
-    fn crt_sh_links_by_serial_so_the_precertificate_matches() {
+    fn cert_links_go_by_serial_so_the_precertificate_matches() {
         let mut e = crate::certs::CertEvent {
             at: 0,
             name: "zoe".into(),
@@ -1321,9 +1321,9 @@ mod tests {
             detail: "24:E1:4D".into(),
             serial: Some("0681ab".into()),
         };
-        assert_eq!(crt_sh(&e), "https://crt.sh/?serial=0681ab");
+        assert_eq!(cert_link(&e), "https://certs.hayl.in/serial/0681ab");
         e.serial = None;
-        assert_eq!(crt_sh(&e), "https://crt.sh/?sha256=24E14D");
+        assert_eq!(cert_link(&e), "https://crt.sh/?sha256=24E14D");
     }
 
     #[test]
