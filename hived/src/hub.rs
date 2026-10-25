@@ -1,11 +1,13 @@
 use crate::agent::{DeploymentView, LogQuery, NodeStatus, RevBody, Shared, err, now};
 use crate::dash;
 use axum::extract::{ConnectInfo, Path, Query, State as AxumState};
-use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, Uri, header};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use axum::{Form, Router};
 use std::collections::BTreeMap;
+use std::convert::Infallible;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -243,14 +245,68 @@ pub fn public_router(hub: SharedHub) -> Router {
         .with_state(hub)
 }
 
-async fn fleet(AxumState(hub): AxumState<SharedHub>) -> Html<String> {
+/// The pages that keep themselves current. A first load and every live update
+/// render through here, so an update is exactly what a reload would show.
+async fn render_path(hub: &Hub, path: &str) -> Option<String> {
     let st = hub.state.read().await.clone();
-    Html(dash::fleet(&hub.app.cfg, &st, now()))
+    let cfg = &hub.app.cfg;
+    let parts: Vec<&str> = path.trim_matches('/').split('/').collect();
+    match parts.as_slice() {
+        [""] => Some(dash::fleet(cfg, &st, now())),
+        ["mesh"] => Some(dash::mesh(cfg, &st, now())),
+        ["node", name] => {
+            let view = st.nodes.get(*name)?;
+            let deployments = history(hub, name).await;
+            Some(dash::node(cfg, &st, view, &deployments, now()))
+        }
+        ["job", name] => Some(job_html(hub, &st, name).await),
+        _ => None,
+    }
 }
 
-async fn mesh(AxumState(hub): AxumState<SharedHub>) -> Html<String> {
-    let st = hub.state.read().await.clone();
-    Html(dash::mesh(&hub.app.cfg, &st, now()))
+async fn page(AxumState(hub): AxumState<SharedHub>, uri: Uri) -> Response {
+    match render_path(&hub, uri.path()).await {
+        Some(html) => Html(html).into_response(),
+        None => (StatusCode::NOT_FOUND, "no such page").into_response(),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct LiveQuery {
+    path: String,
+}
+
+/// Server-sent events carrying the live part of a page whenever it changes.
+/// The first render only seeds the comparison, since the browser has just
+/// loaded that very page.
+async fn live(AxumState(hub): AxumState<SharedHub>, Query(q): Query<LiveQuery>) -> Response {
+    let seed = render_path(&hub, &q.path)
+        .await
+        .and_then(|p| dash::live_region(&p).map(str::to_string));
+    let Some(seed) = seed else {
+        return (StatusCode::NOT_FOUND, "no such page").into_response();
+    };
+
+    let stream =
+        futures_util::stream::unfold((hub, q.path, seed), |(hub, path, last)| async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                let page = render_path(&hub, &path).await?;
+                let region = dash::live_region(&page)?.to_string();
+                if region != last {
+                    let event = Event::default().data(region.clone());
+                    return Some((Ok::<_, Infallible>(event), (hub, path, region)));
+                }
+            }
+        });
+
+    let mut resp = Sse::new(stream)
+        .keep_alive(KeepAlive::default())
+        .into_response();
+    // nginx would otherwise hold events back until its buffer filled.
+    resp.headers_mut()
+        .insert("x-accel-buffering", HeaderValue::from_static("no"));
+    resp
 }
 
 async fn history(hub: &Hub, name: &str) -> Result<Vec<DeploymentView>, String> {
@@ -266,15 +322,6 @@ async fn history(hub: &Hub, name: &str) -> Result<Vec<DeploymentView>, String> {
         .json()
         .await
         .map_err(|e| e.to_string())
-}
-
-async fn node(AxumState(hub): AxumState<SharedHub>, Path(name): Path<String>) -> Response {
-    let st = hub.state.read().await.clone();
-    let Some(view) = st.nodes.get(&name) else {
-        return (StatusCode::NOT_FOUND, "no such node").into_response();
-    };
-    let deployments = history(&hub, &name).await;
-    Html(dash::node(&hub.app.cfg, &st, view, &deployments, now())).into_response()
 }
 
 async fn deployment(
@@ -449,9 +496,8 @@ async fn preview_text(hub: &Hub, address: Ipv6Addr, id: u64) -> Option<String> {
     Some(after.trim().to_string())
 }
 
-async fn job_page(AxumState(hub): AxumState<SharedHub>, Path(name): Path<String>) -> Response {
-    let st = hub.state.read().await.clone();
-    let owner = job_owner(&st, &name);
+async fn job_html(hub: &Hub, st: &HubState, name: &str) -> String {
+    let owner = job_owner(st, name);
     let runs: Vec<_> = owner
         .as_ref()
         .and_then(|(n, _)| st.nodes.get(n))
@@ -468,19 +514,18 @@ async fn job_page(AxumState(hub): AxumState<SharedHub>, Path(name): Path<String>
         .iter()
         .find(|r| r.state == crate::state::JobState::Pending);
     let preview = match (pending, &owner) {
-        (Some(run), Some((_, address))) => preview_text(&hub, *address, run.id).await,
+        (Some(run), Some((_, address))) => preview_text(hub, *address, run.id).await,
         _ => None,
     };
-    Html(dash::job(
+    dash::job(
         &hub.app.cfg,
-        &st,
-        &name,
+        st,
+        name,
         owner.as_ref().map(|(n, _)| n.as_str()),
         &runs,
         preview.as_deref(),
         now(),
-    ))
-    .into_response()
+    )
 }
 
 async fn job_run_page(
@@ -598,13 +643,14 @@ async fn preview_job(
 
 pub fn dash_router(hub: SharedHub) -> Router {
     Router::new()
-        .route("/", get(fleet))
-        .route("/mesh", get(mesh))
-        .route("/node/{name}", get(node))
+        .route("/", get(page))
+        .route("/mesh", get(page))
+        .route("/live", get(live))
+        .route("/node/{name}", get(page))
         .route("/node/{name}/approve", post(approve))
         .route("/node/{name}/deploy/{id}", get(deployment))
         .route("/node/{name}/deploy/{id}/log", get(log_proxy))
-        .route("/job/{name}", get(job_page))
+        .route("/job/{name}", get(page))
         .route("/job/{name}/preview", post(preview_job))
         .route("/job/{name}/{id}", get(job_run_page))
         .route("/job/{name}/{id}/log", get(job_log))

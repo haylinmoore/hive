@@ -1,7 +1,7 @@
 use crate::agent::DeploymentView;
 use crate::config::Config;
 use crate::hub::{HubState, NodeView};
-use crate::state::{JobPhase, JobRun, JobState, State};
+use crate::state::{JobPhase, JobRun, JobState, Mode, State};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
@@ -69,6 +69,38 @@ dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 20px; margi
 dt { color: var(--muted); }
 dd { margin: 0; }
 "#;
+
+/// Marks where the part of a page that updates itself ends, so the live
+/// stream can send just that part.
+pub const LIVE_END: &str = "<!--live-->";
+
+/// Swaps in a freshly rendered page as the hub pushes it. While text is
+/// selected the newest copy is held back, since replacing the page would
+/// throw the selection away.
+const LIVE_JS: &str = r#"
+const live = document.getElementById('live');
+let held = null;
+const selecting = () => {
+  const s = getSelection();
+  return s && !s.isCollapsed && live.contains(s.anchorNode);
+};
+const apply = (html) => {
+  if (selecting()) { held = html; return; }
+  held = null;
+  live.innerHTML = html;
+};
+document.addEventListener('selectionchange', () => {
+  if (held !== null && !selecting()) apply(held);
+});
+new EventSource('/live?path=' + encodeURIComponent(location.pathname)).onmessage = (e) => apply(e.data);
+"#;
+
+/// The live part of a whole page, as `layout` wrapped it.
+pub fn live_region(page: &str) -> Option<&str> {
+    let start = page.find(r#"<div id="live">"#)? + r#"<div id="live">"#.len();
+    let end = page.rfind(LIVE_END)?.checked_sub("</div>".len())?;
+    page.get(start..end)
+}
 
 const LOG_JS: &str = r#"
 const pre = document.getElementById('log');
@@ -165,7 +197,7 @@ pub fn unknown_keys(cfg: &Config, st: &HubState) -> BTreeSet<String> {
     out
 }
 
-fn layout(cfg: &Config, st: &HubState, title: &str, refresh: bool, body: &str) -> String {
+fn layout(cfg: &Config, st: &HubState, title: &str, live: bool, body: &str) -> String {
     let tabs: String = job_tabs(st)
         .into_iter()
         .map(|(job, waiting)| {
@@ -192,20 +224,20 @@ fn layout(cfg: &Config, st: &HubState, title: &str, refresh: bool, body: &str) -
                 .join(", ")
         )
     };
-    let refresh = if refresh {
-        r#"<meta http-equiv="refresh" content="5">"#
+    let script = if live {
+        format!("<script>{LIVE_JS}</script>")
     } else {
-        ""
+        String::new()
     };
     format!(
         r#"<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{title} · hive</title>{refresh}<style>{CSS}</style></head>
-<body><header><a class="brand" href="/">hive</a>
+<title>{title} · hive</title><style>{CSS}</style></head>
+<body><div id="live"><header><a class="brand" href="/">hive</a>
 <nav><a href="/">fleet</a>{tabs}<a href="/mesh">mesh</a></nav>
 <span class="served">served by {host}</span></header>
-{banner}<main>{body}</main></body></html>"#,
+{banner}<main>{body}</main></div>{LIVE_END}{script}</body></html>"#,
         title = esc(title),
         host = esc(&cfg.host),
     )
@@ -216,7 +248,8 @@ fn layout(cfg: &Config, st: &HubState, title: &str, refresh: bool, body: &str) -
 pub enum Shown {
     Unreachable,
     Deploying(String),
-    Ready(String),
+    /// A commit waiting for approval, and whether it has already been built.
+    Ready(String, bool),
     Failed(String, State),
     InSync,
     Behind,
@@ -232,18 +265,14 @@ pub fn shown(view: &NodeView, main: Option<&str>) -> Shown {
     }
     if let Some(r) = &s.running {
         let phase = r.deployment.phase.map(|p| p.label()).unwrap_or("starting");
-        return Shown::Deploying(phase.to_string());
+        let what = if r.deployment.mode == Mode::Build {
+            "building ahead"
+        } else {
+            "deploying"
+        };
+        return Shown::Deploying(format!("{what}, {phase}"));
     }
-    let deployed = s.deployed.as_ref().map(|d| d.deployment.rev.as_str());
-    if let Some(rev) = &s.available
-        && deployed != Some(rev.as_str())
-    {
-        return Shown::Ready(rev.clone());
-    }
-    let Some(main) = main else {
-        return Shown::Unknown;
-    };
-    if let Some(latest) = &s.latest
+    if let (Some(main), Some(latest)) = (main, &s.latest)
         && latest.deployment.rev == main
         && matches!(
             latest.deployment.state,
@@ -252,6 +281,19 @@ pub fn shown(view: &NodeView, main: Option<&str>) -> Shown {
     {
         return Shown::Failed(main.to_string(), latest.deployment.state);
     }
+    let deployed = s.deployed.as_ref().map(|d| d.deployment.rev.as_str());
+    if let Some(rev) = &s.available
+        && deployed != Some(rev.as_str())
+    {
+        let built = s
+            .latest
+            .as_ref()
+            .is_some_and(|d| &d.deployment.rev == rev && d.deployment.state == State::Built);
+        return Shown::Ready(rev.clone(), built);
+    }
+    let Some(main) = main else {
+        return Shown::Unknown;
+    };
     if deployed == Some(main) {
         Shown::InSync
     } else {
@@ -274,9 +316,16 @@ fn state_cell(view: &NodeView, main: Option<&str>) -> (String, String) {
             r#"<span class="need">unreachable</span>"#.into(),
             String::new(),
         ),
-        Shown::Deploying(phase) => (format!("deploying, {}", esc(&phase)), String::new()),
-        Shown::Ready(rev) => (
-            r#"<span class="need">update ready</span>"#.into(),
+        Shown::Deploying(what) => (esc(&what), String::new()),
+        Shown::Ready(rev, built) => (
+            format!(
+                r#"<span class="need">{}</span>"#,
+                if built {
+                    "ready to switch"
+                } else {
+                    "update ready"
+                }
+            ),
             approve_button(&view.name, &rev, "deploy"),
         ),
         Shown::Failed(rev, state) => (
@@ -1064,8 +1113,29 @@ mod tests {
         s.available = Some("aaa".into());
         assert_eq!(
             shown(&view(Some(s)), Some("aaa")),
-            Shown::Ready("aaa".into())
+            Shown::Ready("aaa".into(), false)
         );
+    }
+
+    #[test]
+    fn a_built_update_is_ready_to_switch() {
+        let mut s = status();
+        s.auto_deploy = false;
+        s.deployed = Some(dep("old", State::Succeeded));
+        s.latest = Some(dep("aaa", State::Built));
+        s.available = Some("aaa".into());
+        assert_eq!(
+            shown(&view(Some(s)), Some("aaa")),
+            Shown::Ready("aaa".into(), true)
+        );
+    }
+
+    #[test]
+    fn an_unchanged_build_is_in_sync() {
+        let mut s = status();
+        s.deployed = Some(dep("aaa", State::Unchanged));
+        s.latest = Some(dep("aaa", State::Unchanged));
+        assert_eq!(shown(&view(Some(s)), Some("aaa")), Shown::InSync);
     }
 
     #[test]
@@ -1077,7 +1147,7 @@ mod tests {
         s.available = Some("aaa".into());
         assert_eq!(
             shown(&view(Some(s)), Some("aaa")),
-            Shown::Deploying("build".into())
+            Shown::Deploying("deploying, build".into())
         );
     }
 
@@ -1086,6 +1156,16 @@ mod tests {
         let mut v = view(Some(status()));
         v.error = Some("timed out".into());
         assert_eq!(shown(&v, Some("aaa")), Shown::Unreachable);
+    }
+
+    #[test]
+    fn the_live_region_is_everything_that_updates() {
+        let (cfg, st) = hive();
+        let page = fleet(&cfg, &st, 0);
+        let region = live_region(&page).unwrap();
+        assert!(region.starts_with("<header>"), "{region}");
+        assert!(region.ends_with("</main>"), "{region}");
+        assert!(!region.contains("<script>"));
     }
 
     #[test]
