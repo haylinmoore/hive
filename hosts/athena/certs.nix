@@ -62,6 +62,7 @@ let
     "exampleusercontent.com"
     "dma.space"
     "pvc.dog"
+    "meow.i.ng"
   ];
 
   certs = hive.web.certs;
