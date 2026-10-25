@@ -61,6 +61,7 @@ let
     "yui.dev"
     "exampleusercontent.com"
     "dma.space"
+    "pvc.dog"
   ];
 
   certs = hive.web.certs;
