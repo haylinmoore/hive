@@ -69,9 +69,15 @@ fn run_one(cfg: Config, dir: StateDir, id: u64) -> ! {
     let recorded = dir
         .update(|s| {
             let existed = s.get(id).is_some();
+            let mut rev = None;
             if let Some(d) = s.get_mut(id) {
                 d.error = error.clone();
                 d.log_bytes = log_bytes;
+                rev = Some(d.rev.clone());
+            }
+            // Nothing to switch to means nothing left waiting for an approval.
+            if state == State::Unchanged && s.available == rev {
+                s.available = None;
             }
             s.finish(id, state, now());
             existed

@@ -45,6 +45,31 @@ pub enum State {
     Superseded,
     Cancelled,
     Interrupted,
+    /// Built and waiting for an approval to switch to it.
+    Built,
+    /// Built to exactly the system already running, so there was nothing to
+    /// switch to.
+    Unchanged,
+}
+
+/// How much of a deploy to do. Nodes that wait for approval build ahead of
+/// time, and the approval only switches to what was built.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Mode {
+    #[default]
+    Full,
+    Build,
+    Activate,
+}
+
+impl Mode {
+    pub fn first_phase(&self) -> Phase {
+        match self {
+            Mode::Activate => Phase::Activate,
+            _ => Phase::Fetch,
+        }
+    }
 }
 
 impl State {
@@ -54,7 +79,7 @@ impl State {
 
     /// Whether the node ended up on the newly built generation.
     pub fn switched(&self) -> bool {
-        matches!(self, State::Succeeded | State::Degraded)
+        matches!(self, State::Succeeded | State::Degraded | State::Unchanged)
     }
 
     pub fn label(&self) -> &'static str {
@@ -68,6 +93,8 @@ impl State {
             State::Superseded => "superseded",
             State::Cancelled => "cancelled",
             State::Interrupted => "interrupted",
+            State::Built => "built",
+            State::Unchanged => "unchanged",
         }
     }
 }
@@ -85,6 +112,8 @@ pub struct Deployment {
     pub rev: String,
     #[serde(default)]
     pub subject: Option<String>,
+    #[serde(default)]
+    pub mode: Mode,
     pub state: State,
     #[serde(default)]
     pub phase: Option<Phase>,
@@ -119,6 +148,7 @@ impl Deployment {
             id,
             rev: rev.to_string(),
             subject: None,
+            mode: Mode::Full,
             state: State::Queued,
             phase: None,
             queued_at: now,
@@ -271,8 +301,6 @@ pub enum Offer {
     /// Already deployed or already tried, nothing to do.
     Known,
     Admitted(Admission),
-    /// Recorded as available, waiting for an approval.
-    Waiting,
 }
 
 pub fn is_hex_sha(rev: &str) -> bool {
@@ -467,18 +495,38 @@ impl Store {
         if auto {
             Offer::Admitted(self.admit(rev, now))
         } else {
+            // Build now, so the approval only has to switch, and so the build
+            // can say whether there is anything to switch to at all.
             self.available = Some(rev.to_string());
-            Offer::Waiting
+            Offer::Admitted(self.admit_mode(rev, Mode::Build, now))
         }
     }
 
     /// Someone asked for `rev` by hand, either an update waiting on a node
     /// that does not deploy itself or a retry of one that failed.
+    ///
+    /// A build still running for `rev` carries on into the switch. The newest
+    /// build waiting for `rev` is switched to as is, because the checkout and
+    /// its result still belong to it. Anything else deploys from scratch.
     pub fn approve(&mut self, rev: &str, now: i64) -> Admission {
         if self.available.as_deref() == Some(rev) {
             self.available = None;
         }
-        self.admit(rev, now)
+        if let Some(building) = self
+            .deployments
+            .iter_mut()
+            .find(|d| !d.state.is_terminal() && d.rev == rev)
+        {
+            if building.mode == Mode::Build {
+                building.mode = Mode::Full;
+            }
+            return Admission::Existing(building.id);
+        }
+        let built = self
+            .latest()
+            .is_some_and(|d| d.rev == rev && d.state == State::Built);
+        let mode = if built { Mode::Activate } else { Mode::Full };
+        self.admit_mode(rev, mode, now)
     }
 
     pub fn latest(&self) -> Option<&Deployment> {
@@ -519,6 +567,10 @@ impl Store {
     /// request replaces the first, because only the newest commit is worth
     /// deploying and the one it displaced never needed to run.
     pub fn admit(&mut self, rev: &str, now: i64) -> Admission {
+        self.admit_mode(rev, Mode::Full, now)
+    }
+
+    pub fn admit_mode(&mut self, rev: &str, mode: Mode, now: i64) -> Admission {
         if let Some(id) = self.active_with_rev(rev) {
             return Admission::Existing(id);
         }
@@ -526,11 +578,12 @@ impl Store {
         let id = self.next_id;
         self.next_id += 1;
         let mut deployment = Deployment::new(id, rev, now);
+        deployment.mode = mode;
 
         if self.running().is_none() {
             deployment.state = State::Running;
             deployment.started_at = Some(now);
-            deployment.phase = Some(Phase::Fetch);
+            deployment.phase = Some(mode.first_phase());
             self.deployments.insert(0, deployment);
             Admission::Started(id)
         } else {
@@ -557,7 +610,7 @@ impl Store {
             .find(|d| d.state == State::Queued)?;
         waiting.state = State::Running;
         waiting.started_at = Some(now);
-        waiting.phase = Some(Phase::Fetch);
+        waiting.phase = Some(waiting.mode.first_phase());
         Some(waiting.id)
     }
 
@@ -771,18 +824,51 @@ mod tests {
     }
 
     #[test]
-    fn a_manual_node_waits_for_approval() {
+    fn a_manual_node_builds_ahead_and_the_approval_only_switches() {
         let mut s = store();
-        assert_eq!(s.offer("aaa", false, 1), Offer::Waiting);
-        assert!(s.deployments.is_empty());
+        assert_eq!(
+            s.offer("aaa", false, 1),
+            Offer::Admitted(Admission::Started(1))
+        );
+        assert_eq!(s.get(1).unwrap().mode, Mode::Build);
         assert_eq!(s.available.as_deref(), Some("aaa"));
+        s.finish(1, State::Built, 2);
 
-        assert_eq!(s.offer("bbb", false, 2), Offer::Waiting);
-        assert_eq!(s.available.as_deref(), Some("bbb"));
-
-        assert_eq!(s.approve("bbb", 3), Admission::Started(1));
+        assert_eq!(s.approve("aaa", 3), Admission::Started(2));
+        let switch = s.get(2).unwrap();
+        assert_eq!(switch.mode, Mode::Activate);
+        assert_eq!(switch.phase, Some(Phase::Activate));
         assert_eq!(s.available, None);
-        assert_eq!(s.target.as_deref(), Some("bbb"));
+    }
+
+    #[test]
+    fn approving_mid_build_carries_the_build_through_to_a_switch() {
+        let mut s = store();
+        s.offer("aaa", false, 1);
+        assert_eq!(s.approve("aaa", 2), Admission::Existing(1));
+        assert_eq!(s.get(1).unwrap().mode, Mode::Full);
+        assert_eq!(s.deployments.len(), 1);
+    }
+
+    #[test]
+    fn an_older_build_is_not_switched_to_without_rebuilding() {
+        let mut s = store();
+        s.offer("aaa", false, 1);
+        s.finish(1, State::Built, 2);
+        s.offer("bbb", false, 3);
+        s.finish(2, State::Built, 4);
+        // the checkout and the build result now belong to bbb
+        assert_eq!(s.approve("aaa", 5), Admission::Started(3));
+        assert_eq!(s.get(3).unwrap().mode, Mode::Full);
+    }
+
+    #[test]
+    fn an_unchanged_build_counts_as_deployed() {
+        let mut s = store();
+        s.offer("aaa", false, 1);
+        s.finish(1, State::Unchanged, 2);
+        assert_eq!(s.last_switched().unwrap().rev, "aaa");
+        assert_eq!(s.offer("aaa", false, 3), Offer::Known);
     }
 
     #[test]

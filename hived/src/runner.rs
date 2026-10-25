@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::health::{self, Snapshot};
-use crate::state::{DeployError, Phase, State};
+use crate::state::{DeployError, Mode, Phase, State};
 use crate::store::{Log, StateDir};
 use std::io;
 use std::path::{Path, PathBuf};
@@ -230,12 +230,12 @@ pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
         repo: cfg.repo_dir.clone(),
     };
 
-    let rev = match dir
+    let (rev, mode) = match dir
         .load()
         .ok()
-        .and_then(|s| s.get(id).map(|d| d.rev.clone()))
+        .and_then(|s| s.get(id).map(|d| (d.rev.clone(), d.mode)))
     {
-        Some(rev) => rev,
+        Some(found) => found,
         None => {
             return Outcome {
                 state: State::Failed,
@@ -253,6 +253,9 @@ pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
     let mut before: Snapshot = Snapshot::new();
 
     for phase in Phase::all() {
+        if mode == Mode::Activate && phase < Phase::Activate {
+            continue;
+        }
         let started = Instant::now();
         set_phase(dir, id, phase);
         run.banner(phase.label());
@@ -264,7 +267,7 @@ pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
             Phase::Activate => {
                 before = health::snapshot().unwrap_or_default();
                 record_pre_failed(dir, id, &before);
-                activate(&run)
+                still_checked_out(&run, &rev).and_then(|()| activate(&run))
             }
             Phase::Check => {
                 let outcome = check(&run, &before);
@@ -286,6 +289,12 @@ pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
                 state,
                 error: Some(error),
             };
+        }
+
+        if phase == Phase::Build
+            && let Some(state) = after_build(&run)
+        {
+            return Outcome { state, error: None };
         }
     }
 
@@ -393,6 +402,55 @@ fn upgrade(run: &Run, action: &str) -> Command {
     let mut cmd = Command::new("./upgrade.sh");
     cmd.current_dir(&run.repo).arg(&run.cfg.host).arg(action);
     cmd
+}
+
+/// What the build produced, read through the link `upgrade.sh build` leaves.
+fn built_system(run: &Run) -> Option<String> {
+    std::fs::canonicalize(run.repo.join(format!(".gcroots/node-{}", run.cfg.host)))
+        .ok()
+        .map(|p| p.to_string_lossy().into_owned())
+}
+
+/// Decide whether a finished build goes on to a switch.
+///
+/// A build identical to the running system has nothing to switch to, whatever
+/// the commit says. Otherwise a build-only deploy stops here, unless someone
+/// approved it while it was building, which turned it into a full one.
+fn after_build(run: &Run) -> Option<State> {
+    let built = built_system(run);
+    if built.is_some() && built == current_system() {
+        run.log("\nthe build is the system already running, nothing to switch to\n");
+        let _ = run.dir.update(|s| {
+            if let Some(d) = s.get_mut(run.id) {
+                d.toplevel = built.clone();
+                d.generation = current_generation();
+            }
+        });
+        return Some(State::Unchanged);
+    }
+
+    let mode = run.dir.load().ok()?.get(run.id)?.mode;
+    if mode == Mode::Build {
+        run.log("\nbuilt, waiting for an approval to switch\n");
+        return Some(State::Built);
+    }
+    None
+}
+
+/// A switch on its own trusts that the checkout still holds the build it
+/// was approved for. Another deploy since then would have moved it.
+fn still_checked_out(run: &Run, rev: &str) -> Result<(), DeployError> {
+    let head = run
+        .capture(&mut git(&run.repo, &["rev-parse", "HEAD"]))
+        .unwrap_or_default();
+    if head == rev {
+        return Ok(());
+    }
+    Err(DeployError {
+        phase: Phase::Activate,
+        exit_code: None,
+        message: format!("the checkout is at {head}, not {rev}, deploy it again to rebuild"),
+    })
 }
 
 fn build(run: &Run) -> Result<(), DeployError> {
