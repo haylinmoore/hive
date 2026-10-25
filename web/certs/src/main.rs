@@ -2,6 +2,7 @@ mod backfill;
 mod chain;
 mod pages;
 mod record;
+mod tree;
 
 use axum::Router;
 use axum::extract::{Path, Query, State};
@@ -131,6 +132,37 @@ async fn ca(State(app): State<Arc<App>>, Path(sha): Path<String>) -> Response {
     Html(pages::ca(&link, &above, &issued, now()).into_string()).into_response()
 }
 
+#[derive(serde::Deserialize, Default)]
+struct TreeQuery {
+    #[serde(default)]
+    live: Option<String>,
+}
+
+async fn tree_page(State(app): State<Arc<App>>, Query(q): Query<TreeQuery>) -> Html<String> {
+    let live_only = q.live.is_some();
+    let mut records = record::load(&app.dir);
+    if live_only {
+        let now = now();
+        records.retain(|r| r.active(now));
+    }
+    Html(pages::tree(&tree::build(&records), live_only).into_string())
+}
+
+async fn domain(State(app): State<Arc<App>>, Path(name): Path<String>) -> Response {
+    let name = name.to_lowercase();
+    let records = record::load(&app.dir);
+    let root = tree::build(&records);
+    let node = tree::find(&root, &name);
+    if node.is_none() {
+        return (StatusCode::NOT_FOUND, "no certificates name that").into_response();
+    }
+    let mine: Vec<record::Record> = records
+        .into_iter()
+        .filter(|r| r.dns_names.iter().any(|n| tree::under(n, &name)))
+        .collect();
+    Html(pages::domain(&name, node, &mine, now()).into_string()).into_response()
+}
+
 fn serve() {
     let bind = env("CERTS_BIND").unwrap_or_else(|| "127.0.0.1:15700".into());
     let app = Arc::new(App {
@@ -144,6 +176,8 @@ fn serve() {
         .route("/live", get(live))
         .route("/cert/{sha}", get(cert))
         .route("/ca/{sha}", get(ca))
+        .route("/tree", get(tree_page))
+        .route("/d/{name}", get(domain))
         .with_state(app);
 
     tokio::runtime::Runtime::new()

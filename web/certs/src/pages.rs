@@ -11,6 +11,13 @@ a { color: inherit; }
 header, main { max-width: 1100px; margin: 0 auto; }
 header { padding: 16px 16px 0; }
 header a { text-decoration: none; }
+header .nav { margin-left: 20px; }
+header .nav a { margin-right: 12px; text-decoration: underline; }
+ul.tree, ul.tree ul { list-style: none; margin: 0; padding-left: 18px; }
+ul.tree { padding-left: 0; }
+ul.tree summary { cursor: pointer; }
+ul.tree li > a, ul.tree summary > a { margin-right: 8px; }
+.crumbs a { margin-right: 4px; }
 main { padding: 8px 16px 32px; }
 h1 { font-size: 13px; font-weight: 700; margin: 0 0 10px; }
 h2 { font-size: 13px; font-weight: 400; color: var(--muted); margin: 20px 0 6px; }
@@ -49,6 +56,18 @@ document.addEventListener('selectionchange', () => {
 new EventSource('/live' + location.search).onmessage = (e) => apply(e.data);
 "#;
 
+const TREE_JS: &str = r#"
+document.addEventListener('click', (e) => {
+  const summary = e.target.closest('summary');
+  if (!summary || !e.shiftKey || e.target.closest('a')) return;
+  e.preventDefault();
+  const details = summary.parentElement;
+  const open = !details.open;
+  details.open = open;
+  details.querySelectorAll('details').forEach((d) => (d.open = open));
+});
+"#;
+
 fn layout(title: &str, live: bool, body: Markup) -> Markup {
     html! {
         (DOCTYPE)
@@ -60,7 +79,10 @@ fn layout(title: &str, live: bool, body: Markup) -> Markup {
                 style { (PreEscaped(CSS)) }
             }
             body {
-                header { a href="/" { "certs.hayl.in" } }
+                header {
+                    a href="/" { "certs.hayl.in" }
+                    span.nav { a href="/" { "log" } a href="/tree" { "tree" } }
+                }
                 main { (body) }
                 @if live {
                     script { (PreEscaped(LIVE_JS)) }
@@ -258,6 +280,93 @@ pub fn ca(link: &Link, above: &[Link], issued: &[&Record], now: i64) -> Markup {
             }
             h2 { "certificate" }
             pre { (link.pem) }
+        },
+    )
+}
+
+fn branch(full: &str, node: &crate::tree::Node, depth: usize) -> Markup {
+    let link = html! {
+        a href={ "/d/" (full) } { (if depth == 0 { full } else { crate::tree::label(full) }) }
+        span.muted { (node.total) }
+    };
+    html! {
+        li {
+            @if node.children.is_empty() {
+                (link)
+            } @else {
+                details open[depth == 0] {
+                    summary { (link) }
+                    ul { @for (child, n) in &node.children { (branch(child, n, depth + 1)) } }
+                }
+            }
+        }
+    }
+}
+
+pub fn tree(root: &crate::tree::Node, live_only: bool) -> Markup {
+    layout(
+        "tree",
+        false,
+        html! {
+            p.filter {
+                a.on[!live_only] href="/tree" { "all" }
+                a.on[live_only] href="/tree?live=1" { "live" }
+            }
+            ul.tree { @for (tld, n) in &root.children { (branch(tld, n, 0)) } }
+        script { (PreEscaped(TREE_JS)) }
+        },
+    )
+}
+
+pub fn domain(
+    name: &str,
+    node: Option<&crate::tree::Node>,
+    records: &[Record],
+    now: i64,
+) -> Markup {
+    let labels: Vec<&str> = name.split('.').collect();
+    let crumbs: Vec<String> = (0..labels.len())
+        .rev()
+        .map(|i| labels[i..].join("."))
+        .collect();
+    let first = firsts(records);
+    layout(
+        name,
+        false,
+        html! {
+            p.crumbs {
+                @for (i, c) in crumbs.iter().enumerate() {
+                    @if i > 0 { span.muted { "/ " } }
+                    @if c == name { b { (crate::tree::label(c)) } } @else { a href={ "/d/" (c) } { (crate::tree::label(c)) } }
+                }
+            }
+            h1 { (name) }
+            @if let Some(node) = node {
+                @if !node.children.is_empty() {
+                    p {
+                        span.muted { "under it: " }
+                        @for (child, n) in &node.children {
+                            a href={ "/d/" (child) } { (crate::tree::label(child)) } span.muted { " " (n.total) "  " }
+                        }
+                    }
+                }
+            }
+            @if records.is_empty() {
+                p.muted { "no certificates" }
+            } @else {
+                div.scroll { table {
+                    tr { th { "issued" } th { "" } th { "names" } th { "issuer" } th { "valid until" } }
+                    @for (r, new) in records.iter().zip(&first) {
+                        tr.expired[!r.active(now)] {
+                            td { a href={ "/cert/" (r.cert_sha256) } { (date(r.issued())) } }
+                            td { @if *new { span.new { "new" } } @else { span.muted { "renewed" } } }
+                            td.wrap { (names(r)) }
+                            td { (r.issuer_name()) }
+                            td { (r.not_after.map(date).unwrap_or_default()) }
+                        }
+                    }
+                } }
+            }
         },
     )
 }
