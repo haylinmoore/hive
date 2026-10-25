@@ -39,6 +39,11 @@ let
     HIVED_TIMEOUT_BUILD_SECS = toString cfg.timeouts.build;
     HIVED_TIMEOUT_ACTIVATE_SECS = toString cfg.timeouts.activate;
     HIVED_JOBS = lib.concatStringsSep "," cfg.jobs;
+    HIVED_CERT_RENEW_DAYS = lib.concatStringsSep "," (
+      lib.mapAttrsToList (name: c: "${name}=${toString c.validMinDays}") (
+        lib.filterAttrs (_: c: c.validMinDays != null) config.security.acme.certs
+      )
+    );
   };
 
   runnerPath = with pkgs; [
@@ -258,6 +263,27 @@ in
             ExecStart = "${hive.hived}/bin/hived job %i";
             TimeoutStartSec = cfg.timeouts.build + 600;
             WorkingDirectory = cfg.stateDir;
+          };
+        };
+
+        systemd.services.hived-certs = {
+          description = "hive certificate survey";
+          inherit environment;
+          path = [
+            pkgs.openssl
+            pkgs.systemd
+          ];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${hive.hived}/bin/hived certs";
+          };
+        };
+
+        systemd.timers.hived-certs = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnBootSec = "1min";
+            OnUnitActiveSec = "10min";
           };
         };
 

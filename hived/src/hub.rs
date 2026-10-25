@@ -249,6 +249,7 @@ async fn render_path(hub: &Hub, path: &str) -> Option<String> {
     match parts.as_slice() {
         [""] => Some(dash::fleet(cfg, &st, now())),
         ["mesh"] => Some(dash::mesh(cfg, &st, now())),
+        ["certs"] => Some(dash::certs(cfg, &st, now())),
         ["node", name] => {
             let view = st.nodes.get(*name)?;
             let deployments = history(hub, name).await;
@@ -626,6 +627,7 @@ pub fn dash_router(hub: SharedHub) -> Router {
     Router::new()
         .route("/", get(page))
         .route("/mesh", get(page))
+        .route("/certs", get(page))
         .route("/live", get(live))
         .route("/node/{name}", get(page))
         .route("/node/{name}/approve", post(approve))

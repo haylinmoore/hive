@@ -1,4 +1,5 @@
 mod agent;
+mod certs;
 mod config;
 mod dash;
 mod health;
@@ -21,7 +22,7 @@ use std::time::Duration;
 const RECONCILE_GRACE_SECS: i64 = 30;
 
 fn usage() -> ! {
-    eprintln!("usage: hived serve | hived run <id> | hived job <id>");
+    eprintln!("usage: hived serve | hived run <id> | hived job <id> | hived certs");
     std::process::exit(2)
 }
 
@@ -45,6 +46,7 @@ fn main() {
                 None => usage(),
             }
         }
+        Some("certs") => certs_once(cfg),
         Some("job") => {
             let id = args.next().and_then(|v| v.parse::<u64>().ok());
             match id {
@@ -235,4 +237,25 @@ fn job_one(cfg: Config, dir: StateDir, id: u64) -> ! {
     }
     eprintln!("no record for job {id}");
     std::process::exit(1)
+}
+
+fn certs_once(cfg: Config) -> ! {
+    let path = cfg.state_dir.join("certs.json");
+    let previous = std::fs::read(&path)
+        .ok()
+        .and_then(|raw| serde_json::from_slice(&raw).ok())
+        .unwrap_or_default();
+    let file = certs::collect(&cfg, &previous, now());
+    let tmp = cfg.state_dir.join("certs.json.tmp");
+    let written = serde_json::to_vec_pretty(&file)
+        .map_err(std::io::Error::other)
+        .and_then(|body| std::fs::write(&tmp, body))
+        .and_then(|()| std::fs::rename(&tmp, &path));
+    match written {
+        Ok(()) => std::process::exit(0),
+        Err(e) => {
+            eprintln!("cannot write {}: {e}", path.display());
+            std::process::exit(1)
+        }
+    }
 }

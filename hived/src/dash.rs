@@ -203,6 +203,15 @@ fn layout(cfg: &Config, st: &HubState, title: &str, live: bool, body: &str) -> S
             }
         })
         .collect();
+    let troubled = cert_rows(st)
+        .iter()
+        .filter(|(_, c)| cert_trouble(c, crate::agent::now()))
+        .count();
+    let certs_tab = if troubled > 0 {
+        format!(r#"<a href="/certs">certs <span class="need">{troubled}</span></a>"#)
+    } else {
+        r#"<a href="/certs">certs</a>"#.to_string()
+    };
     let unknown = unknown_keys(cfg, st);
     let banner = if unknown.is_empty() {
         String::new()
@@ -227,7 +236,7 @@ fn layout(cfg: &Config, st: &HubState, title: &str, live: bool, body: &str) -> S
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{title} · hive</title><style>{CSS}</style></head>
 <body><div id="live"><header><a class="brand" href="/">hive</a>
-<nav><a href="/">fleet</a>{tabs}<a href="/mesh">mesh</a></nav>
+<nav><a href="/">fleet</a>{tabs}{certs_tab}<a href="/mesh">mesh</a></nav>
 <span class="served">served by {host}</span></header>
 {banner}<main>{body}</main></div>{LIVE_END}{script}</body></html>"#,
         title = esc(title),
@@ -1015,6 +1024,125 @@ pub fn job_run(
     layout(cfg, st, &format!("{name} run {id}"), false, &body)
 }
 
+pub fn until(now: i64, then: i64) -> String {
+    let d = then - now;
+    match d {
+        ..=0 => "now".to_string(),
+        1..60 => format!("in {d}s"),
+        60..3600 => format!("in {}m", d / 60),
+        3600..86400 => format!("in {}h", d / 3600),
+        _ => format!("in {}d", d / 86400),
+    }
+}
+
+fn date(t: i64) -> String {
+    chrono::DateTime::from_timestamp(t, 0)
+        .map(|d| d.format("%b %-d %Y").to_string())
+        .unwrap_or_default()
+}
+
+const RENEW_GRACE: i64 = 26 * 3600;
+
+fn overdue(c: &crate::certs::Cert, now: i64) -> bool {
+    c.renew_from.is_some_and(|t| now > t + RENEW_GRACE) || c.not_after.is_some_and(|t| now >= t)
+}
+
+fn cert_rows(st: &HubState) -> Vec<(String, crate::certs::Cert)> {
+    let mut rows: Vec<_> = st
+        .nodes
+        .values()
+        .filter_map(|v| Some((v.name.clone(), v.status.as_ref()?.certs.as_ref()?)))
+        .flat_map(|(node, file)| file.certs.iter().map(move |c| (node.clone(), c.clone())))
+        .collect();
+    rows.sort_by_key(|(node, c)| (c.not_after.unwrap_or(i64::MIN), node.clone()));
+    rows
+}
+
+fn cert_trouble(c: &crate::certs::Cert, now: i64) -> bool {
+    !c.last_ok || c.not_after.is_none() || overdue(c, now)
+}
+
+pub fn certs(cfg: &Config, st: &HubState, now: i64) -> String {
+    let rows = cert_rows(st);
+    let mut body = String::from("<h1>certs</h1>");
+    if rows.is_empty() {
+        body.push_str(r#"<p class="muted">no node has reported its certificates yet</p>"#);
+        return layout(cfg, st, "certs", true, &body);
+    }
+
+    body.push_str(
+        r#"<div class="scroll"><table><tr><th>cert</th><th>node</th><th>issuer</th><th>expires</th><th>renews from</th><th>next check</th><th>last check</th><th class="wrap">names</th></tr>"#,
+    );
+    for (node, c) in &rows {
+        let expires = match c.not_after {
+            Some(t) if overdue(c, now) => {
+                format!(
+                    r#"<span class="need">{} ({})</span>"#,
+                    until(now, t),
+                    date(t)
+                )
+            }
+            Some(t) => format!("{} ({})", until(now, t), date(t)),
+            None => r#"<span class="need">no cert</span>"#.to_string(),
+        };
+        let last = match (c.last_check, c.last_ok) {
+            (Some(t), true) => ago(now, t),
+            (Some(t), false) => format!(r#"<span class="need">failed</span> {}"#, ago(now, t)),
+            (None, true) => r#"<span class="muted">not yet</span>"#.to_string(),
+            (None, false) => r#"<span class="need">failed</span>"#.to_string(),
+        };
+        let _ = write!(
+            body,
+            r#"<tr><td>{name}</td><td><a href="/node/{node}">{node}</a></td><td>{issuer}</td><td>{expires}</td><td>{renew}</td><td>{next}</td><td>{last}</td><td class="wrap">{domains}</td></tr>"#,
+            name = esc(&c.name),
+            node = esc(node),
+            issuer = esc(c.issuer.as_deref().unwrap_or("")),
+            renew = match c.renew_from {
+                Some(_) if overdue(c, now) => r#"<span class="need">overdue</span>"#.to_string(),
+                Some(t) => until(now, t),
+                None => String::new(),
+            },
+            next = c.next_check.map(|t| until(now, t)).unwrap_or_default(),
+            domains = esc(&c.domains.join(" ")),
+        );
+    }
+    body.push_str("</table></div>");
+
+    let mut events: Vec<_> = st
+        .nodes
+        .values()
+        .filter_map(|v| Some((v.name.clone(), v.status.as_ref()?.certs.as_ref()?)))
+        .flat_map(|(node, file)| file.history.iter().map(move |e| (node.clone(), e.clone())))
+        .collect();
+    events.sort_by_key(|(_, e)| std::cmp::Reverse(e.at));
+    events.truncate(80);
+
+    body.push_str("<h2>history</h2>");
+    body.push_str(
+        r#"<div class="scroll"><table><tr><th>when</th><th>cert</th><th>node</th><th>event</th><th class="wrap">fingerprint</th></tr>"#,
+    );
+    for (node, e) in &events {
+        let (event, detail) = match e.kind {
+            crate::certs::EventKind::Issued => ("issued".to_string(), e.detail.clone()),
+            crate::certs::EventKind::Failed => (
+                r#"<span class="need">renewal failed</span>"#.to_string(),
+                String::new(),
+            ),
+        };
+        let _ = write!(
+            body,
+            r#"<tr><td>{when} <span class="muted">{date}</span></td><td>{name}</td><td>{node}</td><td>{event}</td><td class="wrap muted">{detail}</td></tr>"#,
+            when = ago(now, e.at),
+            date = date(e.at),
+            name = esc(&e.name),
+            node = esc(node),
+            detail = esc(&detail),
+        );
+    }
+    body.push_str("</table></div>");
+    layout(cfg, st, "certs", true, &body)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1049,6 +1177,7 @@ mod tests {
             mesh: None,
             jobs: vec![],
             job_runs: vec![],
+            certs: None,
         }
     }
 
@@ -1142,6 +1271,31 @@ mod tests {
         assert!(region.starts_with("<header>"), "{region}");
         assert!(region.ends_with("</main>"), "{region}");
         assert!(!region.contains("<script>"));
+    }
+
+    #[test]
+    fn a_short_lived_cert_is_only_trouble_once_its_renewal_is_overdue() {
+        let day = 86400;
+        let c = crate::certs::Cert {
+            not_before: Some(0),
+            not_after: Some(6 * day),
+            renew_from: Some(3 * day),
+            last_ok: true,
+            ..Default::default()
+        };
+        assert!(
+            !cert_trouble(&c, 4 * day),
+            "two days left is normal for these"
+        );
+        assert!(
+            cert_trouble(&c, 4 * day + 3 * 3600),
+            "a day past renewal and still old"
+        );
+        let failed = crate::certs::Cert {
+            last_ok: false,
+            ..c
+        };
+        assert!(cert_trouble(&failed, day));
     }
 
     #[test]

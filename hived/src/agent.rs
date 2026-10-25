@@ -102,6 +102,8 @@ pub struct NodeStatus {
     pub jobs: Vec<String>,
     #[serde(default)]
     pub job_runs: Vec<JobRun>,
+    #[serde(default)]
+    pub certs: Option<crate::certs::CertFile>,
 }
 
 pub fn status(app: &App) -> NodeStatus {
@@ -135,6 +137,9 @@ pub fn status(app: &App) -> NodeStatus {
         mesh: ygg::snapshot(&app.cfg.ygg_socket).ok(),
         jobs: app.cfg.jobs.clone(),
         job_runs: store.jobs.iter().take(30).cloned().collect(),
+        certs: std::fs::read(app.cfg.state_dir.join("certs.json"))
+            .ok()
+            .and_then(|raw| serde_json::from_slice(&raw).ok()),
     }
 }
 

@@ -75,6 +75,7 @@ pub struct Config {
     pub run_unit_prefix: String,
     pub job_unit_prefix: String,
     pub jobs: Vec<String>,
+    pub cert_renew_days: Vec<String>,
 
     pub poll_every: Duration,
     pub main_every: Duration,
@@ -125,6 +126,7 @@ impl Config {
             run_unit_prefix: env_or("HIVED_RUN_UNIT_PREFIX", "hived-run@"),
             job_unit_prefix: env_or("HIVED_JOB_UNIT_PREFIX", "hived-job@"),
             jobs: env_list("HIVED_JOBS"),
+            cert_renew_days: env_list("HIVED_CERT_RENEW_DAYS"),
 
             poll_every: env_secs("HIVED_POLL_SECS", 5),
             main_every: env_secs("HIVED_MAIN_SECS", 300),
