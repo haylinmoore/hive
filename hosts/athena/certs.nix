@@ -43,7 +43,29 @@ in
   };
   users.groups.certs = { };
 
-  services.derivations.certs = certs.service { inherit bind dir zones; };
+  services.derivations.certs = certs.service { inherit bind dir; };
+
+  systemd.services.certs-backfill = {
+    description = "Backfill certs.hayl.in from CT search indexes";
+    wantedBy = [ "multi-user.target" ];
+    after = [
+      "network-online.target"
+      "certspotter.service"
+    ];
+    wants = [ "network-online.target" ];
+    environment = {
+      CERTS_DIR = dir;
+      CERTS_ZONES = lib.concatStringsSep "," zones;
+    };
+    unitConfig.ConditionPathExists = "!${dir}/.backfilled";
+    serviceConfig = {
+      Type = "oneshot";
+      User = "certspotter";
+      Group = "certspotter";
+      ExecStart = "${certs}/bin/certs backfill";
+      ExecStartPost = "${pkgs.coreutils}/bin/touch ${dir}/.backfilled";
+    };
+  };
 
   proxySites.certs = {
     domain = "certs.hayl.in";
