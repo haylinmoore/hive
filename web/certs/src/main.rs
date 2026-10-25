@@ -23,11 +23,17 @@ struct App {
 struct Filter {
     #[serde(default)]
     only: Option<String>,
+    #[serde(default)]
+    page: Option<usize>,
 }
 
 impl Filter {
     fn hive(&self) -> bool {
         self.only.as_deref() == Some("hive")
+    }
+
+    fn page(&self) -> usize {
+        self.page.unwrap_or(1)
     }
 }
 
@@ -52,13 +58,14 @@ fn dir() -> PathBuf {
 }
 
 async fn index(State(app): State<Arc<App>>, Query(filter): Query<Filter>) -> Html<String> {
-    Html(pages::index(&records(&app, &filter), filter.hive(), now()).into_string())
+    Html(pages::index(&records(&app, &filter), filter.hive(), filter.page(), now()).into_string())
 }
 
 async fn live(State(app): State<Arc<App>>, Query(filter): Query<Filter>) -> Response {
     let filter = Arc::new(filter);
-    let render =
-        move |app: &App, f: &Filter| pages::tables(&records(app, f), f.hive(), now()).into_string();
+    let render = move |app: &App, f: &Filter| {
+        pages::tables(&records(app, f), f.hive(), f.page(), now()).into_string()
+    };
     let seed = render(&app, &filter);
     let stream =
         futures_util::stream::unfold((app, filter, seed), move |(app, filter, last)| async move {

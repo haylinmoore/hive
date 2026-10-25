@@ -250,7 +250,7 @@ mod tests {
         let r = from_crtsh("estrogen.coffee", l);
         assert_eq!(r.cert_sha256, "crtsh-42");
         assert_eq!(r.serial.as_deref(), Some("06e684a5"));
-        assert_eq!(r.issuer_cn(), "YE2");
+        assert_eq!(r.issuer_name(), "Let's Encrypt YE2");
         assert_eq!(r.not_after.unwrap() - r.not_before.unwrap(), 90 * 86400 - 1);
     }
 

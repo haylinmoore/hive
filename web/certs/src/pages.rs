@@ -4,35 +4,31 @@ use maud::{DOCTYPE, Markup, PreEscaped, html};
 use std::collections::BTreeSet;
 
 const CSS: &str = r#"
-:root { --bg: #fafaf9; --fg: #1c1917; --muted: #78716c; --line: #e7e5e4; --panel: #f5f5f4; --accent: #c2410c; color-scheme: light; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #161514; --fg: #e7e5e4; --muted: #a8a29e; --line: #2e2b29; --panel: #1f1d1b; --accent: #fb923c; color-scheme: dark; }
-}
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 ui-monospace, "Berkeley Mono", "JetBrains Mono", Menlo, monospace; }
+:root { --fg: #1c1917; --muted: #8a8580; --accent: #c2410c; --bg: #fafaf9; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --fg: #e7e5e4; --muted: #8f8a86; --accent: #fb923c; --bg: #161514; color-scheme: dark; } }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.55 ui-monospace, "Berkeley Mono", "JetBrains Mono", Menlo, monospace; }
 a { color: inherit; }
-header { padding: 14px 16px; border-bottom: 1px solid var(--line); }
-header a { font-weight: 700; text-decoration: none; }
-main { padding: 16px; max-width: 1200px; }
-h1 { font-size: 16px; margin: 0 0 12px; }
-h2 { font-size: 14px; margin: 28px 0 8px; color: var(--muted); font-weight: 400; }
-h2:first-child { margin-top: 0; }
-p { margin: 0 0 12px; }
+header, main { max-width: 1100px; margin: 0 auto; }
+header { padding: 16px 16px 0; }
+header a { text-decoration: none; }
+main { padding: 8px 16px 32px; }
+h1 { font-size: 13px; font-weight: 700; margin: 0 0 10px; }
+h2 { font-size: 13px; font-weight: 400; color: var(--muted); margin: 20px 0 6px; }
+p { margin: 0 0 10px; }
 .muted { color: var(--muted); }
 .new { color: var(--accent); }
-.filter { margin: 0 0 12px; }
-.filter a { margin-right: 12px; }
+.filter a, .pager > * { margin-right: 12px; }
 .filter .on { font-weight: 700; text-decoration: none; }
-tr.expired td { color: var(--muted); }
 .scroll { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; }
-th, td { text-align: left; padding: 6px 14px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; vertical-align: top; }
+th, td { text-align: left; padding: 2px 16px 2px 0; white-space: nowrap; vertical-align: top; }
 th { color: var(--muted); font-weight: 400; }
 td.wrap { white-space: normal; word-break: break-all; }
-dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 20px; margin: 0; }
+tr.expired td { opacity: .5; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 1px 20px; margin: 0; }
 dt { color: var(--muted); }
 dd { margin: 0; word-break: break-all; }
-pre { background: var(--panel); border: 1px solid var(--line); padding: 12px; overflow-x: auto; margin: 0; }
+pre { overflow-x: auto; margin: 0; }
 "#;
 
 const LIVE_JS: &str = r#"
@@ -111,8 +107,29 @@ pub fn firsts(records: &[Record]) -> Vec<bool> {
     out
 }
 
-pub fn tables(records: &[Record], hive_only: bool, now: i64) -> Markup {
+pub const PER_PAGE: usize = 200;
+
+fn href(hive_only: bool, page: usize) -> String {
+    match (hive_only, page) {
+        (false, 1) => "/".to_string(),
+        (true, 1) => "/?only=hive".to_string(),
+        (false, p) => format!("/?page={p}"),
+        (true, p) => format!("/?only=hive&page={p}"),
+    }
+}
+
+pub fn tables(records: &[Record], hive_only: bool, page: usize, now: i64) -> Markup {
     let first = firsts(records);
+    let pages = records.len().div_ceil(PER_PAGE).max(1);
+    let page = page.clamp(1, pages);
+    let start = (page - 1) * PER_PAGE;
+    let pager = html! {
+        p.pager {
+            @if page > 1 { a href=(href(hive_only, page - 1)) { "newer" } } @else { span.muted { "newer" } }
+            span.muted { (page) " of " (pages) }
+            @if page < pages { a href=(href(hive_only, page + 1)) { "older" } } @else { span.muted { "older" } }
+        }
+    };
     html! {
         p.filter {
             a.on[!hive_only] href="/" { "all" }
@@ -123,22 +140,23 @@ pub fn tables(records: &[Record], hive_only: bool, now: i64) -> Markup {
         } @else {
             div.scroll { table {
                 tr { th { "issued" } th { "" } th { "names" } th { "issuer" } th { "valid until" } }
-                @for (r, new) in records.iter().zip(&first).take(500) {
+                @for (r, new) in records.iter().zip(&first).skip(start).take(PER_PAGE) {
                     tr.expired[!r.active(now)] {
                         td { a href={ "/cert/" (r.cert_sha256) } { (date(r.issued())) } }
                         td { @if *new { span.new { "new" } } @else { span.muted { "renewed" } } }
                         td.wrap { (names(r)) }
-                        td { (r.issuer_cn()) }
+                        td { (r.issuer_name()) }
                         td { (r.not_after.map(date).unwrap_or_default()) }
                     }
                 }
             } }
+            @if pages > 1 { (pager) }
         }
     }
 }
 
-pub fn index(records: &[Record], hive_only: bool, now: i64) -> Markup {
-    layout("certificates", true, tables(records, hive_only, now))
+pub fn index(records: &[Record], hive_only: bool, page: usize, now: i64) -> Markup {
+    layout("certificates", true, tables(records, hive_only, page, now))
 }
 
 pub fn cert(r: &Record, links: &[Link], now: i64) -> Markup {
@@ -191,7 +209,7 @@ fn chain_table(links: &[Link], now: i64) -> Markup {
                             a href={ "/ca/" (l.sha256) } { (l.subject_cn) }
                         }
                     }
-                    td { @if l.self_signed() { span.muted { "itself" } } @else { (l.issuer_cn) } }
+                    td { @if l.self_signed() { span.muted { "itself" } } @else { (crate::record::org_cn(&l.issuer)) } }
                     td { (date(l.not_after)) " (" (until(now, l.not_after)) ")" }
                 }
             }
@@ -290,12 +308,28 @@ mod tests {
     }
 
     #[test]
+    fn the_log_pages_every_two_hundred() {
+        let records: Vec<Record> = (0..450)
+            .map(|i| record(&format!("c{i}"), &["x.hayl.in"], 1000 - i, 2000))
+            .collect();
+        let html = |p| tables(&records, true, p, 0).into_string();
+        assert_eq!(html(1).matches("<tr").count(), 201);
+        assert_eq!(html(3).matches("<tr").count(), 51);
+        assert!(html(1).contains("1 of 3"));
+        assert!(html(2).contains("href=\"/?only=hive&amp;page=3\""));
+        assert!(
+            html(9).contains("3 of 3"),
+            "out of range clamps to the last page"
+        );
+    }
+
+    #[test]
     fn expired_certs_stay_in_the_log_but_greyed() {
         let records = vec![
             record("live", &["live.hayl.in"], 100, 1000),
             record("gone", &["gone.hayl.in"], 100, 200),
         ];
-        let html = tables(&records, false, 500).into_string();
+        let html = tables(&records, false, 1, 500).into_string();
         assert!(html.contains("live.hayl.in") && html.contains("gone.hayl.in"));
         assert_eq!(html.matches("class=\"expired\"").count(), 1);
     }

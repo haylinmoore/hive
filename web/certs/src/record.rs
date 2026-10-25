@@ -25,12 +25,24 @@ pub struct Record {
     pub source: Option<String>,
 }
 
+pub fn org_cn(dn: &str) -> String {
+    let field = |key: &str| {
+        dn.split(',').find_map(|p| {
+            let (k, v) = p.split_once('=')?;
+            (k.trim() == key).then(|| v.trim().to_string())
+        })
+    };
+    match (field("O"), field("CN")) {
+        (Some(o), Some(cn)) => format!("{o} {cn}"),
+        (None, Some(cn)) => cn,
+        (Some(o), None) => o,
+        (None, None) => dn.to_string(),
+    }
+}
+
 impl Record {
-    pub fn issuer_cn(&self) -> &str {
-        let dn = self.issuer.as_deref().unwrap_or("");
-        dn.split(',')
-            .find_map(|p| p.trim().strip_prefix("CN="))
-            .unwrap_or(dn)
+    pub fn issuer_name(&self) -> String {
+        org_cn(self.issuer.as_deref().unwrap_or(""))
     }
 
     pub fn issued(&self) -> i64 {
@@ -143,7 +155,9 @@ mod tests {
         ]);
         let r = from_env(|k| vars.get(k).cloned(), 5).unwrap();
         assert_eq!(r.zone, "hayl.in");
-        assert_eq!(r.issuer_cn(), "YE2");
+        assert_eq!(r.issuer_name(), "Let's Encrypt YE2");
+        assert_eq!(org_cn("C = US, O = ISRG, CN = Root YE"), "ISRG Root YE");
+        assert_eq!(org_cn("CN=only"), "only");
         assert_eq!(r.serial.as_deref(), Some("0681ab"));
         assert_eq!(r.dns_names, vec!["dash.hive.hayl.in"]);
         assert_eq!(r.not_before, Some(100));
