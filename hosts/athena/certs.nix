@@ -53,6 +53,8 @@ let
     "ptnote.dev"
     "lyra.horse"
     "d14.pet"
+    "devhack.net"
+    "devhack2.net"
   ];
 
   certs = hive.web.certs;
