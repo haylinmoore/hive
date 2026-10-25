@@ -7,8 +7,6 @@ on:
 permissions:
   contents: read
 jobs:
-  # The poke carries nothing. Each hub reads main from GitHub itself and
-  # rolls it out over the mesh, so either one answering is enough.
   poke:
     runs-on: ubuntu-latest
     strategy:

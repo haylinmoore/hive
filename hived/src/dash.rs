@@ -70,13 +70,8 @@ dt { color: var(--muted); }
 dd { margin: 0; }
 "#;
 
-/// Marks where the part of a page that updates itself ends, so the live
-/// stream can send just that part.
 pub const LIVE_END: &str = "<!--live-->";
 
-/// Swaps in a freshly rendered page as the hub pushes it. While text is
-/// selected the newest copy is held back, since replacing the page would
-/// throw the selection away.
 const LIVE_JS: &str = r#"
 const live = document.getElementById('live');
 let held = null;
@@ -95,7 +90,6 @@ document.addEventListener('selectionchange', () => {
 new EventSource('/live?path=' + encodeURIComponent(location.pathname)).onmessage = (e) => apply(e.data);
 "#;
 
-/// The live part of a whole page, as `layout` wrapped it.
 pub fn live_region(page: &str) -> Option<&str> {
     let start = page.find(r#"<div id="live">"#)? + r#"<div id="live">"#.len();
     let end = page.rfind(LIVE_END)?.checked_sub("</div>".len())?;
@@ -175,8 +169,6 @@ fn name_of(cfg: &Config, key: &str) -> String {
     }
 }
 
-/// Keys seen anywhere on the mesh that the registry does not know. Any of
-/// these means something outside the hive has peered with us.
 pub fn unknown_keys(cfg: &Config, st: &HubState) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     for view in st.nodes.values() {
@@ -243,12 +235,10 @@ fn layout(cfg: &Config, st: &HubState, title: &str, live: bool, body: &str) -> S
     )
 }
 
-/// What a node is doing, as one line of the fleet table.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Shown {
     Unreachable,
     Deploying(String),
-    /// A commit waiting for approval, and whether it has already been built.
     Ready(String, bool),
     Failed(String, State),
     InSync,
@@ -629,8 +619,6 @@ fn pair(a: &str, b: &str) -> Pair {
     }
 }
 
-/// Every live peering, as both ends report it. One link shows up once per
-/// side and once per direction it was dialled.
 fn peerings(cfg: &Config, st: &HubState) -> Vec<(Pair, Edge)> {
     let mut out = Vec::new();
     for view in st.nodes.values() {
@@ -651,8 +639,6 @@ fn peerings(cfg: &Config, st: &HubState) -> Vec<(Pair, Edge)> {
     out
 }
 
-/// The cheapest way each pair is connected, which is the one yggdrasil
-/// prefers to route over.
 pub fn best_links(cfg: &Config, st: &HubState) -> BTreeMap<Pair, Edge> {
     let peerings = peerings(cfg, st);
     let mut out: BTreeMap<Pair, Edge> = BTreeMap::new();
@@ -665,10 +651,6 @@ pub fn best_links(cfg: &Config, st: &HubState) -> BTreeMap<Pair, Edge> {
             out.insert(pair.clone(), edge.clone());
         }
     }
-    // A home node dialling zoe by name reaches its global address on the same
-    // segment, so that link never leaves the house even though it was not
-    // found by multicast. Having found each other by multicast at all is what
-    // says two nodes share a LAN.
     for (pair, edge) in &peerings {
         if edge.lan
             && let Some(best) = out.get_mut(pair)
@@ -679,8 +661,6 @@ pub fn best_links(cfg: &Config, st: &HubState) -> BTreeMap<Pair, Edge> {
     out
 }
 
-/// Nodes that found each other by multicast share a network segment, so
-/// they are grouped together whatever the cheapest link between them is.
 pub fn lan_groups(cfg: &Config, st: &HubState, names: &[String]) -> Vec<Vec<String>> {
     let mut group: BTreeMap<String, usize> = names
         .iter()
@@ -743,9 +723,6 @@ fn graph(cfg: &Config, st: &HubState) -> String {
         } else {
             0.0
         };
-        // Turned so one member faces the other groups head on and the rest
-        // sit either side of it. Lines out of the group then fan past each
-        // other instead of crossing the links inside it.
         let start = if groups.len() > 1 {
             angle + PI / members.len() as f64
         } else {
@@ -895,7 +872,6 @@ pub fn mesh(cfg: &Config, st: &HubState, _now: i64) -> String {
     layout(cfg, st, "mesh", true, &body)
 }
 
-/// Every job some node reports running, with how many runs wait on someone.
 pub fn job_tabs(st: &HubState) -> BTreeMap<String, usize> {
     let mut out = BTreeMap::new();
     for s in st.nodes.values().filter_map(|v| v.status.as_ref()) {

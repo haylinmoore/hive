@@ -32,7 +32,6 @@ fn env_addrs(key: &str) -> Vec<Ipv6Addr> {
         .collect()
 }
 
-/// A mesh member as the registry in nixos/mesh/hosts.nix describes it.
 #[derive(Debug, Clone)]
 pub struct Node {
     pub name: String,
@@ -40,7 +39,6 @@ pub struct Node {
     pub key: String,
 }
 
-/// `name=address=key`, comma separated.
 fn parse_nodes(raw: &[String]) -> Vec<Node> {
     raw.iter()
         .filter_map(|entry| {
@@ -169,7 +167,6 @@ impl Config {
             .map(|n| n.name.as_str())
     }
 
-    /// Commit links on the dashboard point at the same place we clone from.
     pub fn commit_url(&self, rev: &str) -> String {
         format!("{}/commit/{rev}", self.repo_url.trim_end_matches(".git"))
     }

@@ -4,8 +4,6 @@ use crate::state::{JobPhase, Phase};
 use crate::store::{Log, StateDir};
 use std::process::Command;
 
-/// The only things a job can ever be. Each maps to `./upgrade.sh <job>`, so
-/// this list is the whole of what a job unit can be made to run.
 pub const KNOWN: [&str; 2] = ["dns", "arin"];
 
 pub struct Outcome {
@@ -40,13 +38,9 @@ pub fn strip_ansi(text: &str) -> String {
     out
 }
 
-/// How many changes a preview proposed, read from the tool's own summary.
-/// None when the output is not recognised, which is treated as "has changes"
-/// so that nothing is ever pushed on a guess.
 pub fn count_changes(job: &str, output: &str) -> Option<u64> {
     let text = strip_ansi(output);
     match job {
-        // dnscontrol numbers each correction it would make, per zone.
         "dns" => {
             let numbered = |l: &&str| {
                 l.strip_prefix('#')
@@ -57,7 +51,6 @@ pub fn count_changes(job: &str, output: &str) -> Option<u64> {
             let finished = text.lines().any(|l| l.trim_start().starts_with("Done."));
             finished.then_some(corrections)
         }
-        // arin-sync ends with "N changes, M errors".
         "arin" => text.lines().rev().find_map(|l| {
             let (n, rest) = l.trim().split_once(' ')?;
             rest.starts_with("changes,").then(|| n.parse().ok())?
@@ -72,8 +65,6 @@ fn upgrade(run: &Run, job: &str, args: &[&str]) -> Command {
     cmd
 }
 
-/// Run one preview or push to the end. Jobs keep their own checkout, so a
-/// deploy moving the deploy checkout around never changes what a job sees.
 pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
     let Some(record) = dir.load().ok().and_then(|s| s.job(id).cloned()) else {
         return failed(format!("no record for job {id}"));

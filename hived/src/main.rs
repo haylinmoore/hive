@@ -18,7 +18,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-/// How long a just-started runner is given to appear before we call it dead.
 const RECONCILE_GRACE_SECS: i64 = 30;
 
 fn usage() -> ! {
@@ -57,9 +56,6 @@ fn main() {
     }
 }
 
-/// The privileged half. Started by the listener through a polkit rule scoped
-/// to this one unit template, so a compromised listener can only ever ask for
-/// a deploy of a commit already on the branch.
 fn run_one(cfg: Config, dir: StateDir, id: u64) -> ! {
     let outcome = runner::run(&cfg, &dir, id);
     let error = outcome.error.clone();
@@ -75,7 +71,6 @@ fn run_one(cfg: Config, dir: StateDir, id: u64) -> ! {
                 d.log_bytes = log_bytes;
                 rev = Some(d.rev.clone());
             }
-            // Nothing to switch to means nothing left waiting for an approval.
             if state == State::Unchanged && s.available == rev {
                 s.available = None;
             }
@@ -84,11 +79,7 @@ fn run_one(cfg: Config, dir: StateDir, id: u64) -> ! {
         })
         .unwrap_or(false);
 
-    // A failed deploy exits the unit cleanly, because the outcome is already in
-    // the record. Letting the unit fail would park hived's own runner in
-    // `systemctl --failed` for good, drag the node to `degraded`, and make
-    // hived report itself as broken. Only a runner that could not record
-    // anything is a real unit failure.
+    // A non-zero exit would leave the runner in systemctl --failed for good.
     if recorded {
         std::process::exit(0)
     }
@@ -96,8 +87,6 @@ fn run_one(cfg: Config, dir: StateDir, id: u64) -> ! {
     std::process::exit(1)
 }
 
-/// The mesh address only exists once yggdrasil is up, so a failed bind exits
-/// and lets systemd try again rather than retrying in here.
 async fn listen(addr: &str, router: Router) -> tokio::task::JoinHandle<()> {
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(l) => l,
@@ -144,12 +133,6 @@ fn serve(cfg: Config, dir: StateDir) -> ! {
     std::process::exit(0)
 }
 
-/// Reconcile, retire, promote.
-///
-/// A record still marked running whose unit is gone was killed by a reboot,
-/// and without this pass that phantom blocks admission forever. Promotion
-/// lives here rather than in the runner because the runner may not survive to
-/// do it.
 fn supervise_once(app: &App) {
     let cfg = &app.cfg;
 
@@ -179,8 +162,6 @@ fn supervise_once(app: &App) {
     reap(app);
 }
 
-/// The same reconcile and promote, for jobs. One runs at a time because they
-/// share a checkout.
 fn supervise_jobs(app: &App) {
     let cfg = &app.cfg;
     if cfg.jobs.is_empty() {
@@ -211,9 +192,6 @@ fn supervise_jobs(app: &App) {
     let _ = app.dir.update(|s| s.prune_jobs(200));
 }
 
-/// Records are cheap and logs are not, so they are kept to different depths.
-/// The error tail stored on each record means a reaped deploy still explains
-/// itself.
 fn reap(app: &App) {
     let Ok(store) = app.dir.load() else { return };
     let keep: Vec<u64> = store
@@ -237,8 +215,6 @@ fn reap(app: &App) {
     }
 }
 
-/// The privileged half of a job, started like a deploy runner and recorded
-/// the same way: the outcome lives in the record, so the unit exits cleanly.
 fn job_one(cfg: Config, dir: StateDir, id: u64) -> ! {
     let outcome = job::run(&cfg, &dir, id);
     let recorded = dir

@@ -57,10 +57,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// newProxy forwards to a tunnel's local listener. The X-Forwarded headers tell
-// the app it is being reached over HTTPS at its tunnl name; without them it
-// sees plain HTTP from localhost, which fails Origin and CSRF checks on POSTs
-// and keeps Secure cookies from being set.
 func newProxy(target string, transport http.RoundTripper, sub string) *httputil.ReverseProxy {
 	return &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
@@ -159,9 +155,6 @@ func copyIdleTimeout(dst, src net.Conn, idleTimeout time.Duration) (int64, error
 	}
 }
 
-// setForwarded gives a WebSocket upgrade the same X-Forwarded headers the
-// reverse proxy adds, since it is written to the backend by hand. Like the
-// proxy, it replaces whatever the client sent rather than trusting it.
 func setForwarded(r *http.Request) {
 	r.Header.Del("X-Forwarded-For")
 	if ip, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {

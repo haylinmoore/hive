@@ -103,8 +103,7 @@ in
         '';
       };
 
-      # The stock module writes settings into the store, so the shared
-      # password is substituted in at start from a credential instead.
+      # Settings land in the store, so the password is substituted in at start.
       systemd.services.yggdrasil = {
         requires = [ "yggdrasil-key.service" ];
         after = [ "yggdrasil-key.service" ];

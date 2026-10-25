@@ -28,8 +28,6 @@ pub struct Peer {
 }
 
 impl Peer {
-    /// Multicast peers are dialled at a link-local address with the
-    /// interface as a zone, so the zone is what tells a LAN link apart.
     pub fn lan_interface(&self) -> Option<&str> {
         let (_, rest) = self.remote.split_once("%25")?;
         rest.split(']').next()
@@ -69,8 +67,6 @@ struct Response {
     response: serde_json::Value,
 }
 
-/// One request per connection: the admin socket closes after answering
-/// unless asked to keep the connection alive.
 fn request<T: DeserializeOwned>(socket: &Path, name: &str) -> io::Result<T> {
     let mut stream = UnixStream::connect(socket)?;
     stream.set_read_timeout(Some(Duration::from_secs(3)))?;

@@ -31,8 +31,6 @@ impl Run<'_> {
         self.log(&format!("\n=== {text} ===\n"));
     }
 
-    /// Run a command, streaming combined output into the deploy log and
-    /// keeping the tail so a failure can explain itself without the log.
     pub fn exec(
         &self,
         phase: Phase,
@@ -42,7 +40,6 @@ impl Run<'_> {
         self.exec_output(phase, cmd, timeout).map(|_| ())
     }
 
-    /// As `exec`, handing back the tail of the output for the caller to read.
     pub fn exec_output(
         &self,
         phase: Phase,
@@ -108,15 +105,8 @@ struct Captured {
 
 pub type Sink = Arc<dyn Fn(&[u8]) + Send + Sync>;
 
-/// How much output we keep in memory for the error tail. A runaway build can
-/// print far more than that, and the log file already has all of it.
 const TAIL_BUFFER: usize = 256 * 1024;
 
-/// Wait for a child, killing it if it overruns.
-///
-/// Output is handed to `sink` as it arrives rather than at the end, so a
-/// forty minute build is readable while it runs instead of appearing all at
-/// once when it finishes.
 fn run_with_timeout(cmd: &mut Command, timeout: Duration, sink: Sink) -> io::Result<Captured> {
     use std::io::Read;
     use std::sync::Mutex;
@@ -198,8 +188,6 @@ fn tail(bytes: &[u8], max: usize) -> String {
     }
 }
 
-/// What the node is actually running, so a deploy made from a laptop with
-/// uncommitted changes shows up as drift rather than as a stale line.
 pub fn current_system() -> Option<String> {
     std::fs::read_link("/run/current-system")
         .ok()
@@ -215,12 +203,6 @@ fn current_generation() -> Option<u64> {
         .ok()
 }
 
-/// Run one deployment to a terminal state.
-///
-/// Build and activate are separate phases on purpose. `nixos-rebuild switch`
-/// conflates them, so a Nix typo and a broken activation script arrive as the
-/// same failure. Split, a build failure is reported with the running system
-/// provably untouched.
 pub fn run(cfg: &Config, dir: &StateDir, id: u64) -> Outcome {
     let run = Run {
         cfg,
@@ -337,8 +319,6 @@ pub fn git(repo: &Path, args: &[&str]) -> Command {
     cmd
 }
 
-/// Bring the checkout up to date, returning the subject of `rev` so a record
-/// can show what it is at a glance.
 pub fn fetch(run: &Run, rev: &str) -> Result<Option<String>, DeployError> {
     let repo = &run.repo;
     if !repo.join(".git").is_dir() {
@@ -368,8 +348,6 @@ fn record_subject(dir: &StateDir, id: u64, subject: Option<String>) {
     });
 }
 
-/// A hub only names a commit. This proves it is one we are allowed to deploy:
-/// a commit that is actually on the branch we deploy.
 pub fn verify(run: &Run, rev: &str) -> Result<(), DeployError> {
     let repo = &run.repo;
     let upstream = format!("origin/{}", run.cfg.branch);
@@ -404,18 +382,12 @@ fn upgrade(run: &Run, action: &str) -> Command {
     cmd
 }
 
-/// What the build produced, read through the link `upgrade.sh build` leaves.
 fn built_system(run: &Run) -> Option<String> {
     std::fs::canonicalize(run.repo.join(format!(".gcroots/node-{}", run.cfg.host)))
         .ok()
         .map(|p| p.to_string_lossy().into_owned())
 }
 
-/// Decide whether a finished build goes on to a switch.
-///
-/// A build identical to the running system has nothing to switch to, whatever
-/// the commit says. Otherwise a build-only deploy stops here, unless someone
-/// approved it while it was building, which turned it into a full one.
 fn after_build(run: &Run) -> Option<State> {
     let built = built_system(run);
     if built.is_some() && built == current_system() {
@@ -437,8 +409,6 @@ fn after_build(run: &Run) -> Option<State> {
     None
 }
 
-/// A switch on its own trusts that the checkout still holds the build it
-/// was approved for. Another deploy since then would have moved it.
 fn still_checked_out(run: &Run, rev: &str) -> Result<(), DeployError> {
     let head = run
         .capture(&mut git(&run.repo, &["rev-parse", "HEAD"]))
@@ -469,20 +439,10 @@ fn activate(run: &Run) -> Result<(), DeployError> {
     )
 }
 
-/// Poll across a settle window rather than sampling once.
-///
-/// `switch-to-configuration` returns as soon as it has issued the restarts, so
-/// a service that dies five seconds later is still `activating` at that moment
-/// and a single sample would call it healthy.
-/// Consecutive quiet samples required before calling the system settled.
 const SETTLE_QUIET_SAMPLES: u32 = 3;
 
 fn check(run: &Run, before: &Snapshot) -> Outcome {
     let started_check = Instant::now();
-    // The settle window is a ceiling, not a fixed wait. Sitting out the whole
-    // thing added half a minute to every deploy for no information, so instead
-    // wait for systemd to run out of queued jobs and then take a few more
-    // samples to catch anything that dies immediately.
     let deadline = Instant::now() + run.cfg.settle;
     let mut broken: Vec<String> = Vec::new();
     let mut quiet = 0;
@@ -490,7 +450,6 @@ fn check(run: &Run, before: &Snapshot) -> Outcome {
     loop {
         if let Ok(after) = health::snapshot() {
             for unit in health::newly_failed(before, &after, &run.cfg.ignored_units) {
-                // Our own runner is not part of the system we are judging.
                 if unit.starts_with(&run.cfg.run_unit_prefix) {
                     continue;
                 }
@@ -577,8 +536,6 @@ mod tests {
         assert!(!out.success);
     }
 
-    /// The old version buffered everything and wrote it after the process
-    /// exited, so a long build showed nothing until it finished.
     #[test]
     fn output_reaches_the_sink_while_the_command_is_still_running() {
         use std::sync::Mutex;
@@ -594,7 +551,6 @@ mod tests {
             run_with_timeout(&mut cmd, Duration::from_secs(20), sink).unwrap()
         });
 
-        // Half a second in, the first line must already be visible.
         std::thread::sleep(Duration::from_millis(600));
         let mid = String::from_utf8_lossy(&seen.lock().unwrap().clone()).to_string();
         assert!(mid.contains("early"), "nothing streamed yet: {mid:?}");

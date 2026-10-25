@@ -45,15 +45,10 @@ pub enum State {
     Superseded,
     Cancelled,
     Interrupted,
-    /// Built and waiting for an approval to switch to it.
     Built,
-    /// Built to exactly the system already running, so there was nothing to
-    /// switch to.
     Unchanged,
 }
 
-/// How much of a deploy to do. Nodes that wait for approval build ahead of
-/// time, and the approval only switches to what was built.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
@@ -77,7 +72,6 @@ impl State {
         !matches!(self, State::Queued | State::Running)
     }
 
-    /// Whether the node ended up on the newly built generation.
     pub fn switched(&self) -> bool {
         matches!(self, State::Succeeded | State::Degraded | State::Unchanged)
     }
@@ -180,14 +174,10 @@ impl Deployment {
     }
 }
 
-/// Result of admitting a deploy request.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Admission {
-    /// Nothing was active, this one runs immediately.
     Started(u64),
-    /// Something is running, this one waits.
     Queued(u64),
-    /// An identical rev was already active, no new record.
     Existing(u64),
 }
 
@@ -201,22 +191,15 @@ impl Admission {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Store {
-    /// Random per-store token. Ids restart from 1 if the state file is ever
-    /// lost, so callers pair the two to know they are polling what they think.
     pub epoch: String,
     pub next_id: u64,
-    /// Newest first.
     pub deployments: Vec<Deployment>,
-    /// The newest commit a hub has told us about.
     #[serde(default)]
     pub target: Option<String>,
-    /// A commit waiting for someone to approve it, on nodes that do not
-    /// deploy on their own.
     #[serde(default)]
     pub available: Option<String>,
     #[serde(default = "first_id")]
     pub next_job_id: u64,
-    /// Newest first.
     #[serde(default)]
     pub jobs: Vec<JobRun>,
 }
@@ -237,12 +220,10 @@ pub enum JobPhase {
 pub enum JobState {
     Queued,
     Running,
-    /// Previewed with changes, waiting for someone to approve the push.
     Pending,
     Unchanged,
     Pushed,
     Failed,
-    /// main moved on before anyone approved this one.
     Superseded,
     Dismissed,
 }
@@ -266,8 +247,6 @@ impl JobState {
     }
 }
 
-/// One preview of a job at a commit, and the push that may follow it. The
-/// push always runs at the commit that was previewed, never a newer one.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobRun {
     pub id: u64,
@@ -290,15 +269,11 @@ pub struct JobRun {
 pub enum JobRefusal {
     Missing,
     NotPending,
-    /// main has moved since this preview, so what it showed is not what a
-    /// push would do any more.
     Stale,
 }
 
-/// What became of a hub telling us about a commit.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Offer {
-    /// Already deployed or already tried, nothing to do.
     Known,
     Admitted(Admission),
 }
@@ -328,12 +303,6 @@ impl Store {
         self.jobs.iter_mut().find(|j| j.id == id)
     }
 
-    /// Queue a preview of each job at `rev`, once per job and commit. Older
-    /// runs that have not started are retired, approved pushes included: a
-    /// push of an older commit would undo whatever main has since changed.
-    ///
-    /// `again` is a person asking for a fresh look, which may repeat a commit
-    /// already previewed as long as nothing for it is still in flight.
     pub fn plan_jobs(&mut self, jobs: &[String], rev: &str, now: i64, again: bool) -> Vec<u64> {
         let mut queued = Vec::new();
         for job in jobs {
@@ -373,7 +342,6 @@ impl Store {
         queued
     }
 
-    /// Jobs share one checkout, so they run one at a time, oldest first.
     pub fn take_job(&mut self, now: i64) -> Option<u64> {
         if self.jobs.iter().any(|j| j.state == JobState::Running) {
             return None;
@@ -415,8 +383,6 @@ impl Store {
         Ok(())
     }
 
-    /// Record how a preview or push ended. A preview that finishes after
-    /// main has moved is retired rather than offered for approval.
     pub fn finish_job(
         &mut self,
         id: u64,
@@ -446,7 +412,6 @@ impl Store {
         };
     }
 
-    /// A job whose unit is gone was killed by a reboot or a crash.
     pub fn reconcile_jobs(
         &mut self,
         now: i64,
@@ -472,9 +437,7 @@ impl Store {
         }
     }
 
-    /// Whether `rev` has had its chance here. A failure counts: both hubs
-    /// repeat the target every few seconds, and retrying a broken commit on
-    /// each of those would loop forever. A retry is an explicit approval.
+    // A failure counts too, or both hubs re-sending the target would retry it forever.
     fn attempted(&self, rev: &str) -> bool {
         self.deployments.iter().any(|d| {
             d.rev == rev
@@ -485,8 +448,6 @@ impl Store {
         })
     }
 
-    /// A hub says `rev` is the newest commit. Both hubs say so independently,
-    /// so this has to be idempotent.
     pub fn offer(&mut self, rev: &str, auto: bool, now: i64) -> Offer {
         self.target = Some(rev.to_string());
         if self.attempted(rev) {
@@ -495,19 +456,11 @@ impl Store {
         if auto {
             Offer::Admitted(self.admit(rev, now))
         } else {
-            // Build now, so the approval only has to switch, and so the build
-            // can say whether there is anything to switch to at all.
             self.available = Some(rev.to_string());
             Offer::Admitted(self.admit_mode(rev, Mode::Build, now))
         }
     }
 
-    /// Someone asked for `rev` by hand, either an update waiting on a node
-    /// that does not deploy itself or a retry of one that failed.
-    ///
-    /// A build still running for `rev` carries on into the switch. The newest
-    /// build waiting for `rev` is switched to as is, because the checkout and
-    /// its result still belong to it. Anything else deploys from scratch.
     pub fn approve(&mut self, rev: &str, now: i64) -> Admission {
         if self.available.as_deref() == Some(rev) {
             self.available = None;
@@ -549,7 +502,6 @@ impl Store {
         self.deployments.iter().find(|d| d.state == State::Queued)
     }
 
-    /// Most recent deployment that actually switched the system.
     pub fn last_switched(&self) -> Option<&Deployment> {
         self.deployments.iter().find(|d| d.state.switched())
     }
@@ -561,11 +513,6 @@ impl Store {
             .map(|d| d.id)
     }
 
-    /// Admit a request for `rev`.
-    ///
-    /// At most one deployment runs and at most one waits. A second waiting
-    /// request replaces the first, because only the newest commit is worth
-    /// deploying and the one it displaced never needed to run.
     pub fn admit(&mut self, rev: &str, now: i64) -> Admission {
         self.admit_mode(rev, Mode::Full, now)
     }
@@ -599,7 +546,6 @@ impl Store {
         }
     }
 
-    /// Promote the waiting deployment once the running one is done.
     pub fn take_queued(&mut self, now: i64) -> Option<u64> {
         if self.running().is_some() {
             return None;
@@ -614,7 +560,6 @@ impl Store {
         Some(waiting.id)
     }
 
-    /// Retire a request that waited so long it is no longer worth deploying.
     pub fn expire_queued(&mut self, max_age: i64, now: i64) -> Option<u64> {
         let waiting = self
             .deployments
@@ -630,11 +575,6 @@ impl Store {
         }
     }
 
-    /// After a restart, a record still marked running whose runner is gone was
-    /// killed by a reboot or an OOM. Without this the phantom blocks admission
-    /// forever.
-    /// `grace` protects a just-started deployment: the runner is started with
-    /// --no-block, so for a moment the unit does not exist yet and looks dead.
     pub fn reconcile(&mut self, now: i64, grace: i64, is_active: impl Fn(u64) -> bool) -> Vec<u64> {
         let mut interrupted = Vec::new();
         for d in self.deployments.iter_mut() {
@@ -647,7 +587,6 @@ impl Store {
         interrupted
     }
 
-    /// Records are small, so we keep far more of them than logs.
     pub fn prune(&mut self, max_records: usize) {
         if self.deployments.len() > max_records {
             self.deployments.truncate(max_records);
@@ -684,10 +623,8 @@ mod tests {
     fn identical_rev_is_idempotent() {
         let mut s = store();
         s.admit("aaa", 10);
-        // same rev while running
         assert_eq!(s.admit("aaa", 11), Admission::Existing(1));
         s.admit("bbb", 12);
-        // same rev while queued
         assert_eq!(s.admit("bbb", 13), Admission::Existing(2));
         assert_eq!(s.deployments.len(), 2);
     }
@@ -702,7 +639,6 @@ mod tests {
         assert_eq!(s.get(2).unwrap().state, State::Superseded);
         assert_eq!(s.get(2).unwrap().finished_at, Some(12));
         assert_eq!(s.queued().unwrap().rev, "ccc");
-        // the running one is never displaced
         assert_eq!(s.running().unwrap().rev, "aaa");
     }
 
@@ -736,10 +672,8 @@ mod tests {
         s.admit("aaa", 10);
         s.admit("bbb", 11);
 
-        // the runner unit for 1 is gone, nothing wrote a terminal record
         assert_eq!(s.reconcile(60, 20, |_| false), vec![1]);
         assert_eq!(s.get(1).unwrap().state, State::Interrupted);
-        // the waiting one is untouched and can now run
         assert_eq!(s.get(2).unwrap().state, State::Queued);
         assert_eq!(s.take_queued(21), Some(2));
     }
@@ -748,11 +682,8 @@ mod tests {
     fn a_just_started_runner_is_left_alone() {
         let mut s = store();
         s.admit("aaa", 10);
-        // started at 10, checked at 15, grace 20: still settling even though
-        // the unit is not visible yet
         assert!(s.reconcile(15, 20, |_| false).is_empty());
         assert_eq!(s.get(1).unwrap().state, State::Running);
-        // past the grace window it is fair game
         assert_eq!(s.reconcile(40, 20, |_| false), vec![1]);
     }
 
@@ -857,7 +788,6 @@ mod tests {
         s.finish(1, State::Built, 2);
         s.offer("bbb", false, 3);
         s.finish(2, State::Built, 4);
-        // the checkout and the build result now belong to bbb
         assert_eq!(s.approve("aaa", 5), Admission::Started(3));
         assert_eq!(s.get(3).unwrap().mode, Mode::Full);
     }

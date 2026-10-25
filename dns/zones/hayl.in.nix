@@ -11,6 +11,5 @@ in
   ttl = 60;
   records =
     lib.mapAttrsToList (name: h: AAAA "${name}.hive" (address h.publicKey)) hosts
-    # Either hub serves the dashboard.
     ++ lib.mapAttrsToList (_: h: AAAA "dash.hive" (address h.publicKey)) hubs;
 }

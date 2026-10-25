@@ -90,8 +90,6 @@ impl Hub {
     }
 }
 
-/// The hub learns where main is from the remote itself. A poke only says
-/// "go look", so nothing a caller sends can choose what gets deployed.
 async fn ls_remote(hub: &Hub) -> Result<String, String> {
     let cfg = &hub.app.cfg;
     let out = tokio::time::timeout(
@@ -237,7 +235,6 @@ async fn healthz() -> &'static str {
     "ok"
 }
 
-/// The only thing reachable from outside the mesh.
 pub fn public_router(hub: SharedHub) -> Router {
     Router::new()
         .route("/healthz", get(healthz))
@@ -245,8 +242,6 @@ pub fn public_router(hub: SharedHub) -> Router {
         .with_state(hub)
 }
 
-/// The pages that keep themselves current. A first load and every live update
-/// render through here, so an update is exactly what a reload would show.
 async fn render_path(hub: &Hub, path: &str) -> Option<String> {
     let st = hub.state.read().await.clone();
     let cfg = &hub.app.cfg;
@@ -276,9 +271,6 @@ struct LiveQuery {
     path: String,
 }
 
-/// Server-sent events carrying the live part of a page whenever it changes.
-/// The first render only seeds the comparison, since the browser has just
-/// loaded that very page.
 async fn live(AxumState(hub): AxumState<SharedHub>, Query(q): Query<LiveQuery>) -> Response {
     let seed = render_path(&hub, &q.path)
         .await
@@ -303,7 +295,6 @@ async fn live(AxumState(hub): AxumState<SharedHub>, Query(q): Query<LiveQuery>) 
     let mut resp = Sse::new(stream)
         .keep_alive(KeepAlive::default())
         .into_response();
-    // nginx would otherwise hold events back until its buffer filled.
     resp.headers_mut()
         .insert("x-accel-buffering", HeaderValue::from_static("no"));
     resp
@@ -359,9 +350,6 @@ async fn log_proxy(
     forward_log(&hub, address, &path).await
 }
 
-/// Pass a slice of a log through from an agent. The offsets in the headers
-/// count the agent's bytes, so colour codes can be dropped from the body
-/// without throwing off where the next read starts.
 async fn forward_log(hub: &Hub, address: Ipv6Addr, path: &str) -> Response {
     let resp = match hub.client.get(hub.agent_url(address, path)).send().await {
         Ok(r) => r,
@@ -387,8 +375,7 @@ async fn forward_log(hub: &Hub, address: Ipv6Addr, path: &str) -> Response {
         .into_response()
 }
 
-/// nginx owns port 80 on the hubs and proxies the dashboard over loopback, so
-/// the forwarded address is only believed when the connection is from there.
+// Only trusted from loopback, where nginx is.
 fn client_ip(peer: SocketAddr, headers: &HeaderMap) -> IpAddr {
     if peer.ip().is_loopback()
         && let Some(ip) = headers
@@ -401,9 +388,6 @@ fn client_ip(peer: SocketAddr, headers: &HeaderMap) -> IpAddr {
     peer.ip()
 }
 
-/// A click only counts from one of the operator's own devices, and only from
-/// a page this dashboard served. The second half matters because the first
-/// is ambient: any site open in that browser could otherwise post here.
 fn may_approve(hub: &Hub, peer: SocketAddr, headers: &HeaderMap) -> Result<(), &'static str> {
     let operator = match client_ip(peer, headers) {
         IpAddr::V6(ip) => hub.app.cfg.operators.contains(&ip),
@@ -413,6 +397,7 @@ fn may_approve(hub: &Hub, peer: SocketAddr, headers: &HeaderMap) -> Result<(), &
         return Err("approvals are only taken from an operator's device");
     }
 
+    // The address check alone would let any site open in that browser post here.
     let get = |h: header::HeaderName| headers.get(h).and_then(|v| v.to_str().ok());
     let host = get(header::HOST).ok_or("missing host")?;
     let origin = get(header::ORIGIN).ok_or("missing origin")?;
@@ -464,7 +449,6 @@ async fn approve(
     Redirect::to(&format!("/node/{name}")).into_response()
 }
 
-/// The node that runs `job`, as its own status reports it.
 fn job_owner(st: &HubState, job: &str) -> Option<(String, Ipv6Addr)> {
     st.nodes.values().find_map(|v| {
         let s = v.status.as_ref()?;
@@ -475,7 +459,6 @@ fn job_owner(st: &HubState, job: &str) -> Option<(String, Ipv6Addr)> {
     })
 }
 
-/// What a waiting preview proposed, for showing beside the approve button.
 async fn preview_text(hub: &Hub, address: Ipv6Addr, id: u64) -> Option<String> {
     let text = hub
         .client
@@ -561,8 +544,6 @@ async fn job_log(
     forward_log(&hub, address, &path).await
 }
 
-/// Approve, dismiss and preview all go the same way: checked here as an
-/// operator's click, then handed to the node that runs the job.
 async fn job_action(
     hub: &Hub,
     peer: SocketAddr,

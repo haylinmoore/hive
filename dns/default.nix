@@ -21,8 +21,6 @@ let
   relative = zone: fqdn: if fqdn == zone then "@" else lib.removeSuffix ".${zone}" fqdn;
   absolute = name: if lib.hasSuffix "." name then name else "${name}.";
 
-  # Names a zone file gives addresses itself, which a vhost does not get to
-  # claim. Other records at a name, like NS or MX at an apex, leave it be.
   zoneNames = lib.concatLists (
     lib.mapAttrsToList (
       zone: z:

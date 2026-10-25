@@ -47,7 +47,6 @@ if [[ $EUID -ne 0 ]] && command -v hive-rebuild > /dev/null 2>&1; then
   rebuild=(pkexec "$(readlink -f "$(command -v hive-rebuild)")")
 fi
 
-# Switch this machine to the closure a build left at $toplevel.
 activate_toplevel() {
   # This switches the machine it runs on. Activating another host's closure
   # here would replace this system with that one.
@@ -143,7 +142,6 @@ case "$cmd" in
     fi
     ;;
   pepper | astrid)
-    # hived builds and activates as two steps, a person usually just switches.
     shift
     action=${1:-switch}
     toplevel=".gcroots/node-$cmd"

@@ -30,11 +30,7 @@ pub fn err(status: u16, message: &str) -> Response {
         .into_response()
 }
 
-/// Whether the runner for `id` is still alive.
-///
-/// `systemctl is-active` only succeeds for ActiveState=active, and a
-/// Type=oneshot unit is "activating" for the whole of its ExecStart. Asking
-/// is-active would call a running deploy dead a second after starting it.
+// A oneshot is "activating" for its whole run, so is-active would call it dead.
 pub fn unit_active(unit: &str) -> bool {
     let out = Command::new("systemctl")
         .args(["show", "-p", "ActiveState", "--value", unit])
@@ -44,7 +40,6 @@ pub fn unit_active(unit: &str) -> bool {
             String::from_utf8_lossy(&o.stdout).trim(),
             "active" | "activating" | "reloading" | "deactivating"
         ),
-        // If we cannot ask, assume alive rather than kill a live deploy.
         Err(_) => true,
     }
 }
@@ -88,7 +83,6 @@ fn view(dir: &StateDir, d: &Deployment) -> DeploymentView {
     }
 }
 
-/// Everything a hub needs to know about one node, in one request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeStatus {
     pub host: String,
@@ -104,7 +98,6 @@ pub struct NodeStatus {
     pub current_system: Option<String>,
     pub failed_units: Vec<String>,
     pub mesh: Option<Mesh>,
-    /// Jobs this node runs, and its most recent runs of them.
     #[serde(default)]
     pub jobs: Vec<String>,
     #[serde(default)]
@@ -117,12 +110,6 @@ pub fn status(app: &App) -> NodeStatus {
     let running_system = runner::current_system();
     let deployed = store.last_switched();
 
-    // A deploy from a laptop leaves the node on something no record
-    // describes. Say so rather than showing a stale commit as current.
-    //
-    // Not while a deploy is running, though: activate runs before check, so
-    // between the two the node has legitimately moved off the last terminal
-    // record and every deploy would flash "drifted" on its way through.
     let drifted = store.running().is_none()
         && match (deployed.and_then(|d| d.toplevel.as_ref()), &running_system) {
             (Some(recorded), Some(actual)) => recorded != actual,
@@ -158,8 +145,6 @@ async fn get_status(AxumState(app): AxumState<Shared>) -> Response {
     }
 }
 
-/// Mesh addresses are derived from keys, so a source address on the mesh is
-/// proof of which node sent the request. Only hubs may steer an agent.
 fn from_hub(app: &App, peer: SocketAddr) -> bool {
     match peer.ip() {
         IpAddr::V6(ip) => app.cfg.hubs.contains(&ip) || ip.is_loopback(),

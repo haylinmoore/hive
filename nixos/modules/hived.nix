@@ -41,7 +41,6 @@ let
     HIVED_JOBS = lib.concatStringsSep "," cfg.jobs;
   };
 
-  # The runner needs everything a deploy touches, and nothing else does.
   runnerPath = with pkgs; [
     git
     colmena
@@ -180,12 +179,9 @@ in
           "d ${cfg.stateDir}/logs 0755 hived hived - -"
         ];
 
-        # The unprivileged half. It can read the mesh, answer hubs, and ask
-        # systemd to start one specific unit. Nothing else.
         systemd.services.hived = {
           description = "hive deploy agent";
           wantedBy = [ "multi-user.target" ];
-          # It binds the mesh address, which goes away when yggdrasil restarts.
           after = [
             "network-online.target"
             "yggdrasil.service"
@@ -227,15 +223,12 @@ in
           };
         };
 
-        # The privileged half. A fixed ExecStart with a numeric instance, so the
-        # polkit rule below grants the agent exactly one capability.
         systemd.services."hived-run@" = {
           description = "hive deploy runner %i";
           inherit environment;
           path = runnerPath;
 
-          # switch-to-configuration restarts the agent mid-deploy by design.
-          # These keep it from stopping the deploy that is doing the restarting.
+          # Keeps switch-to-configuration from stopping the deploy that is switching.
           restartIfChanged = false;
           stopIfChanged = false;
           unitConfig.X-StopOnReconfiguration = false;
@@ -248,15 +241,11 @@ in
           };
         };
 
-        # Jobs push from the repo's own secrets. sops-nix decrypts with the
-        # host key converted to an age key, so sops is handed the same
-        # conversion rather than the raw SSH key, which age would not match.
+        # The host key is a recipient through ssh-to-age, so sops needs the same conversion.
         systemd.services."hived-job@" = lib.mkIf (cfg.jobs != [ ]) {
           description = "hive job %i";
           environment = environment // {
             SOPS_AGE_KEY_CMD = "${lib.getExe pkgs.ssh-to-age} -private-key -i /etc/ssh/ssh_host_ed25519_key";
-            # upgrade.sh runs dnscontrol and sops through nix-shell, which wants a
-            # nixpkgs for its own bash.
             NIX_PATH = "nixpkgs=${pkgs.path}";
           };
           path = runnerPath;
@@ -272,8 +261,7 @@ in
           };
         };
 
-        # Headless hosts do not enable polkit by default, and without it the rule
-        # below is silently dropped and the agent cannot start its runner.
+        # Off by default on headless hosts, which silently drops the rule below.
         security.polkit.enable = true;
 
         security.polkit.extraConfig = ''
@@ -312,15 +300,12 @@ in
       })
 
       (lib.mkIf isHub {
-        # Let's Encrypt cannot reach a mesh address, so this has to be DNS-01.
         security.acme.certs."dash.hive.hayl.in" = {
           dnsProvider = "bunny";
           dnsPropagationCheck = true;
           environmentFile = "/run/secrets/dns";
         };
 
-        # Only the mesh may see the dashboard. Everything on it is a hive
-        # member, and nothing from outside has a 200::/7 source.
         services.nginx.virtualHosts."dash.hive.hayl.in" = {
           forceSSL = true;
           useACMEHost = "dash.hive.hayl.in";

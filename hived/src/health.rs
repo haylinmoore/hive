@@ -3,8 +3,6 @@ use std::collections::BTreeMap;
 use std::io;
 use std::process::Command;
 
-/// Unit types worth watching. Devices and scopes churn for reasons that have
-/// nothing to do with a deploy, so they are left out.
 const PATTERNS: [&str; 4] = ["*.service", "*.socket", "*.timer", "*.path"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -29,10 +27,9 @@ struct ListedUnit {
     sub: String,
 }
 
-/// `systemctl list-units -o json`. Note it is `-o json`, not `--json`, which
-/// list-units does not accept.
 pub fn snapshot() -> io::Result<Snapshot> {
     let mut cmd = Command::new("systemctl");
+    // list-units takes -o json, not --json.
     cmd.arg("list-units")
         .args(PATTERNS)
         .args(["--all", "-o", "json"]);
@@ -45,7 +42,6 @@ pub fn snapshot() -> io::Result<Snapshot> {
     }
     let mut snap = parse_list_units(&String::from_utf8_lossy(&out.stdout))?;
 
-    // Restart counts live on the service interface only.
     let out = Command::new("systemctl")
         .args(["show", "*.service", "-p", "Id", "-p", "NRestarts"])
         .output()?;
@@ -78,15 +74,12 @@ fn parse_list_units(stdout: &str) -> io::Result<Snapshot> {
         .collect())
 }
 
-/// `systemctl show` emits blank-line separated stanzas of Key=Value.
 fn parse_show_restarts(stdout: &str) -> Vec<(String, u32)> {
     let mut out = Vec::new();
     let mut id: Option<String> = None;
     let mut restarts: Option<u32> = None;
 
     for line in stdout.lines() {
-        // Stanzas are separated by a blank line. Resetting there stops an
-        // entry without NRestarts from pairing with the next one's count.
         if line.is_empty() {
             id = None;
             restarts = None;
@@ -106,8 +99,6 @@ fn parse_show_restarts(stdout: &str) -> Vec<(String, u32)> {
     out
 }
 
-/// systemd's own view of whether it still has work queued. "starting" means
-/// jobs are outstanding, so there is no point judging health yet.
 pub fn system_state() -> String {
     Command::new("systemctl")
         .arg("is-system-running")
@@ -123,16 +114,6 @@ pub fn failed_units(snap: &Snapshot) -> Vec<String> {
         .collect()
 }
 
-/// Units that this deploy broke.
-///
-/// A plain "is anything failed" check is useless here: one long-broken unit
-/// would fail every deploy forever. What matters is the difference. Units
-/// already failing beforehand are reported separately, and a unit that no
-/// longer exists in the new generation is simply gone.
-///
-/// The restart count matters as much as the state. A `Restart=always` unit in
-/// backoff sits in `activating (auto-restart)` and may never be caught in
-/// `failed` at all, so a crash loop is only visible as a climbing NRestarts.
 pub fn newly_failed(before: &Snapshot, after: &Snapshot, ignored: &[String]) -> Vec<String> {
     let mut out = Vec::new();
     for (unit, now) in after {
@@ -141,7 +122,6 @@ pub fn newly_failed(before: &Snapshot, after: &Snapshot, ignored: &[String]) -> 
         }
         let broke = match before.get(unit) {
             Some(was) => (now.failed() && !was.failed()) || now.nrestarts > was.nrestarts,
-            // A unit the new generation introduced.
             None => now.failed(),
         };
         if broke {
@@ -210,7 +190,6 @@ mod tests {
 
     #[test]
     fn a_crash_loop_is_caught_by_restart_count() {
-        // never observed in `failed`, only ever activating (auto-restart)
         let before = snap(&[("app.service", unit("active", "running", 2))]);
         let after = snap(&[("app.service", unit("activating", "auto-restart", 7))]);
         assert_eq!(newly_failed(&before, &after, &[]), vec!["app.service"]);
@@ -240,8 +219,6 @@ mod tests {
         assert!(newly_failed(&before, &after, &[]).is_empty());
     }
 
-    /// Smoke test against the systemd actually running here.
-    /// `cargo test -- --ignored --nocapture`
     #[test]
     #[ignore]
     fn real_snapshot_is_readable() {

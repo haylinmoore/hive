@@ -4,8 +4,6 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
-/// Which log file a write or read is about. Deploy logs keep their bare
-/// numeric names so existing logs and log reaping are untouched.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Log {
     Deploy(u64),
@@ -27,11 +25,6 @@ impl From<u64> for Log {
     }
 }
 
-/// On-disk home for the deployment records and their logs.
-///
-/// Both the listener and the root runner write here, so every read-modify-write
-/// goes through an flock on a separate lock file, and the state file itself is
-/// replaced atomically so a crash mid-write can never truncate it.
 #[derive(Debug, Clone)]
 pub struct StateDir {
     root: PathBuf,
@@ -92,7 +85,6 @@ impl StateDir {
         Ok(f)
     }
 
-    /// Read, mutate and write back under one lock.
     pub fn update<T>(&self, f: impl FnOnce(&mut Store) -> T) -> io::Result<T> {
         let lock = self.lock()?;
         let result = (|| {
@@ -114,7 +106,6 @@ impl StateDir {
         Ok(f.metadata()?.len())
     }
 
-    /// Serve a log by byte offset so a poller can stream it without re-reading.
     pub fn read_log(
         &self,
         log: impl Into<Log>,
@@ -140,8 +131,6 @@ impl StateDir {
             .unwrap_or(0)
     }
 
-    /// Logs are big and records are not, so logs are reaped much sooner. The
-    /// stored error tail means a reaped deploy still explains itself.
     pub fn reap_logs(&self, keep_ids: &[u64]) -> io::Result<Vec<u64>> {
         let mut reaped = Vec::new();
         for entry in fs::read_dir(self.root.join("logs"))? {
@@ -161,8 +150,6 @@ impl StateDir {
     }
 }
 
-/// Ids restart from 1 if the state file is ever lost, so a random epoch lets a
-/// caller notice it is polling a different store than the one it started with.
 fn new_epoch() -> String {
     let mut buf = [0u8; 8];
     if let Ok(mut f) = File::open("/dev/urandom") {
@@ -212,7 +199,6 @@ mod tests {
             a.update(|s| s.admit("aaa", 1)).unwrap(),
             Admission::Started(1)
         );
-        // b re-reads under the lock rather than writing a stale copy
         assert_eq!(
             b.update(|s| s.admit("bbb", 2)).unwrap(),
             Admission::Queued(2)
@@ -240,7 +226,6 @@ mod tests {
         assert_eq!(next, 11);
         assert!(eof);
 
-        // reading at the end is not an error, it is just empty
         let (chunk, _, eof) = dir.read_log(1, 11, 4096).unwrap();
         assert!(chunk.is_empty());
         assert!(eof);

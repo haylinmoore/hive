@@ -33,8 +33,6 @@
   mesh.enable = true;
   services.hived.enable = true;
 
-  # zoe builds here when it can reach astrid. Trusted, so zoe can hand over
-  # the inputs its builds need.
   nix.sshServe = {
     enable = true;
     protocol = "ssh-ng";
