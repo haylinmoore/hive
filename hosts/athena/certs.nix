@@ -60,6 +60,7 @@ let
     "devhack2.net"
     "yui.dev"
     "exampleusercontent.com"
+    "dma.space"
   ];
 
   certs = hive.web.certs;
