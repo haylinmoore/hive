@@ -15,6 +15,7 @@ rec {
     ./dnsmasq.nix
     ./home-assistant.nix
     ./door-keys
+    ./builders.nix
     ../../nixos/certs/uwu-estate.nix
     ../../nixos/certs/host-infra.nix
     ../../nixos/modules/dli-ddns.nix

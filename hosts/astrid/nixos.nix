@@ -33,6 +33,18 @@
   mesh.enable = true;
   services.hived.enable = true;
 
+  # zoe builds here when it can reach astrid. Trusted, so zoe can hand over
+  # the inputs its builds need.
+  nix.sshServe = {
+    enable = true;
+    protocol = "ssh-ng";
+    write = true;
+    trusted = true;
+    keys = [
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGz5iumm3I3gRA308lyB5WPL5cfHW/gUw7aA0u2nPFfa root@zoe"
+    ];
+  };
+
   networking.networkmanager = {
     enable = true;
     plugins = [
