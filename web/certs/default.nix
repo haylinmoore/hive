@@ -13,7 +13,6 @@ let
     inputs@{
       bind,
       dir,
-      zones,
     }:
     hive.service.lib.mkServiceDerivation {
       name = "certs";
@@ -26,10 +25,9 @@ let
 
       environment.CERTS_BIND = bind;
       environment.CERTS_DIR = dir;
-      environment.CERTS_ZONES = lib.concatStringsSep "," zones;
 
       meta = {
-        inherit bind dir zones;
+        inherit bind dir;
         inherit inputs;
       };
     };

@@ -21,6 +21,8 @@ pub struct Record {
     pub discovered_at: i64,
     #[serde(default)]
     pub pem: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
 }
 
 impl Record {
@@ -29,6 +31,14 @@ impl Record {
         dn.split(',')
             .find_map(|p| p.trim().strip_prefix("CN="))
             .unwrap_or(dn)
+    }
+
+    pub fn issued(&self) -> i64 {
+        self.not_before.unwrap_or(self.discovered_at)
+    }
+
+    pub fn active(&self, now: i64) -> bool {
+        self.not_after.is_some_and(|t| t > now)
     }
 
     pub fn crt_sh(&self) -> String {
@@ -67,6 +77,7 @@ pub fn from_env(env: impl Fn(&str) -> Option<String>, now: i64) -> Option<Record
             .unwrap_or_default(),
         discovered_at: now,
         pem: read("CERT_FILENAME"),
+        source: None,
     })
 }
 
@@ -93,7 +104,7 @@ pub fn load(dir: &Path) -> Vec<Record> {
         })
         .filter_map(|e| serde_json::from_slice(&std::fs::read(e.path()).ok()?).ok())
         .collect();
-    out.sort_by_key(|r| std::cmp::Reverse(r.discovered_at));
+    out.sort_by_key(|r| std::cmp::Reverse(r.issued()));
     out
 }
 
@@ -162,6 +173,7 @@ mod tests {
                 dns_names: vec![],
                 discovered_at: at,
                 pem: None,
+                source: None,
             };
             save(&dir, &r).unwrap();
         }
