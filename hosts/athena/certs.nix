@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   hive,
@@ -92,6 +93,13 @@ in
     hiveZones = zones;
   };
 
+  sops.secrets.certs = {
+    sopsFile = ../../secrets/athena/certs.env;
+    key = "";
+    format = "dotenv";
+    owner = "certspotter";
+  };
+
   systemd.services.certs-backfill = {
     description = "Backfill certs.hayl.in from CT search indexes";
     wantedBy = [ "multi-user.target" ];
@@ -109,6 +117,7 @@ in
       User = "certspotter";
       Group = "certspotter";
       ExecStart = "${certs}/bin/certs backfill";
+      EnvironmentFile = config.sops.secrets.certs.path;
     };
   };
 
