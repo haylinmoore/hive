@@ -33,6 +33,7 @@
     ./skyfactory.nix
     ./thelounge.nix
     ./dial.nix
+    ./certs.nix
     ./tunnl.nix
     ./knot.nix
 
