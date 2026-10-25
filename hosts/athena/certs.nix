@@ -102,7 +102,7 @@ in
 
   systemd.services.certs-backfill = {
     description = "Backfill certs.hayl.in from CT search indexes";
-    wantedBy = [ "multi-user.target" ];
+    restartIfChanged = false;
     after = [
       "network-online.target"
       "certspotter.service"
@@ -123,7 +123,10 @@ in
 
   systemd.timers.certs-backfill = {
     wantedBy = [ "timers.target" ];
-    timerConfig.OnUnitInactiveSec = "1h";
+    timerConfig = {
+      OnActiveSec = "2min";
+      OnUnitInactiveSec = "1h";
+    };
   };
 
   proxySites.certs = {
