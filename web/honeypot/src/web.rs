@@ -370,19 +370,19 @@ fn report(conn: &Connection, cfg: &Config, table: &asn::Table) -> rusqlite::Resu
             conn,
             "TLS fingerprints (JA4)",
             None,
-            "SELECT json_extract(detail, '$.ja4') j, COUNT(*), COUNT(DISTINCT src) FROM events WHERE proto = 'tls' AND j IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 15",
+            "SELECT ja4, COUNT(*), COUNT(DISTINCT src) FROM events WHERE proto = 'tls' AND ja4 IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 15",
         )?,
         top(
             conn,
             "User agents",
             Some("/ua?q="),
-            "SELECT json_extract(detail, '$.ua') u, COUNT(*), COUNT(DISTINCT src) FROM events WHERE proto IN ('http', 'https') AND u IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 15",
+            "SELECT ua, COUNT(*), COUNT(DISTINCT src) FROM events WHERE proto IN ('http', 'https') AND ua IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 15",
         )?,
         top(
             conn,
             "HTTP paths",
             None,
-            "SELECT json_extract(detail, '$.path'), COUNT(*), COUNT(DISTINCT src) FROM events WHERE proto IN ('http', 'https') GROUP BY 1 ORDER BY 2 DESC LIMIT 15",
+            "SELECT path, COUNT(*), COUNT(DISTINCT src) FROM events WHERE proto IN ('http', 'https') GROUP BY 1 ORDER BY 2 DESC LIMIT 15",
         )?,
     ];
     let month = format!("at_ms > {}", now - 30 * DAY_MS);
@@ -1286,7 +1286,7 @@ async fn ua_page(
         let rows = if q.is_empty() {
             Vec::new()
         } else {
-            requests(&conn, "instr(json_extract(detail, '$.ua'), ?1) > 0", &q)?
+            requests(&conn, "instr(ua, ?1) > 0", &q)?
         };
         let intro = html! {
             form.search action="/ua" method="get" {

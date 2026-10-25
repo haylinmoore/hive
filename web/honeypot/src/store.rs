@@ -80,11 +80,60 @@ CREATE TABLE IF NOT EXISTS certs (
 );
 ";
 
+const COLUMNS: [&str; 3] = ["ua", "path", "ja4"];
+
 pub fn open(path: &Path) -> rusqlite::Result<Connection> {
     let conn = Connection::open(path)?;
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
     conn.execute_batch(SCHEMA)?;
+    let have: Vec<String> = conn
+        .prepare("SELECT name FROM pragma_table_info('events')")?
+        .query_map([], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    for column in COLUMNS {
+        if !have.iter().any(|h| h == column) {
+            conn.execute_batch(&format!("ALTER TABLE events ADD COLUMN {column} TEXT"))?;
+        }
+    }
+    if filled(&conn)? {
+        indexes(&conn)?;
+    }
     Ok(conn)
+}
+
+fn filled(conn: &Connection) -> rusqlite::Result<bool> {
+    Ok(conn.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))? >= 1)
+}
+
+fn indexes(conn: &Connection) -> rusqlite::Result<()> {
+    for column in COLUMNS {
+        conn.execute_batch(&format!(
+            "CREATE INDEX IF NOT EXISTS events_{column} ON events (proto, {column}, src)"
+        ))?;
+    }
+    Ok(())
+}
+
+fn backfill(conn: &Connection) -> rusqlite::Result<()> {
+    if filled(conn)? {
+        return Ok(());
+    }
+    let max: i64 = conn.query_row("SELECT COALESCE(MAX(id), 0) FROM events", [], |r| r.get(0))?;
+    let started = std::time::Instant::now();
+    for from in (0..=max).step_by(50_000) {
+        conn.execute(
+            "UPDATE events SET ua = json_extract(detail, '$.ua'), path = json_extract(detail, '$.path'), ja4 = json_extract(detail, '$.ja4')
+             WHERE id > ?1 AND id <= ?2 AND detail IS NOT NULL",
+            params![from, from + 50_000],
+        )?;
+    }
+    conn.execute_batch("PRAGMA user_version = 1")?;
+    indexes(conn)?;
+    eprintln!(
+        "store: filled ua, path and ja4 for {max} rows in {:.1}s",
+        started.elapsed().as_secs_f64()
+    );
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -98,6 +147,9 @@ impl Store {
         let conn = open(&path)?;
         let (tx, rx) = sync_channel::<Event>(100_000);
         std::thread::spawn(move || {
+            if let Err(e) = backfill(&conn) {
+                eprintln!("store: backfill: {e}");
+            }
             while let Ok(first) = rx.recv() {
                 let batch: Vec<Event> = std::iter::once(first)
                     .chain(rx.try_iter().take(999))
@@ -127,8 +179,8 @@ fn write(conn: &Connection, cfg: &Config, batch: &[Event]) -> rusqlite::Result<(
     let tx = conn.unchecked_transaction()?;
     {
         let mut insert = tx.prepare_cached(
-            "INSERT INTO events (at_ms, transport, proto, src, src_port, dst, dst_port, name, via, label, day, kind, addr_via, summary, detail, raw, acme)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+            "INSERT INTO events (at_ms, transport, proto, src, src_port, dst, dst_port, name, via, label, day, kind, addr_via, summary, detail, raw, acme, ua, path, ja4)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
         )?;
         for e in batch {
             let today = crate::names::day_of(e.at_ms / 1000);
@@ -164,6 +216,9 @@ fn write(conn: &Connection, cfg: &Config, batch: &[Event]) -> rusqlite::Result<(
                 detail,
                 e.raw,
                 e.acme,
+                e.detail["ua"].as_str(),
+                e.detail["path"].as_str(),
+                e.detail["ja4"].as_str(),
             ])?;
         }
     }
@@ -173,6 +228,36 @@ fn write(conn: &Connection, cfg: &Config, batch: &[Event]) -> rusqlite::Result<(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ua_path_and_ja4_become_columns_old_rows_included() {
+        let cfg = crate::config::test();
+        let dir = std::env::temp_dir().join(format!("honeypot-cols-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let conn = open(&dir.join("db")).unwrap();
+        conn.execute(
+            r#"INSERT INTO events (at_ms, transport, proto, src, src_port, dst, dst_port, via, addr_via, summary, detail)
+             VALUES (0, 'tcp', 'https', 'a', 1, 'b', 443, 'x', 'x', '', '{"ua":"old","path":"/x","ja4":"t13d"}')"#,
+            [],
+        )
+        .unwrap();
+        backfill(&conn).unwrap();
+        let src: SocketAddr = "198.51.100.7:4444".parse().unwrap();
+        let mut e = Event::new("tcp", "https", src, SocketAddr::new(cfg.apex4.into(), 443));
+        e.detail = serde_json::json!({"ua": "new", "path": "/y", "ja4": "t12d"});
+        write(&conn, &cfg, &[e]).unwrap();
+        let rows: Vec<(String, String, String)> = conn
+            .prepare("SELECT ua, path, ja4 FROM events ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(rows[0], ("old".into(), "/x".into(), "t13d".into()));
+        assert_eq!(rows[1], ("new".into(), "/y".into(), "t12d".into()));
+        assert!(filled(&conn).unwrap());
+    }
 
     #[test]
     fn events_are_attributed_by_name_then_address() {
