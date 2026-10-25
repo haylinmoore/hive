@@ -1,7 +1,7 @@
 { dns }:
 {
   registrar = "porkbun";
-  provider = "bunny";
+  provider = "honeypot";
   ttl = 3600;
   records = [ ];
 }
