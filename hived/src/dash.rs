@@ -1123,7 +1123,9 @@ pub fn certs(cfg: &Config, st: &HubState, now: i64) -> String {
     );
     for (node, e) in &events {
         let (event, detail) = match e.kind {
-            crate::certs::EventKind::Issued => ("issued".to_string(), e.detail.clone()),
+            crate::certs::EventKind::Issued => {
+                ("issued".to_string(), e.detail.chars().take(23).collect())
+            }
             crate::certs::EventKind::Failed => (
                 r#"<span class="need">renewal failed</span>"#.to_string(),
                 String::new(),
