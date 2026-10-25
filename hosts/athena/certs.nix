@@ -13,13 +13,30 @@ let
     map (lib.removeSuffix ".nix") (lib.attrNames (builtins.readDir ../../dns/zones))
   );
 
+  watching = [
+    "qumu.lol"
+    "qumulo.com"
+    "jordane.day"
+    "pussy.army"
+    "ezri.pet"
+    "ezrizhu.com"
+    "starry.cafe"
+    "andrewsun.com"
+    "asun.co"
+    "holliger.me"
+    "natesales.net"
+    "packetframe.com"
+    "as34553.net"
+    "arix.dev"
+  ];
+
   certs = hive.web.certs;
 in
 {
   services.certspotter = {
     enable = true;
     startAtEnd = true;
-    watchlist = map (z: ".${z}") zones;
+    watchlist = map (z: ".${z}") (zones ++ watching);
     hooks = [
       (pkgs.writeShellScript "certs-record" ''
         exec ${certs}/bin/certs record
@@ -43,7 +60,10 @@ in
   };
   users.groups.certs = { };
 
-  services.derivations.certs = certs.service { inherit bind dir; };
+  services.derivations.certs = certs.service {
+    inherit bind dir;
+    hiveZones = zones;
+  };
 
   systemd.services.certs-backfill = {
     description = "Backfill certs.hayl.in from CT search indexes";
@@ -55,16 +75,19 @@ in
     wants = [ "network-online.target" ];
     environment = {
       CERTS_DIR = dir;
-      CERTS_ZONES = lib.concatStringsSep "," zones;
+      CERTS_ZONES = lib.concatStringsSep "," (zones ++ watching);
     };
-    unitConfig.ConditionPathExists = "!${dir}/.backfilled";
     serviceConfig = {
       Type = "oneshot";
       User = "certspotter";
       Group = "certspotter";
       ExecStart = "${certs}/bin/certs backfill";
-      ExecStartPost = "${pkgs.coreutils}/bin/touch ${dir}/.backfilled";
     };
+  };
+
+  systemd.timers.certs-backfill = {
+    wantedBy = [ "timers.target" ];
+    timerConfig.OnUnitInactiveSec = "1h";
   };
 
   proxySites.certs = {
