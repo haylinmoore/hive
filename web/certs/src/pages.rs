@@ -1,7 +1,7 @@
 use crate::chain::Link;
 use crate::record::Record;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 const CSS: &str = r#"
 :root { --fg: #1c1917; --muted: #8a8580; --accent: #c2410c; --bg: #fafaf9; color-scheme: light; }
@@ -117,15 +117,23 @@ fn names(r: &Record) -> String {
     }
 }
 
+const SIBLINGS: i64 = 600;
+
 pub fn firsts(records: &[Record]) -> Vec<bool> {
     let mut order: Vec<usize> = (0..records.len()).collect();
     order.sort_by_key(|&i| records[i].issued());
-    let mut seen: BTreeSet<&str> = BTreeSet::new();
+    let mut seen: BTreeMap<&str, i64> = BTreeMap::new();
     let mut out = vec![false; records.len()];
     for i in order {
         let r = &records[i];
-        out[i] = !r.dns_names.iter().any(|n| seen.contains(n.as_str()));
-        seen.extend(r.dns_names.iter().map(String::as_str));
+        let at = r.issued();
+        out[i] = !r
+            .dns_names
+            .iter()
+            .any(|n| seen.get(n.as_str()).is_some_and(|&t| at - t > SIBLINGS));
+        for n in &r.dns_names {
+            seen.entry(n).or_insert(at);
+        }
     }
     out
 }
@@ -423,11 +431,22 @@ mod tests {
     #[test]
     fn the_first_cert_for_a_name_is_new_and_later_ones_renew_it() {
         let records = vec![
-            record("c", &["x.hayl.in"], 300, 900),
+            record("c", &["x.hayl.in"], 90000, 99000),
             record("b", &["y.hayl.in"], 200, 900),
             record("a", &["x.hayl.in"], 100, 200),
         ];
         assert_eq!(firsts(&records), vec![false, true, true]);
+    }
+
+    #[test]
+    fn certs_issued_together_share_a_label() {
+        let records = vec![
+            record("rsa", &["x.hayl.in"], 102, 900),
+            record("ec", &["x.hayl.in"], 100, 900),
+            record("next", &["x.hayl.in"], 90000, 99000),
+            record("next2", &["x.hayl.in"], 90069, 99000),
+        ];
+        assert_eq!(firsts(&records), vec![true, true, false, false]);
     }
 
     #[test]
