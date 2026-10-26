@@ -63,6 +63,11 @@ let
     "dma.space"
     "pvc.dog"
     "meow.i.ng"
+    "uninsane.org"
+    "wallace.seattle.wa.us"
+    "doof.net"
+    "t4t.computer"
+    "t4t.net"
   ];
 
   certs = hive.web.certs;
