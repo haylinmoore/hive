@@ -12,6 +12,7 @@
     ./wm.nix
     ./fonts.nix
     ./services.nix
+    ./disk.nix
     ./wemux.nix
     ../../nixos/shared/nix.nix
     ../../nixos/mesh
