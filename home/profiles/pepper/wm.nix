@@ -257,10 +257,6 @@ in
 
       #power-profiles-daemon {
         margin-right: 12px;
-        color: #777777;
-      }
-      #power-profiles-daemon.power-saver {
-        color: #ffffff;
       }
 
       #battery {
