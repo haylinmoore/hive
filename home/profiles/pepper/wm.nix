@@ -8,6 +8,48 @@
 let
   swaylock = "${pkgs.procps}/bin/pidof swaylock || ${pkgs.swaylock}/bin/swaylock -f -i ${config.home.homeDirectory}/Documents/wallpaper.jpg -s fill";
   lock = "${pkgs.systemd}/bin/loginctl lock-session";
+  brightness = pkgs.writeShellScript "brightness" ''
+    PATH=${
+      lib.makeBinPath [
+        pkgs.brightnessctl
+        pkgs.util-linux
+        pkgs.coreutils
+      ]
+    }
+    dev=/sys/class/backlight/intel_backlight
+    max=$(<$dev/max_brightness)
+    state=$XDG_RUNTIME_DIR/brightness-target
+
+    exec 9>"$state.lock"
+    flock 9
+    t=$(cat "$state" 2>/dev/null || cat $dev/brightness)
+    case $1 in
+      up) t=$((t * 5 / 4 + 1)) ;;
+      down) t=$((t * 4 / 5)) ;;
+    esac
+    t=$((t < max / 100 ? max / 100 : t > max ? max : t))
+    echo $t >"$state"
+    flock -u 9
+
+    exec 8>"$state.anim"
+    flock -n 8 || exit 0
+    cur=$(<$dev/brightness)
+    while :; do
+      flock 9
+      t=$(<"$state")
+      if [ "$t" -eq "$cur" ]; then
+        rm "$state"
+        exec 8>&-
+        exit 0
+      fi
+      flock -u 9
+      d=$(((t - cur) * 2 / 5))
+      [ $d -eq 0 ] && d=$((t > cur ? 1 : -1))
+      cur=$((cur + d))
+      brightnessctl -q s $cur
+      sleep 0.01
+    done
+  '';
 in
 {
   services.swayidle = {
@@ -63,8 +105,8 @@ in
         "XF86AudioRaiseVolume" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --change-volume +5";
         "XF86AudioLowerVolume" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --change-volume -5";
         "XF86AudioMute" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --toggle-mute";
-        "XF86MonBrightnessDown" = "exec ${pkgs.brightnessctl}/bin/brightnessctl -e4 -n2 s 5%-";
-        "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl -e4 -n2 s 5%+";
+        "XF86MonBrightnessDown" = "exec ${brightness} down";
+        "XF86MonBrightnessUp" = "exec ${brightness} up";
         "Print" = "exec ${pkgs.grim}/bin/grim - | wl-copy";
         "Mod4+Print" = ''exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp -d)" - | wl-copy'';
         "Mod4+Tab" = "exec ${lock}";
