@@ -78,8 +78,7 @@ let
   );
 
   secureServerConfig = {
-    logfile = "/tmp/unbound.log";
-    verbosity = 3;
+    verbosity = 1;
     interface = [ "127.0.0.1" ];
     port = 53;
     access-control = [ "127.0.0.1 allow" ];
