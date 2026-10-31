@@ -57,6 +57,7 @@ in
     events = {
       lock = swaylock;
       before-sleep = swaylock;
+      unlock = "${pkgs.procps}/bin/pkill -USR1 swaylock";
     };
   };
 
