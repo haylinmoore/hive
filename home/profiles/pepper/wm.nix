@@ -9,6 +9,7 @@ let
   swaylock = "${pkgs.procps}/bin/pidof swaylock || ${pkgs.swaylock}/bin/swaylock -f -i ${config.home.homeDirectory}/Documents/wallpaper.jpg -s fill";
   lock = "${pkgs.systemd}/bin/loginctl lock-session";
   swaymsg = "${pkgs.sway}/bin/swaymsg";
+  systemctl = "${pkgs.systemd}/bin/systemctl";
   kbdLight = "${pkgs.brightnessctl}/bin/brightnessctl -d chromeos::kbd_backlight";
   idleSuspend = pkgs.writeShellScript "idle-suspend" ''
     [ "$(cat /sys/class/power_supply/ACAD/online)" = 1 ] && exit 0
@@ -79,13 +80,43 @@ let
   '';
 in
 {
+  services.wluma = {
+    enable = true;
+    settings = {
+      als.iio = {
+        path = "/sys/bus/iio/devices";
+        thresholds = {
+          "0" = "night";
+          "20" = "dark";
+          "80" = "dim";
+          "250" = "normal";
+          "500" = "bright";
+          "800" = "outdoors";
+        };
+      };
+      output.backlight = [
+        {
+          name = "eDP-1";
+          path = "/sys/class/backlight/intel_backlight";
+          capturer = "wayland";
+        }
+      ];
+      keyboard = [
+        {
+          name = "keyboard-framework";
+          path = "/sys/class/leds/chromeos::kbd_backlight";
+        }
+      ];
+    };
+  };
+
   services.swayidle = {
     enable = true;
     timeouts = [
       {
         timeout = 270;
-        command = "${brightness} dim; ${kbdLight} -sq set 0";
-        resumeCommand = "${brightness} undim; ${kbdLight} -rq >/dev/null";
+        command = "${systemctl} --user stop wluma; ${brightness} dim; ${kbdLight} -sq set 0";
+        resumeCommand = "${brightness} undim; ${kbdLight} -rq >/dev/null; ${systemctl} --user start wluma";
       }
       {
         timeout = 300;
