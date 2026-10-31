@@ -3,6 +3,7 @@
   # Services
   services.openssh.enable = false;
   services.upower.enable = true;
+  services.fwupd.enable = true;
   services.printing.enable = true;
   services.lldpd.enable = true;
   services.tailscale.enable = true;

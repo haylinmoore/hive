@@ -32,5 +32,8 @@
     ProcessSizeMax = 0;
   };
 
-  environment.systemPackages = [ pkgs.powertop ];
+  environment.systemPackages = [
+    pkgs.powertop
+    pkgs.framework-tool
+  ];
 }
