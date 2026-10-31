@@ -9,7 +9,7 @@
     wantedBy = [ "multi-user.target" ];
     serviceConfig.Type = "oneshot";
     script = ''
-      if [ "$(cat /sys/class/power_supply/AC/online)" = 1 ]; then
+      if [ "$(cat /sys/class/power_supply/ACAD/online)" = 1 ]; then
         ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set balanced
       else
         ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set power-saver
@@ -18,7 +18,7 @@
   };
 
   services.udev.extraRules = ''
-    SUBSYSTEM=="power_supply", KERNEL=="AC", TAG+="systemd", ENV{SYSTEMD_WANTS}="power-profile-auto.service"
+    SUBSYSTEM=="power_supply", KERNEL=="ACAD", TAG+="systemd", ENV{SYSTEMD_WANTS}="power-profile-auto.service"
     SUBSYSTEM=="pci", ACTION=="add", ATTR{power/control}="auto"
   '';
 
