@@ -18,20 +18,6 @@
     pulse.enable = true;
     jack.enable = true;
     wireplumber.enable = true;
-
-    extraLv2Packages = [
-      pkgs.lsp-plugins
-      pkgs.calf
-    ];
-
-    configPackages = [
-      (pkgs.runCommand "dolby-speaker-tuning" { } ''
-        mkdir -p $out/share/pipewire/pipewire.conf.d
-        substitute ${./speaker/Dolby_Balanced.conf} \
-          $out/share/pipewire/pipewire.conf.d/90-dolby-speaker.conf \
-          --replace-fail @irs@ ${./speaker/Dolby_Balanced.irs}
-      '')
-    ];
   };
 
   hardware.firmware = [
