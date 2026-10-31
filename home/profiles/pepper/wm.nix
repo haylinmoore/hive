@@ -124,6 +124,7 @@ in
       };
       input = lib.mkOptionDefault {
         "type:touchpad".tap = "enabled";
+        "type:touchpad".click_method = "clickfinger";
         "type:touch".map_to_output = "eDP-1";
       };
     };
