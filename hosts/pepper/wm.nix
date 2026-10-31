@@ -48,6 +48,10 @@
         command = "${pkgs.tuigreet}/bin/tuigreet --time --cmd sway";
         user = "greeter";
       };
+      initial_session = {
+        command = "sway";
+        user = "haylin";
+      };
     };
   };
 }
