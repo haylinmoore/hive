@@ -8,6 +8,13 @@
 let
   swaylock = "${pkgs.procps}/bin/pidof swaylock || ${pkgs.swaylock}/bin/swaylock -f -i ${config.home.homeDirectory}/Documents/wallpaper.jpg -s fill";
   lock = "${pkgs.systemd}/bin/loginctl lock-session";
+  swaymsg = "${pkgs.sway}/bin/swaymsg";
+  kbdLight = "${pkgs.brightnessctl}/bin/brightnessctl -d chromeos::kbd_backlight";
+  idleSuspend = pkgs.writeShellScript "idle-suspend" ''
+    [ "$(cat /sys/class/power_supply/ACAD/online)" = 1 ] && exit 0
+    ${pkgs.pulseaudio}/bin/pactl list short sinks | ${pkgs.gnugrep}/bin/grep -q RUNNING && exit 0
+    exec ${pkgs.systemd}/bin/systemctl suspend-then-hibernate
+  '';
   powerProfileToggle = pkgs.writeShellScript "power-profile-toggle" ''
     ppc=${pkgs.power-profiles-daemon}/bin/powerprofilesctl
     if [ "$($ppc get)" = power-saver ]; then
@@ -19,7 +26,7 @@ let
   brightness = pkgs.writeShellScript "brightness" ''
     PATH=${
       lib.makeBinPath [
-        pkgs.brightnessctl
+        pkgs.systemd
         pkgs.util-linux
         pkgs.coreutils
       ]
@@ -27,6 +34,7 @@ let
     dev=/sys/class/backlight/intel_backlight
     max=$(<$dev/max_brightness)
     state=$XDG_RUNTIME_DIR/brightness-target
+    saved=$XDG_RUNTIME_DIR/brightness-saved
 
     exec 9>"$state.lock"
     flock 9
@@ -34,6 +42,16 @@ let
     case $1 in
       up) t=$((t * 5 / 4 + 1)) ;;
       down) t=$((t * 4 / 5)) ;;
+      dim)
+        [ -e "$saved" ] && exit 0
+        echo $t >"$saved"
+        t=$((t / 5))
+        ;;
+      undim)
+        [ -e "$saved" ] || exit 0
+        t=$(<"$saved")
+        rm "$saved"
+        ;;
     esac
     t=$((t < max / 100 ? max / 100 : t > max ? max : t))
     echo $t >"$state"
@@ -54,7 +72,8 @@ let
       d=$(((t - cur) * 2 / 5))
       [ $d -eq 0 ] && d=$((t > cur ? 1 : -1))
       cur=$((cur + d))
-      brightnessctl -q s $cur
+      busctl call org.freedesktop.login1 /org/freedesktop/login1/session/auto \
+        org.freedesktop.login1.Session SetBrightness ssu backlight intel_backlight $cur
       sleep 0.01
     done
   '';
@@ -62,9 +81,35 @@ in
 {
   services.swayidle = {
     enable = true;
+    timeouts = [
+      {
+        timeout = 270;
+        command = "${brightness} dim; ${kbdLight} -sq set 0";
+        resumeCommand = "${brightness} undim; ${kbdLight} -rq >/dev/null";
+      }
+      {
+        timeout = 300;
+        command = lock;
+      }
+      {
+        timeout = 330;
+        command = "${swaymsg} 'output * power off'";
+        resumeCommand = "${swaymsg} 'output * power on'";
+      }
+      {
+        timeout = 30;
+        command = "${pkgs.procps}/bin/pidof swaylock && ${swaymsg} 'output * power off'";
+        resumeCommand = "${swaymsg} 'output * power on'";
+      }
+      {
+        timeout = 900;
+        command = "${idleSuspend}";
+      }
+    ];
     events = {
       lock = swaylock;
       before-sleep = swaylock;
+      after-resume = "${swaymsg} 'output * power on'";
       unlock = "${pkgs.procps}/bin/pkill -USR1 swaylock";
     };
   };
@@ -132,6 +177,8 @@ in
       for_window [app_id="firefox" title="^Picture-in-Picture$"] floating enable, resize set 360 200, move position 1077 667, sticky enable, border none
       for_window [app_id="kitty" title="qalc"] floating enable, resize set 710 246, move position 354 196, sticky enable, border none
       input * xkb_options compose:ralt
+      for_window [app_id=".*"] inhibit_idle fullscreen
+      for_window [class=".*"] inhibit_idle fullscreen
       output * adaptive_sync on
       output eDP-1 adaptive_sync off
       output "ASUSTek COMPUTER INC ASUS PA279 0x0000C792" scale 2
