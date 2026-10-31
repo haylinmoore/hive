@@ -21,6 +21,15 @@
         | ${pkgs.gawk}/bin/awk '/hibernation entry/ { ok = 0 } /Hibernation image restored successfully/ { ok = 1 } END { exit !ok }' \
         && ${pkgs.systemd}/bin/loginctl unlock-sessions
     '';
+  systemd.services.caps-to-escape = {
+    description = "Remap caps lock to escape in the EC";
+    wantedBy = [ "multi-user.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.framework-tool}/bin/framework_tool --remap-key 4 4 0x0076";
+    };
+  };
+
   security.pam.services.swaylock.rules.auth.fprintd.order =
     config.security.pam.services.swaylock.rules.auth.unix.order + 10;
 }
