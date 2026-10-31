@@ -63,8 +63,8 @@ in
         "XF86AudioRaiseVolume" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --change-volume +5";
         "XF86AudioLowerVolume" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --change-volume -5";
         "XF86AudioMute" = "exec ${pkgs.pulsemixer}/bin/pulsemixer --toggle-mute";
-        "XF86MonBrightnessDown" = "exec ${pkgs.brightnessctl}/bin/brightnessctl s 25-";
-        "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl s +25";
+        "XF86MonBrightnessDown" = "exec ${pkgs.brightnessctl}/bin/brightnessctl -e4 -n2 s 5%-";
+        "XF86MonBrightnessUp" = "exec ${pkgs.brightnessctl}/bin/brightnessctl -e4 -n2 s 5%+";
         "Print" = "exec ${pkgs.grim}/bin/grim - | wl-copy";
         "Mod4+Print" = ''exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp -d)" - | wl-copy'';
         "Mod4+Tab" = "exec ${lock}";
