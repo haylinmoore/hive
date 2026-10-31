@@ -115,6 +115,7 @@ in
       };
       input = lib.mkOptionDefault {
         "type:touchpad".tap = "enabled";
+        "type:touch".map_to_output = "eDP-1";
       };
     };
     extraConfig = ''
