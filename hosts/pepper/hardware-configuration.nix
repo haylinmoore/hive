@@ -25,10 +25,14 @@
   boot.kernelPackages = pkgs.linuxPackages_latest;
 
   boot.initrd.luks.devices = {
-    "luks-febbe92f-bb86-4f38-a981-bf5d86e5c9c0".device =
-      "/dev/disk/by-uuid/febbe92f-bb86-4f38-a981-bf5d86e5c9c0";
-    "luks-f7188184-8815-456c-9242-a3e7b976d987".device =
-      "/dev/disk/by-uuid/f7188184-8815-456c-9242-a3e7b976d987";
+    "luks-febbe92f-bb86-4f38-a981-bf5d86e5c9c0" = {
+      device = "/dev/disk/by-uuid/febbe92f-bb86-4f38-a981-bf5d86e5c9c0";
+      allowDiscards = true;
+    };
+    "luks-f7188184-8815-456c-9242-a3e7b976d987" = {
+      device = "/dev/disk/by-uuid/f7188184-8815-456c-9242-a3e7b976d987";
+      allowDiscards = true;
+    };
   };
 
   fileSystems."/" = {
