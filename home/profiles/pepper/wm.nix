@@ -41,8 +41,8 @@ let
     flock 9
     t=$(cat "$state" 2>/dev/null || cat $dev/brightness)
     case $1 in
-      up) t=$((t * 5 / 4 + 1)) ;;
-      down) t=$((t * 4 / 5)) ;;
+      up) t=$((t < max / 20 ? t * 2 : t * 5 / 4 + 1)) ;;
+      down) t=$((t <= max / 20 ? t / 2 : t * 4 / 5)) ;;
       dim)
         [ -e "$saved" ] && exit 0
         echo $t >"$saved"
@@ -54,7 +54,7 @@ let
         rm "$saved"
         ;;
     esac
-    t=$((t < max / 100 ? max / 100 : t > max ? max : t))
+    t=$((t < 1 ? 1 : t > max ? max : t))
     echo $t >"$state"
     flock -u 9
 
