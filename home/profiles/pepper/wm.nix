@@ -87,11 +87,11 @@ in
         path = "/sys/bus/iio/devices";
         thresholds = {
           "0" = "night";
-          "20" = "dark";
-          "80" = "dim";
-          "250" = "normal";
-          "500" = "bright";
-          "800" = "outdoors";
+          "2" = "dark";
+          "5" = "dim";
+          "15" = "normal";
+          "50" = "bright";
+          "150" = "outdoors";
         };
       };
       output.backlight = [
