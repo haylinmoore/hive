@@ -232,10 +232,18 @@ in
         ];
         modules-center = [ "clock" ];
         modules-right = [
+          "custom/lux"
           "power-profiles-daemon"
           "pulseaudio"
           "battery"
         ];
+
+        "custom/lux" = {
+          exec = "cat /sys/bus/iio/devices/*/in_illuminance_raw";
+          interval = 5;
+          format = "  {} lx";
+          tooltip = false;
+        };
 
         "power-profiles-daemon" = {
           format = "{icon}";
@@ -331,6 +339,10 @@ in
       }
       #workspaces button.focused {
         background-color: #383737;
+      }
+
+      #custom-lux {
+        margin-right: 12px;
       }
 
       #power-profiles-daemon {
