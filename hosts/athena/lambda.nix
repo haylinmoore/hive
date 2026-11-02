@@ -9,7 +9,7 @@
 {
   staticSites.lambda = {
     domain = "lambda.hayl.in";
-    source = hive.sources.sheepda;
+    source = hive.web.lambda;
     useACMEHost = "hayl.in";
   };
 }

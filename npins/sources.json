@@ -102,20 +102,6 @@
       "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.11pre1106208.d357a2b54f0b/nixexprs.tar.xz",
       "hash": "sha256-gh035dq/sQ/OwPltGyvjNl1zNWZgVnng2zug7xKqSu8="
     },
-    "sheepda": {
-      "type": "Git",
-      "repository": {
-        "type": "GitHub",
-        "owner": "haylinmoore",
-        "repo": "sheepda"
-      },
-      "branch": "main",
-      "submodules": false,
-      "revision": "efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46",
-      "url": "https://github.com/haylinmoore/sheepda/archive/efc94cc2b15d86dc45742d9e5a0f0b94d4dc1e46.tar.gz",
-      "hash": "sha256-g37PdOJunHds0AmECQeC8UYijn+sl8WtMhVFfThm3DM=",
-      "frozen": true
-    },
     "sops": {
       "type": "Git",
       "repository": {

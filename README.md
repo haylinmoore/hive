@@ -9,7 +9,7 @@ I'm slowly importing stuff into here as I remember it exists and kill off the ol
 - ssh://soft.hayl.in:2222 - [soft-serve](https://github.com/charmbracelet/soft-serve) instance for random repos not intended for public github access, but not private
 - https://estrogen.coffee - Obsidian Moon Server compatible target for uploading documents.
 - https://88x31.hayl.in - ./web/88x31/ A site for programmatically creating animated 88x31 badges
-- https://lambda.hayl.in - running my [Sheepda fork](https://github.com/haylinmoore/sheepda) for playing with lambda calculus
+- https://lambda.hayl.in - ./web/lambda/ [Sheepda](https://github.com/jtolds/sheepda) built to wasm, for playing with lambda calculus
 - https://music.hayl.in - Powering music listening for my friends
 
 ## Zoe
