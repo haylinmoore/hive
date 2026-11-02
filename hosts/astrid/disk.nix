@@ -6,12 +6,19 @@
     randomizedDelaySec = "30min";
   };
 
+  fileSystems."/opt/qumulo" = {
+    device = "/home/hmoore/notes/bin/fhs/opt/qumulo";
+    fsType = "none";
+    options = [ "bind" ];
+  };
+
   systemd.services.qumulo-free-disk = {
     description = "Trim ~hmoore/src build/tmp, linking cache and unheld build graphs";
     path = [
       "/run/wrappers"
       pkgs.nix
     ];
+    environment.NIX_PATH = "nixpkgs=${pkgs.path}";
     serviceConfig = {
       Type = "oneshot";
       User = "hmoore";
