@@ -12,7 +12,7 @@ let
       forceSSL = cfg.ssl;
       enableACME = cfg.ssl && cfg.useACMEHost == null;
       useACMEHost = cfg.useACMEHost;
-      root = import cfg.source { inherit pkgs; };
+      root = if lib.isDerivation cfg.source then cfg.source else import cfg.source { inherit pkgs; };
       http2 = true;
       http3 = true;
       quic = true;
