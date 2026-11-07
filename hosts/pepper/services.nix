@@ -10,6 +10,8 @@
   services.fprintd.enable = true;
   services.logind.settings.Login.HandleLidSwitch = "suspend-then-hibernate";
   systemd.sleep.settings.Sleep.HibernateDelaySec = "1h";
+  # S4 leaves xhci/thunderbolt armed and usb-c events power it back on
+  systemd.sleep.settings.Sleep.HibernateMode = "shutdown";
 
   # resuming the image needed the luks passphrase, so skip swaylock. the
   # restore message is pm_debug only and never printed if hibernate failed.
