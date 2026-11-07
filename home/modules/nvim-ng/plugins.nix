@@ -37,6 +37,12 @@
     {
       plugin = fzf-vim;
       config = ''
+        " Inside the notes/bin/env namespace, a tmux popup would be spawned by the
+        " tmux server *outside* the namespace (different /, /tmp), so fzf can't
+        " exchange its temp files with nvim. Use an nvim floating window instead.
+        if !empty($QUMULO)
+          let g:fzf_layout = { 'window': { 'width': 0.9, 'height': 0.6 } }
+        endif
         nnoremap <C-p> :Files<CR>
         " Rg in current file's directory
         nnoremap <C-S-p> :call fzf#vim#grep('rg --column --line-number --no-heading --color=always --smart-case -- ', 1, fzf#vim#with_preview({'dir': expand('%:h')}), 0)<CR>
