@@ -12,6 +12,10 @@
   systemd.sleep.settings.Sleep.HibernateDelaySec = "1h";
   # S4 leaves xhci/thunderbolt armed and usb-c events power it back on
   systemd.sleep.settings.Sleep.HibernateMode = "shutdown";
+  boot.initrd.systemd.targets.cryptsetup.unitConfig = {
+    JobTimeoutSec = "5min";
+    JobTimeoutAction = "poweroff";
+  };
 
   # resuming the image needed the luks passphrase, so skip swaylock. the
   # restore message is pm_debug only and never printed if hibernate failed.
