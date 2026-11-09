@@ -14,6 +14,7 @@
     ./fonts.nix
     ./services.nix
     ./rebuild.nix
+    ./builders.nix
     ./power.nix
     ../../nixos/shared/nix.nix
     ../../nixos/mesh
