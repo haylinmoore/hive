@@ -41,6 +41,7 @@
     trusted = true;
     keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGz5iumm3I3gRA308lyB5WPL5cfHW/gUw7aA0u2nPFfa root@zoe"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKcRsnms+mvAV1xLTjQBkOrH52O89RnSWwvk1Q4MCg7X root@pepper"
     ];
   };
 
