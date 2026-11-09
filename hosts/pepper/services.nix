@@ -37,7 +37,17 @@
     '';
   systemd.services.caps-to-escape = {
     description = "Remap caps lock to escape in the EC";
-    wantedBy = [ "multi-user.target" ];
+    wantedBy = [
+      "multi-user.target"
+      "suspend.target"
+      "hibernate.target"
+      "suspend-then-hibernate.target"
+    ];
+    after = [
+      "suspend.target"
+      "hibernate.target"
+      "suspend-then-hibernate.target"
+    ];
     serviceConfig = {
       Type = "oneshot";
       ExecStart = "${pkgs.framework-tool}/bin/framework_tool --remap-key 4 4 0x0076";
