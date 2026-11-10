@@ -43,6 +43,7 @@
   networking.nameservers = [ "127.0.0.1" ];
 
   networking.networkmanager.enable = true;
+  networking.networkmanager.wifi.backend = "iwd";
 
   time.timeZone = "US/Pacific";
 
