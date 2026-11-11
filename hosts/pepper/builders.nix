@@ -13,7 +13,7 @@ in
       sshUser = "nix-ssh";
       sshKey = "/etc/ssh/ssh_host_ed25519_key";
       systems = [ "x86_64-linux" ];
-      maxJobs = 8;
+      maxJobs = 24;
       speedFactor = 8;
       supportedFeatures = [
         "nixos-test"
