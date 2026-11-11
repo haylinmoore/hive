@@ -166,6 +166,7 @@ in
         "Mod4+Print" = ''exec ${pkgs.grim}/bin/grim -g "$(${pkgs.slurp}/bin/slurp -d)" - | wl-copy'';
         "Mod4+Tab" = "exec ${lock}";
         "Mod4+Shift+Tab" = "exec ${lock}";
+        "Mod4+N" = "exec ${pkgs.mako}/bin/makoctl dismiss --all";
       };
       input = lib.mkOptionDefault {
         "type:touchpad".tap = "enabled";
