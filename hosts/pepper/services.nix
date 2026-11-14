@@ -31,6 +31,11 @@
         | ${pkgs.gawk}/bin/awk '/hibernation entry/ { ok = 0 } /Hibernation image restored successfully/ { ok = 1 } END { exit !ok }' \
         && ${pkgs.systemd}/bin/loginctl unlock-sessions
     '';
+  environment.etc."systemd/system-sleep/drop-caches-before-hibernate".source =
+    pkgs.writeShellScript "drop-caches-before-hibernate" ''
+      [ "$1" = pre ] && [ "$SYSTEMD_SLEEP_ACTION" = hibernate ] || exit 0
+      echo 1 > /proc/sys/vm/drop_caches
+    '';
   # btintel_pcie times out entering D2 and returns EBUSY, aborting suspend
   environment.etc."systemd/system-sleep/btintel-pcie".source =
     pkgs.writeShellScript "btintel-pcie" ''
