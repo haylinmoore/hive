@@ -13,6 +13,20 @@
       "url": "https://github.com/nix-community/authentik-nix/archive/b34f78837a7992146e6bdd43c85d03601b3b7ad5.tar.gz",
       "hash": "sha256-AXAG+QvToMcIy3DpPX75dhk6fna24pc3XvMzAUmGb5g="
     },
+    "bootvine": {
+      "type": "Git",
+      "repository": {
+        "type": "Forgejo",
+        "server": "https://codeberg.org/",
+        "owner": "wvhulle",
+        "repo": "bootvine"
+      },
+      "branch": "main",
+      "submodules": false,
+      "revision": "b13a132a95c8792756d64853c490787f0ae08d5f",
+      "url": "https://codeberg.org/wvhulle/bootvine/archive/b13a132a95c8792756d64853c490787f0ae08d5f.tar.gz",
+      "hash": "sha256-maMtdOgjIRWUpsNEPvmhmR0iHPAGy45IMUjBKImYZFU="
+    },
     "catppuccin": {
       "type": "Git",
       "repository": {

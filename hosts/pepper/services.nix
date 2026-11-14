@@ -8,6 +8,7 @@
   services.lldpd.enable = true;
   services.tailscale.enable = true;
   services.fprintd.enable = true;
+  services.bootvine.enable = true;
   services.logind.settings.Login.HandleLidSwitch = "suspend-then-hibernate";
   systemd.sleep.settings.Sleep.HibernateDelaySec = "1h";
   # S4 leaves xhci/thunderbolt armed and usb-c events power it back on
