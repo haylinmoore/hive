@@ -20,7 +20,10 @@
 
   # resuming the image needed the luks passphrase, so skip swaylock. the
   # restore message is pm_debug only and never printed if hibernate failed.
-  boot.kernelParams = [ "pm_debug_messages" ];
+  boot.kernelParams = [
+    "pm_debug_messages"
+    "hibernate.compressor=lz4"
+  ];
   environment.etc."systemd/system-sleep/unlock-after-hibernate".source =
     pkgs.writeShellScript "unlock-after-hibernate" ''
       [ "$1" = post ] && [ "$SYSTEMD_SLEEP_ACTION" = hibernate ] || exit 0
