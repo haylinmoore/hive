@@ -83,7 +83,13 @@ in
       '')
     ];
   };
-  systemd.services.certspotter.environment.CERTS_DIR = dir;
+  systemd.services.certspotter = {
+    environment.CERTS_DIR = dir;
+    serviceConfig = {
+      Restart = "on-failure";
+      RestartSec = "1min";
+    };
+  };
 
   persist.directories = [
     {
