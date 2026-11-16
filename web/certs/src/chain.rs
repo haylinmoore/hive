@@ -194,7 +194,7 @@ pub fn keep(dir: &Path, link: &Link) -> std::io::Result<bool> {
     std::fs::create_dir_all(&issuers)?;
     let path = issuers.join(format!("{}.pem", link.sha256));
     if !path.exists() {
-        let tmp = issuers.join(format!(".{}.pem", link.sha256));
+        let tmp = issuers.join(format!(".{}.{}.pem", link.sha256, std::process::id()));
         std::fs::write(&tmp, &link.pem)?;
         std::fs::rename(tmp, path)?;
         return Ok(true);

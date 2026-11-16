@@ -111,7 +111,7 @@ pub fn save(dir: &Path, record: &Record) -> std::io::Result<()> {
         }
     }
     let path = dir.join(format!("{}.json", record.cert_sha256));
-    let tmp = dir.join(format!(".{}.json", record.cert_sha256));
+    let tmp = dir.join(format!(".{}.{}.json", record.cert_sha256, std::process::id()));
     std::fs::write(
         &tmp,
         serde_json::to_vec(&record).map_err(std::io::Error::other)?,
