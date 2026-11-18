@@ -13,6 +13,7 @@ in
       ./nixos/modules # Pull in all nixos module
       ./nixos/shared/users.nix
       ./nixos/shared/default.nix
+      ./nixos/shared/mitigations.nix
       ./nixos/shared/nix.nix
       "${sops}/modules/sops"
     ];

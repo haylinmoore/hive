@@ -16,7 +16,7 @@ let
       http3 = true;
       quic = true;
       extraConfig = ''
-        add_header Alt-Svc 'h3=":443"; ma=86400';
+        add_header Alt-Svc 'clear' always; # nginx2root: h3 off, see nixos/shared/mitigations.nix
       '';
       locations = {
         "/" = {

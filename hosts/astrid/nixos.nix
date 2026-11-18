@@ -15,6 +15,7 @@
     ./disk.nix
     ./wemux.nix
     ../../nixos/shared/nix.nix
+    ../../nixos/shared/mitigations.nix
     ../../nixos/mesh
     ../../nixos/modules/hived.nix
   ];
