@@ -4,14 +4,10 @@ let
   sustainedWatts = 37.5;
   burstWatts = 50;
   uw = w: toString (builtins.floor (w * 1000000));
-  # pages that threw uncorrectable ECC on cpu2 (B1/B2, B5), from BERT records logged at boot
-  badPages = [
-    "0x18f1eec000"
-    "0x124b050000"
-  ];
 in
 {
-  boot.kernelParams = map (p: "memmap=4K\$" + p) badPages;
+  # B1/B2 (cpu2) throw uncorrectable ECC; keep the kernel off cpu2's whole range until B1 is swapped
+  boot.kernelParams = [ "memmap=64G$0x1080000000" ];
 
   systemd.services.rapl-limits = {
     description = "RAPL package power limits";
