@@ -23,3 +23,7 @@ date,link,title,description
 2025-01-19,https://github.com/haylinmoore/drone-image-optimizer,drone-image-optimizer,a CI step for optimizing and caching optimized images
 2025-03-09,https://github.com/haylinmoore/example-nix-plugin,example-nix-plugin,an example nix plugin for adding custom builtins
 2025-05-29,https://github.com/haylinmoore/bloomcraft,bloomcraft,a custom substring search server for infinibrowser
+2026-02-16,https://github.com/haylinmoore/board,board,a real-time transit departure board for a PROXmobil3 using OneBusAway
+2026-03-08,https://github.com/haylinmoore/netscape.nix,netscape.nix,a nix flake for running Netscape Navigator 9.0.0.6 and Netscape Communicator 4.7
+2026-06-26,https://github.com/haylinmoore/adit600,adit600,an Adit 600 controller for ToorCamp 2026
+2026-08-31,https://github.com/haylinmoore/hive/tree/main/web/tunnl,tunnl,fork of tunnl.gg restricted to an authorized key list
