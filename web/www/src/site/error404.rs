@@ -1,4 +1,4 @@
-use super::{base, PageContext};
+use super::{base, head, Action, PageContext};
 use crate::{ClientState, SiteState};
 use axum::extract::{Extension, State};
 use axum::{http::StatusCode, response::IntoResponse};
@@ -25,14 +25,12 @@ pub async fn e404(
             "#
             )
         }
-        div class="pure-g hero section centered" {
-            div class="pure-u-1" {
-                h1 id="404" { "🐈" }
+        (head(&["404"], "404", None, &[Action::primary("Home", "/")]))
+        main {
+            section class="panel span pad" {
+                p style="margin:0;font-size:1.4rem" { span id="404" style="display:inline-block" { "🐈" } }
+                p style="margin:12px 0 0" { "Go to " a href="/" { "home" } }
             }
-        }
-
-        div class="pure-g hero section centered" {
-            "Go to " a href="/" { "home" }
         }
 
         script {

@@ -1,8 +1,7 @@
-use super::{base, PageContext};
-use crate::words::Post;
+use super::{base, head, list, Action, PageContext, Row};
 use crate::{ClientState, SiteState};
 use axum::extract::{Extension, State};
-use maud::{html, Markup, PreEscaped};
+use maud::{html, Markup};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -12,88 +11,116 @@ pub async fn home(
 ) -> Markup {
     let state = state.read().await;
 
-    let things = state.things[0..5].to_vec();
-    let words: Vec<Post>;
-
     let word_count = state.words.len();
 
-    if word_count > 5 {
-        words = state.words[0..5].to_vec();
-    } else {
-        words = state.words.clone();
-    }
+    let things: Vec<Row> = state.things[0..5]
+        .iter()
+        .map(|thing| Row {
+            date: thing.date.format("%Y-%m").to_string(),
+            href: &thing.link,
+            title: &thing.title,
+            description: thing.description.as_deref(),
+            external: true,
+        })
+        .collect();
+
+    let words: Vec<Row> = state
+        .words
+        .iter()
+        .take(5)
+        .map(|post| Row {
+            date: post.date.format("%Y").to_string(),
+            href: &post.link,
+            title: &post.title,
+            description: Some(&post.description),
+            external: false,
+        })
+        .collect();
 
     let content = html! {
-        div class="pure-g hero section" style="position: relative" {
-            div class="pure-u-1 pure-u-md-2-3 hero-text" style="margin-bottom: 32px;" {
-                h1 { (state.name.uppercase_full_str()) }
-                p {
-                    "I'm a software and network engineer living on the west coast. I currently work at "
-                    a target="_blank" href="https://qumulo.com" { "Qumulo" } " writing a petabyte-scale CDN with linearizable reads and writes at every edge. "
-                    "Previously, I worked at " a target="_blank" href="https://arista.com" { "Arista Networks" } " doing network automation, large scale digital-twin network validation, and routing for SMPTE2110 networks. "
-                }
-            }
-            div class="pure-u-1 pure-u-md-1-3 hero-img" {
-                img class="pure-img" src="/assets/img/haylin.webp" alt="avatar";
-            }
-            div class="themecolors" {
-                div style="background-color: var(--scheme-blue)" theme="blue" {}
-                div style="background-color: var(--scheme-pink)" theme="pink" {}
-                div style="background-color: var(--scheme-white); box-sizing: border-box;" theme="white" {}
-                div style="background-color: var(--scheme-purple)" theme="purple" {}
-                div style="background-color: var(--scheme-red)" theme="red" {}
-            }
-            script type="text/javascript" {
-               (PreEscaped("
-                [...document.getElementsByClassName('themecolors')[0].children].forEach((c)=>c.onclick=()=>{
-                    theme = c.getAttribute('theme');
-                    document.body.setAttribute('colorscheme', theme);
-                    document.cookie = `colorscheme=${theme}; expires=${(new Date(Date.now()+ 86400*365*1000)).toUTCString()}; path=/`;
-                })
-                "))
-            }
-        }
-
-        div class="pure-g hero section" {
-            div class="pure-u-1 pure-u-md-1-2" {
-                h3 { "Things I've Made" }
-                ul {
-                    @for thing in things.clone() {
-                        li {
-                            (thing.date.format("%Y-%m").to_string()) ": "
-                            a target="_blank" href=(thing.link) { (thing.title) }
-                            @if let Some(description) = &thing.description {
-                                " - "
-                                (description)
+        (head(
+            &["home"],
+            state.name.uppercase_full_str(),
+            None,
+            &[Action::new("GitHub", "https://github.com/haylinmoore"), Action::new("LinkedIn", "https://www.linkedin.com/in/haylinmoore/")],
+        ))
+        main {
+            section class="panel span" {
+                div class="id" {
+                    div class="mark" {
+                        img src="/assets/img/haylin.webp" alt="avatar";
+                    }
+                    table class="kv" {
+                        tbody {
+                            tr { th scope="row" { "Role" } td { "Software and network engineer" } }
+                            tr { th scope="row" { "Location" } td { "West coast" } }
+                            tr {
+                                th scope="row" { "Now" }
+                                td {
+                                    "I currently work at " a target="_blank" href="https://qumulo.com" { "Qumulo" } " writing a petabyte-scale CDN with linearizable reads and writes at every edge."
+                                }
                             }
-                        };
-                    }
-                    li {
-                        a href="/things/" { "See more things" }
+                            tr {
+                                th scope="row" { "Before" }
+                                td {
+                                    "Previously, I worked at " a target="_blank" href="https://arista.com" { "Arista Networks" } " doing network automation, large scale digital-twin network validation, and routing for SMPTE2110 networks."
+                                }
+                            }
+                        }
                     }
                 }
             }
-            div class="pure-u-1 pure-u-md-1-2" {
-                h3 { "Words I've Written" }
-                ul {
-                    @for post in words {
-                        li {
-                            (post.date.format("%Y").to_string()) " "
-                            a href=(post.link) { (post.title) }
-                            ": "
-                            (post.description)
-                        };
+
+            section class="panel col" {
+                header { h2 class="label" { "Things I've made" } }
+                (list(&things))
+                div class="more" { a href="/things/" { "See more things" } }
+            }
+
+            section class="panel col" {
+                header { h2 class="label" { "Words I've written" } }
+                (list(&words))
+                @if word_count > 5 {
+                    div class="more" { a href="/posts/" { "See more words" } }
+                }
+            }
+
+            section class="panel span" {
+                div class="badges" {
+                    @for badge in &state.badges {
+                        @if let Some(link) = &badge.link {
+                            a class="b88" href=(link) target="_blank" {
+                                img loading="lazy" src=(badge.src) alt=(badge.alt) width="88" height="31";
+                            }
+                        } @else {
+                            span class="b88" {
+                                img loading="lazy" src=(badge.src) alt=(badge.alt) width="88" height="31";
+                            }
+                        }
                     }
-                    @if word_count > 5 {
-                        li {
-                            a href="/posts/" { "See more words" }
+                }
+            }
+
+            @if let Some(webring) = &state.webring {
+                section class="panel span" {
+                    header { h2 class="label" { "UMass Ring" } }
+                    nav class="ring" {
+                        a href=(webring.prev.url) {
+                            span class="label" { "← Previous" }
+                            b { (webring.prev.name) }
+                        }
+                        a class="hub" href="https://github.com/umaring/umaring" {
+                            span class="label" { "Hub" }
+                            b { "UMass Ring" }
+                        }
+                        a class="nx" href=(webring.next.url) {
+                            span class="label" { "Next →" }
+                            b { (webring.next.name) }
                         }
                     }
                 }
             }
         }
-
-
     };
 
     base(

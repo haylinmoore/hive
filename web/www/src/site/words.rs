@@ -1,4 +1,4 @@
-use super::{base, four04, PageContext};
+use super::{base, four04, head, list, Action, PageContext, Row};
 use crate::{ClientState, SiteState};
 use axum::extract::{Extension, Path, State};
 use maud::{html, Markup, PreEscaped};
@@ -13,27 +13,25 @@ pub async fn index(
 ) -> Markup {
     let state = state.read().await;
 
-    let words = state.words.clone();
+    let rows: Vec<Row> = state
+        .words
+        .iter()
+        .map(|post| Row {
+            date: post.date.format("%Y-%m-%d").to_string(),
+            href: &post.link,
+            title: &post.title,
+            description: Some(&post.description),
+            external: false,
+        })
+        .collect();
 
     let content = html! {
-        div class="pure-g hero section" {
-            div class="pure-u-1" {
-                h1 { "Words I've Written" }
-                ul {
-                    @for post in words.clone() {
-                        li {
-                            (post.date.format("%Y-%m-%d").to_string()) ": "
-                            a href=(post.link) { (post.title) }
-                            (" - ")
-                            (post.description)
-                        };
-                    }
-                }
+        (head(&["posts"], "Words I've Written", None, &[Action::new("Home", "/"), Action::primary("Things", "/things/")]))
+        main {
+            section class="panel span" {
+                header { h2 class="label" { "Words I've written" } }
+                (list(&rows))
             }
-        }
-
-        div class="pure-g hero section centered" {
-            "Go to " a href="/" { "home" } " | " a href="/things/" { "things" }
         }
     };
 
@@ -63,21 +61,21 @@ pub async fn post(
     }
 
     let post = post.unwrap();
+    let date = post.date.format("%Y-%m-%d").to_string();
 
     let content = html! {
-        div class="pure-g hero section" {
-            div class="pure-u-1" {
-                h1 { (post.title) }
-                p { (state.name.uppercase_full_str()) (" - ") (post.date.format("%Y-%m-%d").to_string()) " - " (post.description) }
-                hr {}
-                div {
+        (head(
+            &["posts", &date, state.name.uppercase_full_str()],
+            &post.title,
+            Some(&post.description),
+            &[Action::new("Home", "/"), Action::primary("All posts", "/posts/")],
+        ))
+        main {
+            article class="panel span pad prose-panel" {
+                div class="prose" {
                     (PreEscaped(post.body))
                 }
             }
-        }
-
-        div class="pure-g hero section centered" {
-            "Go to " a href="/" { "home" } " | " a href="/posts/" { "words" }
         }
     };
 
