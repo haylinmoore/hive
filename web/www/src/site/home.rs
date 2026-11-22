@@ -57,13 +57,13 @@ pub async fn home(
                             tr {
                                 th scope="row" { "Now" }
                                 td {
-                                    "I currently work at " a target="_blank" href="https://qumulo.com" { "Qumulo" } " writing a petabyte-scale CDN with linearizable reads and writes at every edge."
+                                    a target="_blank" href="https://qumulo.com" { "Qumulo" } ". Building a petabyte-scale CDN with linearizable reads and writes at every edge."
                                 }
                             }
                             tr {
                                 th scope="row" { "Before" }
                                 td {
-                                    "Previously, I worked at " a target="_blank" href="https://arista.com" { "Arista Networks" } " doing network automation, large scale digital-twin network validation, and routing for SMPTE2110 networks."
+                                    a target="_blank" href="https://arista.com" { "Arista Networks" } ". Network automation, large-scale digital-twin validation, and SMPTE 2110 routing."
                                 }
                             }
                         }
