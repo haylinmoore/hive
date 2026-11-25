@@ -9,7 +9,14 @@ let
   maxSize = 32 * 1024 * 1024 * 1024;
 in
 {
-  environment.persistence."/persistent".directories = [ stateDir ];
+  environment.persistence."/persistent".directories = [
+    {
+      directory = stateDir;
+      user = "fodcache";
+      group = "fodcache";
+      mode = "0711";
+    }
+  ];
 
   users.users.fodcache = {
     isSystemUser = true;
@@ -17,11 +24,6 @@ in
     home = stateDir;
   };
   users.groups.fodcache = { };
-
-  systemd.tmpfiles.rules = [
-    "d ${stateDir} 0711 fodcache fodcache - -"
-    "d ${stateDir}/cache 0755 fodcache fodcache - -"
-  ];
 
   services.derivations.fodcache = hive.web.fodcache.service {
     inherit bind stateDir maxSize;
@@ -32,7 +34,8 @@ in
     serviceConfig = {
       MemoryMax = "4G";
       ProtectSystem = "strict";
-      ReadWritePaths = [ stateDir ];
+      StateDirectory = "fodcache";
+      StateDirectoryMode = "0711";
       PrivateTmp = true;
       NoNewPrivileges = true;
     };
