@@ -22,7 +22,12 @@ use futures_util::StreamExt;
 use serde::Deserialize;
 use sha1::Sha1;
 use sha2::{Digest, Sha256, Sha512};
-use tokio::{fs, io::AsyncWriteExt, process::Command, sync::Semaphore};
+use tokio::{
+    fs,
+    io::{AsyncReadExt, AsyncWriteExt},
+    process::Command,
+    sync::Semaphore,
+};
 
 const NIX32: &[u8] = b"0123456789abcdfghijklmnpqrsvwxyz";
 const SYSTEMS: &[&str] = &[
@@ -40,6 +45,7 @@ struct App {
     eval_timeout: Duration,
     eval_lock: Semaphore,
     upload_slots: Semaphore,
+    compress_lock: Semaphore,
     counter: AtomicU64,
     files: AtomicU64,
     bytes: AtomicU64,
@@ -383,7 +389,13 @@ async fn upload(
     result
 }
 
-async fn receive(app: &App, tmp: &PathBuf, size: u64, body: Body, missing: &[&Candidate]) -> Res {
+async fn receive(
+    app: &Arc<App>,
+    tmp: &PathBuf,
+    size: u64,
+    body: Body,
+    missing: &[&Candidate],
+) -> Res {
     let ioerr = |e: std::io::Error| err(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
     let mut f = fs::File::create(tmp).await.map_err(ioerr)?;
     let (mut s1, mut s256, mut s512, mut nar) =
@@ -461,18 +473,83 @@ async fn receive(app: &App, tmp: &PathBuf, size: u64, body: Body, missing: &[&Ca
         ca = nix32_encode(&c.digest),
     );
     let info_tmp = tmp.with_extension("narinfo");
+    let info_path = app.cache.join(format!("{}.narinfo", c.hash_part()));
     fs::write(&info_tmp, narinfo).await.map_err(ioerr)?;
-    fs::rename(
-        &info_tmp,
-        app.cache.join(format!("{}.narinfo", c.hash_part())),
-    )
-    .await
-    .map_err(ioerr)?;
+    fs::rename(&info_tmp, &info_path).await.map_err(ioerr)?;
+
+    let (app2, hash_part) = (app.clone(), c.hash_part().to_string());
+    tokio::spawn(async move {
+        if let Err(e) = compress(&app2, &hash_part, &info_path, &nar_rel, nar_size).await {
+            eprintln!("compress {hash_part}: {e}");
+        }
+    });
 
     app.files.fetch_add(1, Ordering::Relaxed);
     app.bytes.fetch_add(nar_size, Ordering::Relaxed);
     eprintln!("cached {}", c.out);
     Ok((StatusCode::CREATED, format!("cached {}\n", c.out)))
+}
+
+async fn compress(
+    app: &App,
+    hash_part: &str,
+    info_path: &PathBuf,
+    nar_rel: &str,
+    nar_size: u64,
+) -> std::io::Result<()> {
+    let _lock = app.compress_lock.acquire().await.unwrap();
+    let src = app.cache.join(nar_rel);
+    let tmp = app.tmp.join(format!("{hash_part}.nar.xz"));
+    let out = std::fs::File::create(&tmp)?;
+    let status = Command::new("nice")
+        .args(["-n", "19", "xz", "-6", "-T0", "-c"])
+        .arg(&src)
+        .stdout(out)
+        .kill_on_drop(true)
+        .status()
+        .await?;
+    if !status.success() {
+        let _ = fs::remove_file(&tmp).await;
+        return Err(std::io::Error::other(format!("xz exited {status}")));
+    }
+    let comp_size = fs::metadata(&tmp).await?.len();
+    if comp_size * 10 > nar_size * 9 {
+        fs::remove_file(&tmp).await?;
+        return Ok(());
+    }
+
+    let mut f = fs::File::open(&tmp).await?;
+    let mut h = Sha256::new();
+    let mut buf = vec![0u8; 1 << 20];
+    loop {
+        let n = f.read(&mut buf).await?;
+        if n == 0 {
+            break;
+        }
+        h.update(&buf[..n]);
+    }
+    let file_hash = nix32_encode(&h.finalize());
+    let comp_rel = format!("nar/{file_hash}.nar.xz");
+    fs::rename(&tmp, app.cache.join(&comp_rel)).await?;
+
+    let info = fs::read_to_string(info_path).await?;
+    let info: String = info
+        .lines()
+        .map(|l| match l.split_once(": ").map(|(k, _)| k) {
+            Some("URL") => format!("URL: {comp_rel}\n"),
+            Some("Compression") => "Compression: xz\n".to_string(),
+            Some("FileHash") => format!("FileHash: sha256:{file_hash}\n"),
+            Some("FileSize") => format!("FileSize: {comp_size}\n"),
+            _ => format!("{l}\n"),
+        })
+        .collect();
+    let info_tmp = app.tmp.join(format!("{hash_part}.narinfo"));
+    fs::write(&info_tmp, info).await?;
+    fs::rename(&info_tmp, info_path).await?;
+    eprintln!("compressed {hash_part}: {nar_size} -> {comp_size}");
+
+    tokio::time::sleep(Duration::from_secs(60)).await;
+    fs::remove_file(&src).await
 }
 
 fn human(b: u64) -> String {
@@ -554,6 +631,7 @@ async fn main() {
         eval_timeout: Duration::from_secs(env("FODCACHE_EVAL_TIMEOUT", "300").parse().unwrap()),
         eval_lock: Semaphore::new(1),
         upload_slots: Semaphore::new(env("FODCACHE_UPLOAD_SLOTS", "4").parse().unwrap()),
+        compress_lock: Semaphore::new(1),
         counter: AtomicU64::new(0),
         files: AtomicU64::new(0),
         bytes: AtomicU64::new(0),
