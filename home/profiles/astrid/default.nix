@@ -9,6 +9,7 @@
     ../../modules/haylin/base.nix
     ../../modules/haylin/gui.nix
     ./wm.nix
+    ./llm.nix
   ];
 
   home.stateVersion = "25.11";
