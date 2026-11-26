@@ -76,6 +76,18 @@ in
     llm-server
   ];
 
+  # Always-on router. It loads no model until the first request names one, so
+  # idling costs almost nothing. Logs: journalctl --user -u llm-server
+  systemd.user.services.llm-server = {
+    Unit.Description = "llama.cpp router for local models (pi)";
+    Service = {
+      ExecStart = lib.getExe llm-server;
+      Restart = "on-failure";
+      RestartSec = 5;
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+
   # MCP servers for pi. OAuth tokens live in ~/.pi/agent/mcp-auth.json (not managed
   # here); sign in once with `pi mcp login kagi`. This file is read-only, so
   # exposure/enable toggles in pi's /mcp UI won't persist — change them here.
