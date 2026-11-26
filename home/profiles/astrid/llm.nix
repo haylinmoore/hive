@@ -16,8 +16,7 @@ let
         -m "${config.home.homeDirectory}/models/Huihui-Qwen3.5-35B-A3B-abliterated.i1-Q6_K.gguf" \
         --alias ${modelId} \
         --host 127.0.0.1 --port 8080 \
-        -ngl 999 -fa on --no-mmap \
-        -c ${toString contextWindow} --jinja \
+        -c ${toString contextWindow} \
         --temp 0.6 --top-p 0.95 --top-k 20 --min-p 0 \
         "$@"
     '';
