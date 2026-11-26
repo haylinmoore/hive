@@ -14,6 +14,7 @@ use axum::{
     body::Body,
     extract::{Query, State},
     http::{HeaderMap, StatusCode, header},
+    response::{Html, IntoResponse, Response},
     routing::{get, put},
 };
 use base64::{Engine, engine::general_purpose::STANDARD as B64};
@@ -40,6 +41,8 @@ struct App {
     eval_lock: Semaphore,
     upload_slots: Semaphore,
     counter: AtomicU64,
+    files: AtomicU64,
+    bytes: AtomicU64,
 }
 
 type Res = Result<(StatusCode, String), (StatusCode, String)>;
@@ -466,16 +469,74 @@ async fn receive(app: &App, tmp: &PathBuf, size: u64, body: Body, missing: &[&Ca
     .await
     .map_err(ioerr)?;
 
+    app.files.fetch_add(1, Ordering::Relaxed);
+    app.bytes.fetch_add(nar_size, Ordering::Relaxed);
     eprintln!("cached {}", c.out);
     Ok((StatusCode::CREATED, format!("cached {}\n", c.out)))
 }
 
-async fn index() -> String {
-    "fodcache: a binary cache for nixpkgs requireFile sources\n\n\
-     upload:  curl -T <file> 'https://fods.lol/upload?attr=<nixpkgs attr>&system=x86_64-linux'\n\
-     use:     extra-substituters = https://fods.lol\n\n\
-     the attr must depend on a requireFile on nixpkgs master whose hash matches the file.\n"
-        .into()
+fn human(b: u64) -> String {
+    let units = ["B", "KiB", "MiB", "GiB", "TiB"];
+    let mut v = b as f64;
+    let mut i = 0;
+    while v >= 1024.0 && i < units.len() - 1 {
+        v /= 1024.0;
+        i += 1;
+    }
+    if i == 0 {
+        format!("{b} B")
+    } else {
+        format!("{v:.0} {}", units[i])
+    }
+}
+
+async fn index(State(app): State<Arc<App>>, headers: HeaderMap) -> Response {
+    let files = app.files.load(Ordering::Relaxed);
+    let size = human(app.bytes.load(Ordering::Relaxed));
+    let html = headers
+        .get(header::ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.contains("text/html"));
+    let noun = if files == 1 { "file" } else { "files" };
+    if html {
+        Html(
+            include_str!("index.html")
+                .replace("{{count}}", &files.to_string())
+                .replace("{{noun}}", noun)
+                .replace("{{size}}", &size),
+        )
+        .into_response()
+    } else {
+        format!(
+            "fods.lol: a binary cache for nixpkgs requireFile sources\n\n\
+             {files} {noun} cached, {size}\n\n\
+             upload:  curl -T <file> 'https://fods.lol/upload?attr=<nixpkgs attr>&system=x86_64-linux'\n\
+             use:     extra-substituters = https://fods.lol\n\n\
+             the attr must depend on a requireFile on nixpkgs master whose hash matches the file.\n"
+        )
+        .into_response()
+    }
+}
+
+async fn scan(cache: &PathBuf) -> (u64, u64) {
+    let (mut files, mut bytes) = (0, 0);
+    let Ok(mut rd) = fs::read_dir(cache).await else {
+        return (0, 0);
+    };
+    while let Ok(Some(e)) = rd.next_entry().await {
+        if e.path().extension().is_none_or(|x| x != "narinfo") {
+            continue;
+        }
+        let Ok(info) = fs::read_to_string(e.path()).await else {
+            continue;
+        };
+        files += 1;
+        bytes += info
+            .lines()
+            .find_map(|l| l.strip_prefix("NarSize: ")?.parse::<u64>().ok())
+            .unwrap_or(0);
+    }
+    (files, bytes)
 }
 
 #[tokio::main]
@@ -494,6 +555,8 @@ async fn main() {
         eval_lock: Semaphore::new(1),
         upload_slots: Semaphore::new(env("FODCACHE_UPLOAD_SLOTS", "4").parse().unwrap()),
         counter: AtomicU64::new(0),
+        files: AtomicU64::new(0),
+        bytes: AtomicU64::new(0),
     });
 
     for d in [app.cache.join("nar"), app.tmp.clone()] {
@@ -509,6 +572,10 @@ async fn main() {
     )
     .await
     .unwrap();
+
+    let (files, bytes) = scan(&app.cache).await;
+    app.files.store(files, Ordering::Relaxed);
+    app.bytes.store(bytes, Ordering::Relaxed);
 
     let router = Router::new()
         .route("/", get(index))

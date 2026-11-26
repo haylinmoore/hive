@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>fods.lol</title>
+<style>
+  :root { --bg: #fff; --fg: #111; --dim: #777; --line: #ddd; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #e8e8e8; --dim: #888; --line: #333; } }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.6 ui-monospace, "SF Mono", Menlo, monospace; margin: 0; }
+  main { max-width: 560px; margin: 18vh auto 0; padding: 0 16px 64px; text-align: center; }
+  h1 { font-size: 14px; font-weight: normal; margin: 0 0 4px; }
+  p { margin: 0; color: var(--dim); }
+  .count { font-size: 40px; margin: 40px 0 0; color: var(--fg); }
+  .usage { margin-top: 40px; text-align: left; display: inline-block; color: var(--dim); max-width: 100%; overflow-wrap: anywhere; }
+  .usage b { color: var(--fg); font-weight: normal; }
+  form { margin-top: 40px; }
+  #zone { border: 1px dashed var(--line); padding: 28px 16px; cursor: pointer; color: var(--dim); overflow-wrap: anywhere; }
+  #zone.over, #zone.has { border-color: var(--fg); color: var(--fg); }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+  input[type=text] { flex: 1; min-width: 0; background: none; color: var(--fg); border: 1px solid var(--line); padding: 6px 8px; font: inherit; }
+  button { background: var(--fg); color: var(--bg); border: 0; padding: 6px 14px; font: inherit; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { margin-top: 12px; min-height: 1.6em; overflow-wrap: anywhere; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<main>
+  <h1>fods.lol</h1>
+  <p>a binary cache for nixpkgs requireFile sources</p>
+
+  <div class="count">{{count}}</div>
+  <p>{{noun}} cached, {{size}}</p>
+
+  <div class="usage">
+    use&nbsp;&nbsp;&nbsp;&nbsp;<b>extra-substituters = https://fods.lol</b><br>
+    upload <b>curl -T file 'https://fods.lol/upload?attr=pkg'</b>
+  </div>
+
+  <form id="form">
+    <input type="file" id="file" hidden>
+    <div id="zone">drop a file here</div>
+    <div class="row">
+      <input type="text" id="attr" placeholder="nixpkgs attr" autocomplete="off" spellcheck="false">
+      <button id="go">upload</button>
+    </div>
+    <p id="status"></p>
+  </form>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let file = null;
+
+  const pick = (f) => {
+    file = f || null;
+    $("zone").textContent = file ? file.name : "drop a file here";
+    $("zone").classList.toggle("has", !!file);
+  };
+
+  $("zone").onclick = () => $("file").click();
+  $("file").onchange = () => pick($("file").files[0]);
+  $("zone").ondragover = (e) => { e.preventDefault(); $("zone").classList.add("over"); };
+  $("zone").ondragleave = () => $("zone").classList.remove("over");
+  $("zone").ondrop = (e) => {
+    e.preventDefault();
+    $("zone").classList.remove("over");
+    pick(e.dataTransfer.files[0]);
+  };
+
+  $("form").onsubmit = (e) => {
+    e.preventDefault();
+    const attr = $("attr").value.trim();
+    if (!file || !attr) {
+      $("status").textContent = "need a file and a nixpkgs attr";
+      return;
+    }
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", "/upload?attr=" + encodeURIComponent(attr) + "&system=x86_64-linux");
+    xhr.upload.onprogress = (ev) => {
+      if (!ev.lengthComputable) return;
+      const pct = Math.floor((ev.loaded / ev.total) * 100);
+      $("status").textContent = pct < 100 ? "uploading " + pct + "%" : "checking " + attr + " on nixpkgs master...";
+    };
+    xhr.onload = () => {
+      $("status").textContent = xhr.responseText.trim() || xhr.status + " " + xhr.statusText;
+      $("go").disabled = false;
+    };
+    xhr.onerror = () => {
+      $("status").textContent = "upload failed";
+      $("go").disabled = false;
+    };
+    $("go").disabled = true;
+    $("status").textContent = "checking " + attr + " on nixpkgs master...";
+    xhr.send(file);
+  };
+</script>
+</body>
+</html>
