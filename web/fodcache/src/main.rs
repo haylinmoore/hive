@@ -472,8 +472,8 @@ async fn receive(app: &App, tmp: &PathBuf, size: u64, body: Body, missing: &[&Ca
 
 async fn index() -> String {
     "fodcache: a binary cache for nixpkgs requireFile sources\n\n\
-     upload:  curl -T <file> 'https://fod.hayl.in/upload?attr=<nixpkgs attr>&system=x86_64-linux'\n\
-     use:     extra-substituters = https://fod.hayl.in\n\n\
+     upload:  curl -T <file> 'https://fods.lol/upload?attr=<nixpkgs attr>&system=x86_64-linux'\n\
+     use:     extra-substituters = https://fods.lol\n\n\
      the attr must depend on a requireFile on nixpkgs master whose hash matches the file.\n"
         .into()
 }
