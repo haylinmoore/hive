@@ -25,7 +25,14 @@
   # Bootloader
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.kernelParams = [ "video=HDMI-A-1:3840x2160@60e" ];
+  boot.kernelParams = [
+    "video=HDMI-A-1:3840x2160@60e"
+    # Let the iGPU map up to 108 GiB of the 128 GiB unified RAM (default is half)
+    # so ~94 GB local models fit; see home/profiles/astrid/llm.nix.
+    # 108 GiB / 4 KiB pages = 28311552.
+    "ttm.pages_limit=28311552"
+    "ttm.page_pool_size=28311552"
+  ];
 
   security.sudo.wheelNeedsPassword = false;
 

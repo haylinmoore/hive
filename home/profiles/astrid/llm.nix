@@ -17,6 +17,21 @@ let
   contextWindow = 131072;
 
   models = {
+    # 94 GB: needs the raised ttm.pages_limit in hosts/astrid/nixos.nix.
+    # Split GGUF: point at the first shard, llama.cpp finds the rest. Fetch all 3 into
+    # ~/models/Huihui-Qwen3.8-Flash-Next-abliterated-v2-UD-IQ4_XS/ from
+    # https://huggingface.co/huihui-ai/Huihui-Qwen3.8-Flash-Next-abliterated-v2-GGUF/tree/main/unsloth-UD-IQ4_XS
+    "qwen3.8-flash-next-abliterated" = {
+      name = "Qwen3.8 Flash-Next abliterated v2 (local, 125B-A6B)";
+      file = "Huihui-Qwen3.8-Flash-Next-abliterated-v2-UD-IQ4_XS/Qwen3.8-Flash-Next-UD-IQ4_XS-00001-of-00003.gguf";
+      # Qwen's agentic eval settings from the model card
+      args = {
+        temp = 1.0;
+        top-p = 0.95;
+        top-k = 20;
+        min-p = 0;
+      };
+    };
     inkling-2-mini = {
       name = "Inkling 2 Mini (local)";
       file = "Inkling-2-Mini-UD-Q8_K_XL.gguf";
