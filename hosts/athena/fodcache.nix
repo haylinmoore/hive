@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   hive,
   ...
 }:
@@ -55,7 +56,10 @@ in
   };
 
   systemd.services.derivations-fodcache = {
-    path = [ config.nix.package ];
+    path = [
+      config.nix.package
+      pkgs.xz
+    ];
     serviceConfig = {
       MemoryMax = "4G";
       ProtectSystem = "strict";
