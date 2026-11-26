@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   hive,
   ...
 }:
@@ -7,6 +8,30 @@ let
   bind = "127.0.0.1:15650";
   stateDir = "/var/lib/fodcache";
   maxSize = 32 * 1024 * 1024 * 1024;
+
+  vhost = {
+    forceSSL = true;
+    root = "${stateDir}/cache";
+    extraConfig = ''
+      add_header Alt-Svc 'clear' always; # nginx2root: h3 off, see nixos/shared/mitigations.nix
+    '';
+    locations = {
+      "= /".proxyPass = "http://${bind}/";
+      "= /upload" = {
+        proxyPass = "http://${bind}";
+        extraConfig = ''
+          client_max_body_size ${toString maxSize};
+          proxy_request_buffering off;
+          proxy_read_timeout 900s;
+          proxy_send_timeout 900s;
+          proxy_set_header X-Real-IP $remote_addr;
+        '';
+      };
+      "~ \\.narinfo$".extraConfig = ''
+        default_type text/x-nix-narinfo;
+      '';
+    };
+  };
 in
 {
   environment.persistence."/persistent".directories = [
@@ -41,28 +66,8 @@ in
     };
   };
 
-  services.nginx.virtualHosts."fod.hayl.in" = {
-    forceSSL = true;
-    useACMEHost = "hayl.in";
-    root = "${stateDir}/cache";
-    extraConfig = ''
-      add_header Alt-Svc 'clear' always; # nginx2root: h3 off, see nixos/shared/mitigations.nix
-    '';
-    locations = {
-      "= /".proxyPass = "http://${bind}/";
-      "= /upload" = {
-        proxyPass = "http://${bind}";
-        extraConfig = ''
-          client_max_body_size ${toString maxSize};
-          proxy_request_buffering off;
-          proxy_read_timeout 900s;
-          proxy_send_timeout 900s;
-          proxy_set_header X-Real-IP $remote_addr;
-        '';
-      };
-      "~ \\.narinfo$".extraConfig = ''
-        default_type text/x-nix-narinfo;
-      '';
-    };
+  services.nginx.virtualHosts = lib.mapAttrs (_: acme: vhost // { useACMEHost = acme; }) {
+    "fods.lol" = "fods.lol";
+    "fod.hayl.in" = "hayl.in";
   };
 }

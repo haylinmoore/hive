@@ -43,6 +43,7 @@
     ../../nixos/certs/estrogen-coffee.nix
     ../../nixos/certs/aconite-systems.nix
     ../../nixos/certs/uwu-estate.nix
+    ../../nixos/certs/fods-lol.nix
   ];
 
   defaultHttp.enable = true;
@@ -135,6 +136,7 @@
       "acme-aconite.systems.service"
       "acme-estrogen.coffee.service"
       "acme-tunnl.hayl.in.service"
+      "acme-fods.lol.service"
     ];
   };
 
