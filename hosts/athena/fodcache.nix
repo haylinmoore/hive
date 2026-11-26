@@ -66,8 +66,7 @@ in
     };
   };
 
-  services.nginx.virtualHosts = lib.mapAttrs (_: acme: vhost // { useACMEHost = acme; }) {
-    "fods.lol" = "fods.lol";
-    "fod.hayl.in" = "hayl.in";
+  services.nginx.virtualHosts."fods.lol" = vhost // {
+    useACMEHost = "fods.lol";
   };
 }
