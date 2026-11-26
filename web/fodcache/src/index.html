@@ -29,8 +29,8 @@
   <h1>fods.lol</h1>
   <p>a binary cache for nixpkgs requireFile sources</p>
 
-  <div class="count">{{count}}</div>
-  <p>{{noun}} cached, {{size}}</p>
+  <div class="count" id="count">{{count}}</div>
+  <p id="stats">{{noun}} cached, {{size}}</p>
 
   <div class="usage">
     use&nbsp;&nbsp;&nbsp;&nbsp;<b>extra-substituters = https://fods.lol</b><br>
@@ -67,6 +67,12 @@
     pick(e.dataTransfer.files[0]);
   };
 
+  const refresh = async () => {
+    const res = await fetch("/", { headers: { Accept: "text/html" }, cache: "no-store" });
+    const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+    for (const id of ["count", "stats"]) $(id).textContent = doc.getElementById(id).textContent;
+  };
+
   $("form").onsubmit = (e) => {
     e.preventDefault();
     const attr = $("attr").value.trim();
@@ -84,6 +90,7 @@
     xhr.onload = () => {
       $("status").textContent = xhr.responseText.trim() || xhr.status + " " + xhr.statusText;
       $("go").disabled = false;
+      if (xhr.status === 201) refresh();
     };
     xhr.onerror = () => {
       $("status").textContent = "upload failed";
