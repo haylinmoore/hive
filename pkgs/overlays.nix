@@ -28,6 +28,31 @@ in
     }
   )
 
+  # llama.cpp master for Inkling 2 support (merged after the v1.0.0 release).
+  # Drop this once nixpkgs ships a release containing ggml-org/llama.cpp#32217 and #32381.
+  # Master moved the web UI to a multi-package ui/ tree that defaults off
+  # (LLAMA_BUILD_UI=OFF), so the npm build steps from nixpkgs are stripped; the
+  # OpenAI-compatible API is unaffected.
+  (final: prev: {
+    llama-cpp-vulkan = prev.llama-cpp-vulkan.overrideAttrs (old: {
+      version = "1.0.0-unstable-2026-11-26";
+      src = final.fetchFromGitHub {
+        owner = "ggml-org";
+        repo = "llama.cpp";
+        rev = "a8ad690ca9239ea35db4de47e00cf632d01895fd";
+        hash = "sha256-pbSWqm+a3rnm2TB1TGkGZhzNEtTSORLI/kwZPAaTSJ8=";
+      };
+      npmDeps = null;
+      preConfigure = "";
+      nativeBuildInputs = builtins.filter (
+        p: p != final.npmHooks.npmConfigHook && p != final.nodejs_latest
+      ) old.nativeBuildInputs;
+      cmakeFlags =
+        builtins.filter (f: !(final.lib.hasPrefix "-DLLAMA_BUILD_COMMIT" f)) old.cmakeFlags
+        ++ [ (final.lib.cmakeFeature "LLAMA_BUILD_COMMIT" "a8ad690") ];
+    });
+  })
+
   # Regular overlay for slack wayland wrapper (avoids rebuild)
   (final: prev: {
     slack = final.symlinkJoin {
