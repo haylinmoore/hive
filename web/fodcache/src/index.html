@@ -121,7 +121,7 @@
       <div class="usage">
         use&nbsp;&nbsp;&nbsp;&nbsp;<b>extra-substituters = https://fods.lol</b
         ><br />
-        upload <b>curl -T file 'https://fods.lol/upload?attr=pkg'</b>
+        upload <b>curl -T file 'https://fods.lol/upload?attr=package'</b>
       </div>
 
       <form id="form">
@@ -131,7 +131,7 @@
           <input
             type="text"
             id="attr"
-            placeholder="nixpkgs attr"
+            placeholder="package that needs this file"
             autocomplete="off"
             spellcheck="false"
           />
@@ -180,7 +180,7 @@
         e.preventDefault();
         const attr = $("attr").value.trim();
         if (!file || !attr) {
-          $("status").textContent = "need a file and a nixpkgs attr";
+          $("status").textContent = "need a file and the package that needs it";
           return;
         }
         const xhr = new XMLHttpRequest();

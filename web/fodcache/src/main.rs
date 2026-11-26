@@ -587,9 +587,10 @@ async fn index(State(app): State<Arc<App>>, headers: HeaderMap) -> Response {
         format!(
             "fods.lol: a binary cache for nixpkgs requireFile sources\n\n\
              {files} {noun} cached, {size}\n\n\
-             upload:  curl -T <file> 'https://fods.lol/upload?attr=<nixpkgs attr>&system=x86_64-linux'\n\
+             upload:  curl -T <file> 'https://fods.lol/upload?attr=<package that needs the file>&system=x86_64-linux'\n\
              use:     extra-substituters = https://fods.lol\n\n\
-             the attr must depend on a requireFile on nixpkgs master whose hash matches the file.\n"
+             attr is the nixpkgs package that needs the file, not the file itself.\n\
+             fods.lol checks that package on nixpkgs master and only accepts a file whose hash matches.\n"
         )
         .into_response()
     }
