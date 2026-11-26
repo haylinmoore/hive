@@ -76,6 +76,21 @@ in
     llm-server
   ];
 
+  # MCP servers for pi. OAuth tokens live in ~/.pi/agent/mcp-auth.json (not managed
+  # here); sign in once with `pi mcp login kagi`. This file is read-only, so
+  # exposure/enable toggles in pi's /mcp UI won't persist — change them here.
+  home.file.".pi/agent/mcp.json".text = builtins.toJSON {
+    mcpServers.kagi = {
+      url = "https://mcp.kagi.com/mcp";
+      description = "Kagi web search and page summarization";
+      # Kagi's registered public client (from https://kagi.com/api/docs/openapi/section/mcp).
+      # OAuth sign-in only works for Kagi account admins; others need an API key header.
+      oauth.clientId = "393794653092071821";
+      # Small tool set: declare it directly so the local model sees it without codemode.
+      exposure = "direct";
+    };
+  };
+
   home.file.".pi/agent/models.json".text = builtins.toJSON {
     providers.local = {
       baseUrl = "http://127.0.0.1:8080/v1";
